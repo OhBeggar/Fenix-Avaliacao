@@ -41,15 +41,17 @@
         <% } %>
 
         <!-- SEÇÃO 1: SESSÃO ATIVA -->
-        <section class="panel">
-            <div class="session-header">
+        <details class="panel admin-accordion" open>
+            <summary class="accordion-summary">
                 <div>
                     <h2>🔑 Sessão de Audição</h2>
                     <p class="panel-copy">
                         Selecione a turma e gere o código de acesso. Compartilhe o código com os professores.
                     </p>
                 </div>
-            </div>
+                <span class="accordion-indicator">Expandir</span>
+            </summary>
+            <div class="accordion-content">
             
             <!-- Formulário de Gerar Código (APENAS o select e o botão gerar) -->
             <form action="/admin/generate-code" method="POST" class="session-form" style="margin-bottom: 16px;">
@@ -98,11 +100,19 @@
                     </div>
                 </div>
             <% } %>
-        </section>
+            </div>
+        </details>
 
         <!-- SEÇÃO: GERENCIAR ALUNOS -->
-        <section class="panel">
-            <h2>👨‍🎓 Gerenciar Alunos por Turma</h2>
+        <details class="panel admin-accordion">
+            <summary class="accordion-summary">
+                <div>
+                    <h2>👨‍🎓 Gerenciar Alunos por Turma</h2>
+                    <p class="panel-copy"><%= allCandidates.length %> aluno(s) cadastrados em <%= turmas.length %> turma(s).</p>
+                </div>
+                <span class="accordion-indicator">Expandir</span>
+            </summary>
+            <div class="accordion-content">
             
             <form action="/admin/candidate/add" method="POST" class="candidate-form" style="margin-bottom: 24px;">
                 <label>
@@ -159,11 +169,19 @@
                     <% }) %>
                 </div>
             <% } %>
-        </section>
+            </div>
+        </details>
 
         <!-- SEÇÃO 2: PROFESSORES -->
-        <section class="panel">
-            <h2>👨‍🏫 | Gerenciar Professores</h2>
+        <details class="panel admin-accordion">
+            <summary class="accordion-summary">
+                <div>
+                    <h2>👨‍🏫 | Gerenciar Professores</h2>
+                    <p class="panel-copy"><%= teachers.length %> professor(es) cadastrado(s).</p>
+                </div>
+                <span class="accordion-indicator">Expandir</span>
+            </summary>
+            <div class="accordion-content">
             
             <form action="/admin/teacher/add" method="POST" class="stack-form">
                 <div style="display:flex; gap:12px; align-items:end;">
@@ -208,11 +226,19 @@
                     </tbody>
                 </table>
             </div>
-        </section>
+            </div>
+        </details>
 
         <!-- SEÇÃO 3: TURMAS -->
-        <section class="panel">
-            <h2> Gerenciar Turmas</h2>
+        <details class="panel admin-accordion">
+            <summary class="accordion-summary">
+                <div>
+                    <h2>Gerenciar Turmas</h2>
+                    <p class="panel-copy"><%= turmas.length %> turma(s) cadastrada(s).</p>
+                </div>
+                <span class="accordion-indicator">Expandir</span>
+            </summary>
+            <div class="accordion-content">
             
             <form action="/admin/turma/add" method="POST" class="stack-form">
                 <div style="display:flex; gap:12px; align-items:end;">
@@ -305,11 +331,18 @@
                     </tbody>
                 </table>
             </div>
-        </section>
+            </div>
+        </details>
 
-        <section class="panel">
-            <h2>Histórico Oficial de Avaliações</h2>
-            <p class="panel-copy">Avaliações fechadas ficam congeladas aqui, mesmo que notas, presenças ou professores mudem depois.</p>
+        <details class="panel admin-accordion">
+            <summary class="accordion-summary">
+                <div>
+                    <h2>Histórico Oficial de Avaliações</h2>
+                    <p class="panel-copy">Avaliações fechadas ficam congeladas aqui, mesmo que notas, presenças ou professores mudem depois.</p>
+                </div>
+                <span class="accordion-indicator">Expandir</span>
+            </summary>
+            <div class="accordion-content">
             <div class="admin-table-wrap" style="margin-top:20px;">
                 <table>
                     <thead>
@@ -340,7 +373,8 @@
                     </tbody>
                 </table>
             </div>
-        </section>
+            </div>
+        </details>
     </main>
 
     <script src="/transitions.js"></script>

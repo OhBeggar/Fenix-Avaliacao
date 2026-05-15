@@ -139,6 +139,97 @@ h2 {
     margin-top: 20px;
 }
 
+.admin-accordion {
+    padding: 0;
+    overflow: hidden;
+}
+
+.admin-accordion + .admin-accordion,
+.panel + .admin-accordion,
+.admin-accordion + .panel {
+    margin-top: 20px;
+}
+
+.accordion-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 24px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.accordion-summary::-webkit-details-marker {
+    display: none;
+}
+
+.accordion-summary h2 {
+    margin-bottom: 6px;
+}
+
+.accordion-summary:hover {
+    background: #f8fafc;
+}
+
+.accordion-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 112px;
+    min-height: 36px;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--primary);
+    background: #eff6ff;
+    font-weight: 800;
+    font-size: 0.86rem;
+}
+
+.accordion-indicator::before {
+    content: "+";
+    margin-right: 8px;
+    font-size: 1rem;
+}
+
+.admin-accordion[open] .accordion-indicator {
+    color: #374151;
+    background: #f3f4f6;
+}
+
+.admin-accordion[open] .accordion-indicator::before {
+    content: "-";
+}
+
+.admin-accordion[open] .accordion-indicator {
+    font-size: 0;
+}
+
+.admin-accordion[open] .accordion-indicator::after {
+    content: "Recolher";
+    font-size: 0.86rem;
+}
+
+.admin-accordion:not([open]) .accordion-indicator {
+    font-size: 0;
+}
+
+.admin-accordion:not([open]) .accordion-indicator::after {
+    content: "Expandir";
+    font-size: 0.86rem;
+}
+
+.accordion-content {
+    padding: 0 24px 24px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.accordion-content > :first-child {
+    margin-top: 18px;
+}
+
 .session-header {
     display: flex;
     align-items: flex-start;
