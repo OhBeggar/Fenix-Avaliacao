@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultados Finais | Fênix Dança</title>
+    <link rel="stylesheet" href="/resultados.css">
+    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+</head>
+<body>
+    <main class="results-shell">
+        <header class="results-header">
+            <div class="results-header-top">
+                <img src="/images/icons8-fenix-cute-color-96.png" alt="Icon">
+                <div class="header-text">
+                    <span class="eyebrow"><%= typeof historicalEvent !== 'undefined' ? 'Histórico Oficial' : 'Consolidação Oficial' %></span>
+                    <h1><%= typeof historicalEvent !== 'undefined' ? historicalEvent.title : 'Audição interna de Bolsistas' %></h1>
+                </div>
+            </div>
+            <p>Resultados finais com médias por critério, nota final e maioria simples.</p>
+
+            <div class="active-summary">
+                <%= typeof historicalEvent !== 'undefined' ? 'Avaliadores registrados' : 'Avaliadores ativos' %>: <strong><%= numEvaluators %></strong>
+                <% if (activeEvaluators && activeEvaluators.length > 0) { %>
+                    — <%= activeEvaluators.join(', ') %>
+                <% } %>
+            </div>
+        </header>
+
+        <div class="results-actions">
+            <a href="<%= typeof historicalEvent !== 'undefined' ? '/admin' : '/' %>" class="ghost-link">Voltar</a>
+
+            <!-- Filtro por Turma -->
+            <% if (typeof historicalEvent === 'undefined') { %>
+                <form method="GET" action="/results" class="turma-filter-form">
+                    <select name="turmaId" id="turmaId" onchange="this.form.submit()">
+                        <option value="">Todas as Turmas</option>
+                        <% turmas.forEach(t => { %>
+                            <option value="<%= t.id %>" <%= t.id == selectedTurmaId ? 'selected' : '' %>>
+                                <%= t.name %>
+                            </option>
+                        <% }) %>
+                    </select>
+                </form>
+            <% } %>
+
+            <!-- Exportar PDF (leva o filtro junto) -->
+            <% if (typeof historicalEvent === 'undefined') { %>
+                <% if (canExportPdf) { %>
+                    <a href="/export_pdf<%= selectedTurmaId ? '?turmaId=' + selectedTurmaId : '' %>" class="btn-export">
+                        Exportar PDF
+                    </a>
+                <% } else { %>
+                    <span class="btn-export disabled" title="Entre no painel administrativo para exportar PDF.">
+                        PDF restrito ao admin
+                    </span>
+                <% } %>
+            <% } %>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nº</th>
+                        <th>Candidato</th>
+                        <th>Presença</th>
+                        <th>Pres. Auxílios</th>
+                        <th>Comprometimento</th>
+                        <th>Desloc./Floreio</th>
+                        <th>Abraço</th>
+                        <th>Equilíbrio</th>
+                        <th>Passos</th>
+                        <th>Ritmo</th>
+                        <th>Corpo Ritmo</th>
+                        <th>Condução</th>
+                        <th>Musicalidade</th>
+                        <th>Nota Final</th>
+                        <th>Aprov.</th>
+                        <th>Reprov.</th>
+                        <th>Status</th>
+                        <th>Patente</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (results && results.length > 0) { %>
+                        <% results.forEach((result, i) => { %>
+                            <tr>
+                                <td><%= i + 1 %></td>
+                                <td class="candidate-name"><%= result.name %></td>
+                                <td><%= result.presence %></td>
+                                <td><%= result.averages.presenca_auxilios || '-' %></td>
+                                <td><%= result.averages.comprometimento_eventos || '-' %></td>
+                                <td><%= result.averages.deslocamento_cavalheiro || result.averages.floreio_dama || '-' %></td>
+                                <td><%= result.averages.abraco_postura || '-' %></td>
+                                <td><%= result.averages.equilibrio || '-' %></td>
+                                <td><%= result.averages.passos || '-' %></td>
+                                <td><%= result.averages.ritmo || '-' %></td>
+                                <td><%= result.averages.corpo_ritmo || '-' %></td>
+                                <td><%= result.averages.conducao || '-' %></td>
+                                <td><%= result.averages.musicalidade || '-' %></td>
+                                <td class="<%= result.final_note >= 7 ? 'nota-alta' : 'nota-baixa' %>">
+                                    <%= result.final_note %>
+                                </td>
+                                <td><%= result.approved %></td>
+                                <td><%= result.reproved %></td>
+                                <td><strong><%= result.status %></strong></td>
+                                <td><%= result.final_status %></td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="18" style="text-align:center; padding: 40px; color: var(--muted);">
+                                Nenhum resultado encontrado.
+                            </td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+
+        <p class="results-rule">
+            <strong>Regra de Aprovação:</strong> Nota média >= 7,0 e maioria simples dos avaliadores
+            (mais de <%= Math.floor(numEvaluators / 2) %> aprovações).
+        </p>
+    </main>
+
+    <!-- Script de Atualização em Tempo Real -->
+    <% if (typeof historicalEvent === 'undefined') { %>
+        <script>
+            // Atualiza a página a cada 15 segundos (apenas se a aba estiver visível)
+            setInterval(() => {
+                if (!document.hidden) {
+                    location.reload();
+                }
+            }, 15000);
+        </script>
+    <% } %>
+    <script src="/transitions.js"></script>
+    <script src="/toast.js"></script>
+</body>
+</html>

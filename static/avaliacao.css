@@ -1,0 +1,303 @@
+:root {
+    --bg: #f6f7fb;
+    --panel: #ffffff;
+    --ink: #1f2937;
+    --muted: #5b6472;
+    --line: #d9dfeb;
+    --accent: #0f766e;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: var(--ink);
+    background:
+        linear-gradient(180deg, rgba(15, 118, 110, 0.08), transparent 220px),
+        var(--bg);
+}
+
+.page-shell {
+    width: min(1600px, calc(100% - 24px));
+    margin: 16px auto 32px;
+}
+
+.page-header,
+.toolbar,
+.page-note {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.page-header {
+    margin-bottom: 16px;
+}
+
+.page-note {
+    margin-bottom: 16px;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--panel);
+    color: var(--muted);
+}
+
+.page-note p {
+    margin: 0;
+}
+
+.subtle-note {
+    margin-top: 6px !important;
+    font-size: 0.92rem;
+}
+
+.online-status {
+    margin-left: auto;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.eyebrow {
+    display: inline-block;
+    margin-bottom: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+h1 {
+    margin: 0;
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+}
+
+.table-wrap {
+    overflow-x: auto;
+    overflow-y: auto; /* Mantém o scroll vertical para listas longas */
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--panel);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+    max-height: calc(100vh - 300px);
+    
+    /* Esconde a barra visualmente mas mantém a função */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+.table-wrap::-webkit-scrollbar {
+    display: none; /* Chrome/Safari/Opera */
+    width: 0;
+    height: 0;
+}
+
+table {
+    width: 100%;
+    min-width: auto;
+    border-collapse: separate !important;
+    border-spacing: 0;
+}
+
+thead {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+thead th {
+    background: #ecfdf5;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    font-size: 0.9rem;
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Remove o sticky duplicado que estava no th genérico */
+th,
+td {
+    border-bottom: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    padding: 12px 10px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+th:last-child,
+td:last-child {
+    border-right: none;
+}
+
+tr:nth-child(even) {
+    background: #f8fafc;
+}
+
+thead th {
+    white-space: normal; /* Permite quebra de linha */
+    min-width: 100px;
+    max-width: 130px; /* Força a quebra se o texto for longo */
+    line-height: 1.2;
+    font-size: 0.85rem;
+}
+
+.candidate-name {
+    text-align: center;
+    min-width: 220px;
+    font-weight: 600;
+    white-space: nowrap; /* Nome do aluno não quebra */
+}
+
+input {
+    width: 56px;
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #c7d2e1;
+    border-radius: 10px;
+}
+
+.toolbar {
+    margin-top: 16px;
+}
+
+/* Scrollbar personalizada removida em favor da versão invisível */
+
+
+
+/* ===== Fim dos ajustes de tabela ===== */
+
+/* ===== Botões ===== */
+
+button,
+.ghost-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 12px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+button {
+    border: 0;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+}
+
+.ghost-link {
+    border: 1px solid var(--line);
+    color: var(--ink);
+    background: #fff;
+}
+
+@media (max-width: 720px) {
+    .page-shell {
+        width: calc(100% - 12px);
+    }
+
+    .page-header,
+    .toolbar,
+    .page-note {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .online-status {
+        margin-left: 0;
+    }
+}
+
+/* ===== ANIMAÇÕES E TRANSIÇÕES ===== */
+
+.table-wrap {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+table tbody tr {
+    transition: all 0.2s ease;
+}
+table tbody tr:hover {
+    background-color: #f0fdf9;
+    transform: scale(1.005);
+}
+
+input {
+    transition: all 0.3s ease;
+}
+input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.15);
+    outline: none;
+    transform: scale(1.08);
+}
+
+button[type="submit"] {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+button[type="submit"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(15, 118, 110, 0.4);
+}
+button[type="submit"]:active {
+    transform: translateY(0);
+}
+
+.status-pill {
+    animation: pulse 10s ease-in-out infinite;
+}
+
+table tbody tr:nth-child(1) { animation: fadeInUp 0.3s ease-out 0.10s both; }
+table tbody tr:nth-child(2) { animation: fadeInUp 0.3s ease-out 0.15s both; }
+table tbody tr:nth-child(3) { animation: fadeInUp 0.3s ease-out 0.20s both; }
+table tbody tr:nth-child(4) { animation: fadeInUp 0.3s ease-out 0.25s both; }
+table tbody tr:nth-child(5) { animation: fadeInUp 0.3s ease-out 0.30s both; }
+
+.saved-indicator {
+    position: fixed;
+    top: 20px; right: 20px;
+    background: #166534;
+    color: white;
+    padding: 16px 24px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(22, 101, 52, 0.3);
+    animation: slideInRight 0.4s ease-out;
+    z-index: 1000;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(30px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(20px); }
+}

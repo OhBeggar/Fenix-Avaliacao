@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selecionar Turma | Avaliação</title>
+    <link rel="stylesheet" href="/home.css">
+    <link rel="stylesheet" href="/turmas.css">
+    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+</head>
+<body>
+    <div class="turmas-container">
+        <div style="display:flex; gap:12px; align-items:center; border-radius: 10px;">
+            <a href="/" class="ghost-link">Voltar ao Início</a>
+        </div>
+        <header class="turmas-header">
+            <div style="display:flex; gap:12px; align-items:center; justify-content:center; margin-bottom: 8px;">
+                <img src="/images/icons8-fenix-cute-color-70.png" alt="Icon" style="height: 40px; width: auto;">
+                <div>
+                    <span class="eyebrow">Bem-vindo, <%= evaluatorName %></span>
+                    <h1>Selecione a Turma</h1>
+                </div>
+            </div>
+            <p class="intro">Escolha a turma e informe a senha configurada pelo administrador.</p>
+        </header>
+
+        <% if (turmas.length === 0) { %>
+            <div class="empty-state">
+                <p>Nenhuma turma cadastrada no momento.<br>Contate o administrador.</p>
+            </div>
+        <% } else { %>
+            <div class="turmas-grid">
+                <% turmas.forEach(t => { %>
+                    <div class="turma-card"
+                            data-turma-id="<%= t.id %>"
+                            data-turma-name="<%= t.name.replace(/"/g, '&quot;') %>">
+                        <h3><%= t.name %></h3>
+                        <p>Responsável: <%= t.teacher_name || 'Não definido' %></p>
+                        <span class="turma-badge">Disponível</span>
+                    </div>
+                <% }) %>
+            </div>
+        <% } %>
+    </div>
+
+    <!-- Modal de Senha da Turma -->
+    <div class="modal-backdrop" id="codeModal">
+        <div class="modal-card">
+            <h3>Senha da Turma</h3>
+            <p id="modalTurmaName">Turma: ...</p>
+            <input type="password" id="pinInput" class="pin-input" autocomplete="current-password" placeholder="Senha da turma">
+            <div class="modal-actions">
+                <button class="btn-cancel" id="btnCancel">Cancelar</button>
+                <button id="btnConfirm">Entrar na turma</button>
+            </div>
+        </div>
+    </div>
+
+    <script id="turmas-config" type="application/json">
+        { "evaluatorName": <%- JSON.stringify(evaluatorName) %> }
+    </script>
+    <script>
+        // Passa dados do servidor para o JS de forma segura para o linter
+        window.TURMAS_CONFIG = JSON.parse(document.getElementById('turmas-config').textContent);
+    </script>
+    <script src="/transitions.js"></script>
+    <script src="/toast.js"></script>
+    <script src="/turmas.js"></script>
+</body>
+</html>

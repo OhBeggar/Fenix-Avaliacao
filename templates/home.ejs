@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avaliação de Bolsistas | Login</title>
+    <link rel="stylesheet" href="/home.css">
+    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+</head>
+<body>
+    <div class="container">
+        <div class="header-logo">
+            <img src="/images/fenix.png" alt="Logo Fênix" class="logo">
+        </div>
+        <div class="eyebrow">Audição de Bolsistas</div>
+        <h1>Sistema de Avaliação</h1>
+        <p class="intro">
+            Informe seus dados de acesso para entrar na sala de avaliação.
+        </p>
+
+        <% if (typeof message !== 'undefined' && message) { %>
+            <div id="toast-data" data-message="<%= message %>" data-type="error" style="display:none"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const dataEl = document.getElementById('toast-data');
+                    if (window.showToast && dataEl) {
+                        showToast(dataEl.dataset.message, dataEl.dataset.type);
+                    }
+                });
+            </script>
+        <% } %>
+
+        <form method="POST" action="/login" class="card">
+            <label>
+                Nome do Professor
+                <input type="text" name="name" placeholder="Ex: Eduarda Cavalcante" required autofocus>
+            </label>
+
+            <label>
+                Senha de Acesso
+                <input type="password" name="password" placeholder="Sua senha" required>
+            </label>
+
+            <button type="submit">Entrar na Avaliação</button>
+        </form>
+
+        <div class="actions">
+            <a href="/results" class="action-link">Notas gerais</a>
+            <a href="/admin" class="action-link admin">Acessar painel administrativo</a>
+        </div>
+    </div>
+
+    <script src="/transitions.js"></script>
+    <script src="/toast.js"></script>
+</body>
+</html>

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administração | Fênix Dança</title>
+    <link rel="stylesheet" href="/adm.css">
+    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+</head>
+<body class="admin-body">
+    <main class="admin-shell">
+        <header class="admin-header">
+            <div style="display:flex; gap:16px; align-items:center;">
+                <img src="/images/fenix.png" alt="Logo Fênix" style="height: 50px; width: auto; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));">
+                <div>
+                    <span class="eyebrow">Painel Administrativo</span>
+                    <h1>Secretaria fenix</h1>
+                </div>
+            </div>
+            <div style="display:flex; gap:12px; align-items:center;">
+                <a href="/" class="ghost-link">Voltar ao Início</a>
+                <form action="/admin/logout" method="POST" style="margin:0">
+                    <button type="submit" class="danger">Sair</button>
+                </form>
+            </div>
+        </header>
+
+        <% if (typeof message !== 'undefined' && message) { %>
+            <div id="toast-data" 
+                 data-message="<%= message.text %>" 
+                 data-type="<%= message.type === 'success' ? 'success' : 'error' %>" 
+                 style="display:none"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const dataEl = document.getElementById('toast-data');
+                    if (window.showToast && dataEl) {
+                        showToast(dataEl.dataset.message, dataEl.dataset.type);
+                    }
+                });
+            </script>
+        <% } %>
+
+        <!-- SEÇÃO 1: SESSÃO ATIVA -->
+        <section class="panel">
+            <div class="session-header">
+                <div>
+                    <h2>🔑 Sessão de Audição</h2>
+                    <p class="panel-copy">
+                        Selecione a turma e gere o código de acesso. Compartilhe o código com os professores.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Formulário de Gerar Código (APENAS o select e o botão gerar) -->
+            <form action="/admin/generate-code" method="POST" class="session-form" style="margin-bottom: 16px;">
+                <div style="display:flex; gap:12px; align-items:end; flex-wrap:wrap;">
+                    <label style="flex:1; min-width:200px;">
+                        Turma da Sessão
+                        <select name="turmaId" required>
+                            <option value="">Selecione uma turma...</option>
+                            <% turmas.forEach(t => { %>
+                                <option value="<%= t.id %>"><%= t.name %> (Prof. <%= t.teacher_name %>)</option>
+                            <% }) %>
+                        </select>
+                    </label>
+                    <button type="submit">Gerar Código PIN</button>
+                </div>
+            </form>
+
+            <!-- Formulário de Encerrar Sessão (FORA do outro formulário) -->
+            <form action="/admin/end-session" method="POST" style="margin:0">
+                <button type="submit" class="danger">Encerrar Sessão</button>
+            </form>
+
+            <form action="/admin/close-evaluation" method="POST" class="session-form" style="margin-top:16px;">
+                <div style="display:flex; gap:12px; align-items:end; flex-wrap:wrap;">
+                    <label style="flex:1; min-width:200px;">
+                        Fechar avaliação oficial
+                        <select name="turmaId" required>
+                            <option value="">Selecione uma turma...</option>
+                            <% turmas.forEach(t => { %>
+                                <option value="<%= t.id %>"><%= t.name %></option>
+                            <% }) %>
+                        </select>
+                    </label>
+                    <button type="submit" class="danger" onclick="return confirm('Fechar a avaliação grava um histórico imutável e encerra a sessão ativa. Continuar?')">
+                        Fechar e salvar histórico
+                    </button>
+                </div>
+            </form>
+
+            <% if (typeof sessionCode !== 'undefined' && sessionCode) { %>
+                <div class="tag-list" style="margin-top:24px; justify-content:center;">
+                    <div style="text-align:center;">
+                        <span style="display:block; font-size:0.8rem; color:var(--muted); margin-bottom:4px;">CÓDIGO DE ACESSO ATIVO</span>
+                        <span style="font-size:3rem; font-weight:800; color:var(--primary); letter-spacing:0.1em;"><%= sessionCode %></span>
+                        <span style="display:block; font-size:0.9rem; color:var(--muted); margin-top:4px;">Para a turma: <strong><%= currentTurmaName %></strong></span>
+                    </div>
+                </div>
+            <% } %>
+        </section>
+
+        <!-- SEÇÃO: GERENCIAR ALUNOS -->
+        <section class="panel">
+            <h2>👨‍🎓 Gerenciar Alunos por Turma</h2>
+            
+            <form action="/admin/candidate/add" method="POST" class="candidate-form" style="margin-bottom: 24px;">
+                <label>
+                    Nome Completo
+                    <input type="text" name="name" required placeholder="Nome do aluno">
+                </label>
+                <label>
+                    Gênero
+                    <select name="gender" required>
+                        <option value="male">Cavalheiro</option>
+                        <option value="female">Dama</option>
+                    </select>
+                </label>
+                <label>
+                    Status Inicial
+                    <input type="text" name="status" value="Bolsista" placeholder="Bolsista">
+                </label>
+                <label>
+                    Turma
+                    <select name="turmaId" required>
+                        <option value="">Selecione uma turma...</option>
+                        <% turmas.forEach(t => { %>
+                            <option value="<%= t.id %>"><%= t.name %></option>
+                        <% }) %>
+                    </select>
+                </label>
+                <button type="submit">Adicionar Aluno</button>
+            </form>
+
+            <% if (turmas.length === 0) { %>
+                <div class="empty-state" style="text-align: center; padding: 40px; color: var(--muted);">
+                    <p>Nenhuma turma cadastrada ainda.<br>Crie uma turma primeiro na seção "Gerenciar Turmas".</p>
+                </div>
+            <% } else { %>
+                <div class="turmas-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 20px;">
+                    <% turmas.forEach(t => { 
+                        const alunosCount = allCandidates.filter(c => c.turma_id === t.id).length;
+                    %>
+                        <div class="turma-card" style="background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.2s;" 
+                             onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 16px rgba(0,0,0,0.08)'" 
+                             onmouseout="this.style.transform=''; this.style.boxShadow=''"
+                             onclick="window.location.href='/admin/turma/<%= t.id %>'">
+                            <h3 style="margin: 0 0 8px; color: var(--ink); font-size: 1.2rem;"><%= t.name %></h3>
+                            <p style="margin: 0 0 12px; color: var(--muted); font-size: 0.9rem;">Responsável: <%= t.teacher_name %></p>
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <span style="background: #dbeafe; color: #1d4ed8; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700;">
+                                    <%= alunosCount %> aluno<%= alunosCount !== 1 ? 's' : '' %>
+                                </span>
+                                <span style="background: #dcfce7; color: #166534; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;">
+                                    Ver alunos →
+                                </span>
+                            </div>
+                        </div>
+                    <% }) %>
+                </div>
+            <% } %>
+        </section>
+
+        <!-- SEÇÃO 2: PROFESSORES -->
+        <section class="panel">
+            <h2>👨‍🏫 | Gerenciar Professores</h2>
+            
+            <form action="/admin/teacher/add" method="POST" class="stack-form">
+                <div style="display:flex; gap:12px; align-items:end;">
+                    <label style="flex:1">
+                        Nome Completo
+                        <input type="text" name="name" required placeholder="Nome do professor">
+                    </label>
+                    <label style="flex:1">
+                        Senha Inicial
+                        <input type="text" name="password" required placeholder="Defina uma senha">
+                    </label>
+                    <button type="submit">Adicionar Professor</button>
+                </div>
+            </form>
+
+            <div class="admin-table-wrap" style="margin-top:20px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% teachers.forEach(t => { %>
+                            <tr>
+                                <td><%= t.name %></td>
+                                <td>
+                                    <form action="/admin/teacher/reset-password" method="POST" style="display:inline; margin-right:10px;">
+                                        <input type="hidden" name="teacherId" value="<%= t.id %>">
+                                        <input type="text" name="newPassword" placeholder="Nova senha" style="width:120px; padding:8px;" required>
+                                        <button type="submit">Redefinir Senha</button>
+                                    </form>
+
+                                    <form action="/admin/teacher/delete" method="POST" style="display:inline;" onsubmit="return confirm('Tem certeza que deseja remover o professor <%= t.name %>?');">
+                                        <input type="hidden" name="teacherId" value="<%= t.id %>">
+                                        <button type="submit" class="danger">Remover</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SEÇÃO 3: TURMAS -->
+        <section class="panel">
+            <h2> Gerenciar Turmas</h2>
+            
+            <form action="/admin/turma/add" method="POST" class="stack-form">
+                <div style="display:flex; gap:12px; align-items:end;">
+                    <label style="flex:2">
+                        Nome da Turma
+                        <input type="text" name="name" required placeholder="Ex: João Antônio 2024.1">
+                    </label>
+                    <label style="flex:1">
+                        Professor Responsável
+                        <select name="teacherId" required>
+                            <option value="">Selecione...</option>
+                            <% teachers.forEach(t => { %>
+                                <option value="<%= t.id %>"><%= t.name %></option>
+                            <% }) %>
+                        </select>
+                    </label>
+                    <label style="flex:1">
+                        Senha da Turma
+                        <input type="text" name="accessPassword" required placeholder="Senha compartilhada">
+                    </label>
+                    <button type="submit">Criar Turma</button>
+                </div>
+            </form>
+
+            <div class="admin-table-wrap" style="margin-top:20px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Turma</th>
+                            <th>Responsável</th>
+                            <th>Senha</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% turmas.forEach(t => { %>
+                            <tr>
+                                <td><%= t.name %></td>
+                                <td><%= t.teacher_name %></td>
+                                <td><%= t.has_access_password ? 'Configurada' : 'Pendente' %></td>
+                                <td>
+                                    <button onclick="document.getElementById('assign-<%= t.id %>').showModal()" 
+                                            class="ghost-link" style="margin-right: 8px;">Vincular Alunos</button>
+                                    <button onclick="document.getElementById('password-<%= t.id %>').showModal()" 
+                                            class="ghost-link" style="margin-right: 8px;">Trocar Senha</button>
+                                    
+                                    <form action="/admin/turma/delete" method="POST" style="display:inline;"
+                                          onsubmit="return confirm('Tem certeza que deseja excluir a turma <%= t.name %>? Todos os alunos serão desvinculados.');">
+                                        <input type="hidden" name="turmaId" value="<%= t.id %>">
+                                        <button type="submit" class="danger" style="padding: 8px 12px; font-size: 0.9rem;">Excluir</button>
+                                    </form>
+
+                                    <dialog id="password-<%= t.id %>" style="padding:24px; border-radius:12px; border:1px solid var(--line); max-width:440px; width:90%;">
+                                        <h3>Trocar senha da turma <%= t.name %></h3>
+                                        <form action="/admin/turma/password" method="POST">
+                                            <input type="hidden" name="turmaId" value="<%= t.id %>">
+                                            <label>
+                                                Nova senha da turma
+                                                <input type="text" name="accessPassword" required placeholder="Nova senha compartilhada">
+                                            </label>
+                                            <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:16px;">
+                                                <button type="button" onclick="this.closest('dialog').close()" class="ghost-link">Cancelar</button>
+                                                <button type="submit">Salvar senha</button>
+                                            </div>
+                                        </form>
+                                    </dialog>
+                                    
+                                    <!-- Modal de vincular alunos (mantenha o que já tem) -->
+                                    <dialog id="assign-<%= t.id %>" style="padding:24px; border-radius:12px; border:1px solid var(--line); max-width:600px; width:90%;">
+                                        <h3>Vincular Alunos à <%= t.name %></h3>
+                                        <form action="/admin/turma/assign" method="POST">
+                                            <input type="hidden" name="turmaId" value="<%= t.id %>">
+                                            <div style="max-height:400px; overflow:auto; margin:16px 0; display:grid; gap:8px;">
+                                                <% allCandidates.forEach(c => { %>
+                                                    <label style="display:flex; gap:8px; align-items:center; font-weight:400;">
+                                                        <input type="checkbox" name="candidates" value="<%= c.id %>" <%= c.turma_id == t.id ? 'checked' : '' %>>
+                                                        <%= c.name %>
+                                                    </label>
+                                                <% }) %>
+                                            </div>
+                                            <div style="display:flex; gap:12px; justify-content:flex-end;">
+                                                <button type="button" onclick="this.closest('dialog').close()" class="ghost-link">Cancelar</button>
+                                                <button type="submit">Salvar</button>
+                                            </div>
+                                        </form>
+                                    </dialog>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Histórico Oficial de Avaliações</h2>
+            <p class="panel-copy">Avaliações fechadas ficam congeladas aqui, mesmo que notas, presenças ou professores mudem depois.</p>
+            <div class="admin-table-wrap" style="margin-top:20px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Turma</th>
+                            <th>Fechada em</th>
+                            <th>Avaliadores</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (history && history.length > 0) { %>
+                            <% history.forEach(item => { %>
+                                <tr>
+                                    <td>#<%= item.id %></td>
+                                    <td><%= item.turma_name || 'Turma removida' %></td>
+                                    <td><%= item.closed_at %></td>
+                                    <td><%= item.num_evaluators %></td>
+                                    <td><a href="/results/history/<%= item.id %>" class="ghost-link">Ver histórico</a></td>
+                                </tr>
+                            <% }) %>
+                        <% } else { %>
+                            <tr>
+                                <td colspan="5" style="text-align:center; color:var(--muted); padding:24px;">Nenhuma avaliação fechada ainda.</td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="/transitions.js"></script>
+    <script src="/toast.js"></script>
+</body>
+</html>

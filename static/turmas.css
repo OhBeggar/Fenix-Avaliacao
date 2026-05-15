@@ -1,0 +1,218 @@
+/* ===== Container Principal ===== */
+.turmas-container {
+    width: min(960px, calc(100% - 32px));
+    margin: 48px auto;
+}
+
+.turmas-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+/* ===== Grid de Turmas ===== */
+.turmas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.turma-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.turma-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+    border-color: var(--primary);
+}
+
+.turma-card h3 {
+    margin: 0 0 0.5rem;
+    color: var(--ink);
+    font-size: 1.2rem;
+}
+
+.turma-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.turma-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-top: 1rem;
+    background: #dcfce7;
+    color: #166534;
+}
+
+/* ===== Estado Vazio ===== */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-size: 1.1rem;
+    background: var(--panel);
+    border-radius: 16px;
+    border: 1px dashed var(--line);
+}
+
+/* ===== Modal com Backdrop Blur ===== */
+.modal-backdrop {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.modal-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-card {
+    background: var(--panel);
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+    width: 90%;
+    max-width: 420px;
+    text-align: center;
+    transform: scale(0.95);
+    transition: transform 0.2s ease;
+}
+
+.modal-backdrop.active .modal-card {
+    transform: scale(1);
+}
+
+.modal-card h3 {
+    margin: 0 0 0.5rem;
+    color: var(--ink);
+}
+
+.modal-card p {
+    margin: 0 0 1.5rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.pin-input {
+    width: 100%;
+    padding: 14px;
+    font-size: 1.5rem;
+    text-align: center;
+    letter-spacing: 0.6em;
+    margin-bottom: 1.5rem;
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+input[type="password"].pin-input {
+    letter-spacing: 0.08em;
+    font-size: 1rem;
+}
+
+.pin-input:focus {
+    border-color: var(--primary);
+}
+
+.pin-input.error {
+    border-color: var(--danger);
+    animation: shake 0.3s;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.modal-actions button {
+    flex: 1;
+}
+
+.btn-cancel {
+    background: var(--muted);
+    color: #fff;
+}
+
+.btn-cancel:hover {
+    opacity: 0.9;
+}
+
+/* ===== Animação de Erro ===== */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* ===== Responsivo ===== */
+@media (max-width: 640px) {
+    .turmas-container {
+        margin: 24px auto;
+    }
+    
+    .turmas-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Botão Voltar */
+.ghost-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    min-height: 42px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    color: var(--ink);
+    text-decoration: none;
+    background: rgba(255,255,255,0.95);
+    border: 1px solid var(--line);
+    font-weight: 600;
+    box-shadow: 0 6px 12px rgba(15,23,42,0.06);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.ghost-link::before {
+    content: "\2190";
+    display: inline-block;
+    font-size: 0.95rem;
+    transform: translateX(0);
+    transition: transform 0.15s ease;
+}
+
+.ghost-link:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px rgba(15,23,42,0.12);
+    background: #ffffff;
+}
+
+.ghost-link:hover::before {
+    transform: translateX(-4px);
+}
+
+.ghost-link:focus {
+    outline: none;
+    box-shadow: 0 0 0 6px rgba(29,78,216,0.08);
+}

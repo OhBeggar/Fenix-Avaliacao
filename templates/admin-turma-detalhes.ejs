@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar <%= turma.name %> | Admin</title>
+    <link rel="stylesheet" href="/adm.css">
+    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+</head>
+<body class="admin-body">
+    <main class="admin-shell">
+        <header class="admin-header">
+            <div style="display:flex; gap:16px; align-items:center;">
+                <img src="/images/icons8-fenix-cute-color-70.png" alt="Icon" style="height: 40px; width: auto;">
+                <div>
+                    <span class="eyebrow">Painel Administrativo</span>
+                    <h1><%= turma.name %></h1>
+                    <p style="color: var(--muted); margin: 8px 0 0;">Responsável: <%= turma.teacher_name %></p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <a href="/admin" class="ghost-link">← Voltar para Admin</a>
+            </div>
+        </header>
+
+        <% if (typeof message !== 'undefined' && message) { %>
+            <!-- Elemento oculto para passar dados do EJS para o JS sem quebrar o linter -->
+            <div id="toast-data" 
+                 data-message="<%= message.text %>" 
+                 data-type="<%= message.type === 'success' ? 'success' : 'error' %>" 
+                 style="display:none"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const dataEl = document.getElementById('toast-data');
+                    if (window.showToast && dataEl) {
+                        showToast(dataEl.dataset.message, dataEl.dataset.type);
+                    }
+                });
+            </script>
+        <% } %>
+
+        <!-- Lista de Alunos -->
+        <section class="panel">
+            <h2>👨‍🎓 Alunos da Turma</h2>
+
+            <% if (candidates.length === 0) { %>
+                <div class="empty-state" style="text-align: center; padding: 60px 20px; color: var(--muted); background: var(--panel); border-radius: 12px; border: 2px dashed var(--line);">
+                    <p style="font-size: 1.1rem; margin: 0;">Nenhum aluno cadastrado nesta turma ainda.</p>
+                    <p style="margin: 8px 0 0;">Adicione alunos através do formulário na página principal de administração.</p>
+                </div>
+            <% } else { %>
+                <div class="presence-grid">
+                    <% candidates.forEach(c => { const summary = attendanceSummary[c.id]; %>
+                        <article class="presence-card">
+                            <div>
+                                <strong><%= c.name %></strong>
+                                <span><%= c.gender === 'male' ? 'Cavalheiro' : 'Dama' %> | <%= c.status %></span>
+                            </div>
+                            <div class="presence-score <%= summary && summary.percentage >= 80 ? 'ok' : 'risk' %>">
+                                <%= summary ? summary.label : c.presence %>
+                            </div>
+                            <small>
+                                <% if (summary && summary.source === 'attendance') { %>
+                                    <%= summary.present %> presença(s), <%= summary.absent || 0 %> falta(s)
+                                <% } else { %>
+                                    Fallback manual
+                                <% } %>
+                            </small>
+                            <form action="/admin/candidate/delete" method="POST" 
+                                  onsubmit="return confirm('Tem certeza que deseja remover <%= c.name %> desta turma?');">
+                                <input type="hidden" name="candidateId" value="<%= c.id %>">
+                                <input type="hidden" name="turmaId" value="<%= turma.id %>">
+                                <button type="submit" class="danger" style="padding: 8px 16px; font-size: 0.9rem; width: 100%;">
+                                    Remover
+                                </button>
+                            </form>
+                        </article>
+                    <% }) %>
+                </div>
+            <% } %>
+        </section>
+
+        <section class="panel">
+            <h2>Chamadas da Turma</h2>
+            <form action="/admin/turma/<%= turma.id %>/meetings" method="POST" class="candidate-form" style="margin-bottom:20px;">
+                <label>
+                    Nome da chamada
+                    <input type="text" name="title" value="Aula" required>
+                </label>
+                <label>
+                    Data
+                    <input type="date" name="meetingDate" value="<%= new Date().toISOString().slice(0, 10) %>" required>
+                </label>
+                <button type="submit">Criar chamada</button>
+            </form>
+
+            <% if (meetings.length === 0) { %>
+                <p style="color:var(--muted);">Nenhuma chamada criada ainda.</p>
+            <% } %>
+
+            <% meetings.forEach((meeting, index) => { 
+                const attendanceMap = meetingAttendanceMaps[meeting.id] || {};
+                const meetingStats = candidates.reduce((acc, c) => {
+                    const status = attendanceMap[c.id] || 'pending';
+                    acc[status] = (acc[status] || 0) + 1;
+                    return acc;
+                }, { present: 0, absent: 0, pending: 0 });
+            %>
+                <details class="attendance-entry" <%= index === 0 ? 'open' : '' %>>
+                    <summary>
+                        <div>
+                            <strong><%= meeting.title %></strong>
+                            <span><%= meeting.meeting_date %></span>
+                        </div>
+                        <div class="attendance-stats">
+                            <span class="status-chip present"><%= meetingStats.present %> presente(s)</span>
+                            <span class="status-chip absent"><%= meetingStats.absent %> falta(s)</span>
+                            <span class="status-chip pending"><%= meetingStats.pending %> pendente(s)</span>
+                        </div>
+                    </summary>
+                    <form action="/admin/turma/<%= turma.id %>/attendance/<%= meeting.id %>" method="POST">
+                        <div class="attendance-table-wrap">
+                            <table class="attendance-table">
+                                <thead>
+                                    <tr>
+                                        <th>Aluno</th>
+                                        <th>Status atual</th>
+                                        <th>Presença acumulada</th>
+                                        <th>Marcação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% candidates.forEach(c => {
+                                        const saved = attendanceMap[c.id];
+                                        const summary = attendanceSummary[c.id];
+                                    %>
+                                        <tr class="<%= saved ? '' : 'attendance-pending-row' %>">
+                                            <td><strong><%= c.name %></strong></td>
+                                            <td>
+                                                <% if (saved === 'present') { %>
+                                                    <span class="status-chip present">Presente</span>
+                                                <% } else if (saved === 'absent') { %>
+                                                    <span class="status-chip absent">Falta</span>
+                                                <% } else { %>
+                                                    <span class="status-chip pending">Pendente</span>
+                                                <% } %>
+                                            </td>
+                                            <td><%= summary ? summary.label : c.presence %></td>
+                                            <td>
+                                                <div class="attendance-options compact">
+                                                    <label class="attendance-option present">
+                                                        <input type="radio" name="attendance[<%= c.id %>]" value="present" <%= saved === 'present' ? 'checked' : '' %>>
+                                                        Presente
+                                                    </label>
+                                                    <label class="attendance-option absent">
+                                                        <input type="radio" name="attendance[<%= c.id %>]" value="absent" <%= saved === 'absent' ? 'checked' : '' %>>
+                                                        Falta
+                                                    </label>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                        <button type="submit" style="margin-top:16px;">Salvar presença</button>
+                    </form>
+                </details>
+            <% }) %>
+        </section>
+    </main>
+
+    <script src="/transitions.js"></script>
+    <script src="/toast.js"></script>
+</body>
+</html>

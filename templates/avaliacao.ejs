@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avaliação | <%= evaluatorName %></title>
+    <link rel="stylesheet" href="/avaliacao.css">
+    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+</head>
+<body>
+    <main class="page-shell">
+        <header class="page-header">
+            <div style="display:flex; gap:12px; align-items:center;">
+                <img src="/images/icons8-fenix-cute-color-70.png" alt="Icon" style="height: 40px; width: auto;">
+                <div>
+                    <span class="eyebrow">Professor avaliador</span>
+                    <h1><%= evaluatorName %></h1>
+                </div>
+            </div>
+            <a href="/turmas/<%= encodeURIComponent(evaluatorName) %>/<%= turmaId %>" class="ghost-link">Voltar à turma</a>
+        </header>
+
+        <section class="page-note">
+            <div>
+                <p>Notas válidas: inteiros de 1 a 10 ou <strong>X</strong> para item não avaliado.</p>
+                <p class="subtle-note">
+                    O sistema considera como online quem teve atividade nos últimos
+                    <strong><%= activeEvaluatorStatus.timeoutMinutes %> minutos</strong>.
+                </p>
+            </div>
+            <div class="online-status">
+                <span class="status-pill" id="online-count">
+                    <%= activeEvaluatorStatus.activeCount %> avaliador(es) online
+                </span>
+            </div>
+        </section>
+
+        <form method="POST">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nº</th>
+                            <th>Candidato</th>
+                            <th>Presença nas aulas</th>
+                            <th>Presença e comportamento nos auxílios</th>
+                            <th>Comprometimento e participação em eventos</th>
+                            <th>Deslocamento Cavalheiro / Floreio Dama</th>
+                            <th>Abraço e Postura</th>
+                            <th>Equilíbrio</th>
+                            <th>Passos</th>
+                            <th>Ritmo</th>
+                            <th>Corpo do Ritmo</th>
+                            <th>Condução</th>
+                            <th>Musicalidade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% candidates.forEach((cand, i) => { %>
+                            <tr>
+                                <td><%= i + 1 %></td>
+                                <td class="candidate-name"><%= cand.name %></td>
+                                <td><%= cand.presence %></td>
+                                <td>
+                                    <input
+                                        type="text"
+                                        inputmode="numeric"
+                                        maxlength="2"
+                                        name="<%= cand.id %>_presenca_auxilios"
+                                        value="<%= (currentScores[cand.id] && currentScores[cand.id].presenca_auxilios) || '' %>"
+                                    >
+                                </td>
+                                <td>
+                                    <input
+                                        type="text"
+                                        inputmode="numeric"
+                                        maxlength="2"
+                                        name="<%= cand.id %>_comprometimento_eventos"
+                                        value="<%= (currentScores[cand.id] && currentScores[cand.id].comprometimento_eventos) || '' %>"
+                                    >
+                                </td>
+                                <td>
+                                    <% if (cand.gender === 'male') { %>
+                                        <input
+                                            type="text"
+                                            inputmode="numeric"
+                                            maxlength="2"
+                                            name="<%= cand.id %>_deslocamento_cavalheiro"
+                                            value="<%= (currentScores[cand.id] && currentScores[cand.id].deslocamento_cavalheiro) || '' %>"
+                                        >
+                                    <% } else { %>
+                                        <input
+                                            type="text"
+                                            inputmode="numeric"
+                                            maxlength="2"
+                                            name="<%= cand.id %>_floreio_dama"
+                                            value="<%= (currentScores[cand.id] && currentScores[cand.id].floreio_dama) || '' %>"
+                                        >
+                                    <% } %>
+                                </td>
+                                <% commonCriteria.slice(2).forEach((crit) => { %>
+                                    <td>
+                                        <input
+                                            type="text"
+                                            inputmode="numeric"
+                                            maxlength="2"
+                                            name="<%= cand.id %>_<%= crit %>"
+                                            value="<%= (currentScores[cand.id] && currentScores[cand.id][crit]) || '' %>"
+                                        >
+                                    </td>
+                                <% }) %>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="toolbar">
+                <button type="submit">Salvar notas</button>
+                <!-- <a href="/results" class="ghost-link">Ver consolidação atual</a> -->
+            </div>
+        </form>
+    </main>
+    <script src="/transitions.js"></script>
+    <script src="/toast.js"></script>
+    <script id="evaluator-config" type="application/json">
+        { "evaluatorName": <%- JSON.stringify(evaluatorName) %> }
+    </script>
+    <script>
+        const onlineCountElement = document.getElementById('online-count');
+        const configData = JSON.parse(document.getElementById('evaluator-config').textContent);
+        const evaluatorName = configData.evaluatorName;
+
+        async function refreshOnlineEvaluators() {
+            try {
+                const response = await fetch(`/api/evaluators/status?evaluatorName=${encodeURIComponent(evaluatorName)}`, {
+                    cache: 'no-store',
+                });
+                if (!response.ok) {
+                    return;
+                }
+
+                const payload = await response.json();
+                onlineCountElement.textContent = `${payload.activeCount} avaliador(es) online`;
+                onlineCountElement.title = payload.activeNames.length
+                    ? `Online agora: ${payload.activeNames.join(', ')}`
+                    : 'Nenhum avaliador online no momento';
+            } catch {}
+        }
+
+        refreshOnlineEvaluators();
+        setInterval(refreshOnlineEvaluators, 20000);
+
+        // Check for saved=1 query param to show success toast
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('saved') === '1') {
+            if (window.showToast) {
+                showToast('Notas salvas com sucesso!', 'success');
+            }
+            // Clean up the URL
+            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + (urlParams.get('turmaId') ? '?turmaId=' + urlParams.get('turmaId') : '');
+            window.history.replaceState({path: cleanUrl}, '', cleanUrl);
+        }
+    </script>
+</body>
+</html>

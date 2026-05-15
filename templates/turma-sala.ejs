@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sala da Turma | <%= turma.name %></title>
+    <link rel="stylesheet" href="/home.css">
+    <link rel="stylesheet" href="/turmas.css">
+    <link rel="stylesheet" href="/adm.css">
+    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+</head>
+<body class="admin-body">
+    <main class="admin-shell">
+        <header class="admin-header">
+            <div style="display:flex; gap:16px; align-items:center;">
+                <img src="/images/icons8-fenix-cute-color-70.png" alt="Icon" style="height: 40px; width: auto;">
+                <div>
+                    <span class="eyebrow">Sala da Turma</span>
+                    <h1><%= turma.name %></h1>
+                    <p style="color: var(--muted); margin: 8px 0 0;">
+                        Professor: <%= evaluatorName %> | Responsável: <%= turma.teacher_name || 'Não definido' %>
+                    </p>
+                </div>
+            </div>
+            <a href="/turmas/<%= encodeURIComponent(evaluatorName) %>" class="ghost-link">Voltar</a>
+        </header>
+
+        <% if (message) { %>
+            <div class="message error"><%= message %></div>
+        <% } %>
+
+        <section class="panel">
+            <div class="session-header">
+                <div>
+                    <h2>Sala de Avaliação</h2>
+                    <p class="panel-copy">
+                        O botão abaixo exige o PIN gerado pelo admin para esta turma no dia da avaliação.
+                    </p>
+                    <% if (activeSession) { %>
+                        <p class="tag">PIN ativo hoje</p>
+                    <% } else { %>
+                        <p class="tag" style="background:#fee2e2;color:#991b1b;">Aguardando PIN do admin</p>
+                    <% } %>
+                </div>
+            </div>
+
+            <form id="evaluationAccessForm" class="session-form" style="margin-top:16px;">
+                <div style="display:flex; gap:12px; align-items:end; flex-wrap:wrap;">
+                    <label style="min-width:220px;">
+                        PIN da Avaliação
+                        <input type="text" name="code" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="0000" required>
+                    </label>
+                    <button type="submit">Entrar na avaliação</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel">
+            <h2>Presença da Turma</h2>
+            <p class="panel-copy">A presença oficial agora vem das chamadas registradas. O valor antigo só entra como fallback.</p>
+
+            <% if (canManageAttendance) { %>
+                <form action="/turmas/<%= encodeURIComponent(evaluatorName) %>/<%= turma.id %>/meetings" method="POST" class="candidate-form" style="margin-top:16px;">
+                    <label>
+                        Nome da chamada
+                        <input type="text" name="title" value="Aula" required>
+                    </label>
+                    <label>
+                        Data
+                        <input type="date" name="meetingDate" value="<%= new Date().toISOString().slice(0, 10) %>" required>
+                    </label>
+                    <button type="submit">Criar chamada</button>
+                </form>
+            <% } %>
+
+            <div class="presence-grid">
+                <% candidates.forEach(c => { const summary = attendanceSummary[c.id]; %>
+                    <article class="presence-card">
+                        <div>
+                            <strong><%= c.name %></strong>
+                            <span><%= c.status %></span>
+                        </div>
+                        <div class="presence-score <%= summary && summary.percentage >= 80 ? 'ok' : 'risk' %>">
+                            <%= summary ? summary.label : c.presence %>
+                        </div>
+                        <small>
+                            <% if (summary && summary.source === 'attendance') { %>
+                                <%= summary.present %> presença(s), <%= summary.absent || 0 %> falta(s)
+                            <% } else { %>
+                                Fallback manual
+                            <% } %>
+                        </small>
+                    </article>
+                <% }) %>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Histórico de Chamadas</h2>
+            <p class="panel-copy">Chamadas mais recentes aparecem primeiro. Alunos sem marcação ficam pendentes e não entram no percentual.</p>
+
+            <% if (meetings.length === 0) { %>
+                <p class="panel-copy">Nenhuma chamada criada ainda.</p>
+            <% } %>
+
+            <% meetings.forEach((meeting, index) => { 
+                const attendanceMap = meetingAttendanceMaps[meeting.id] || {};
+                const meetingStats = candidates.reduce((acc, c) => {
+                    const status = attendanceMap[c.id] || 'pending';
+                    acc[status] = (acc[status] || 0) + 1;
+                    return acc;
+                }, { present: 0, absent: 0, pending: 0 });
+            %>
+            <details class="attendance-entry" <%= index === 0 ? 'open' : '' %>>
+                <summary>
+                    <div>
+                        <strong><%= meeting.title %></strong>
+                        <span><%= meeting.meeting_date %></span>
+                    </div>
+                    <div class="attendance-stats">
+                        <span class="status-chip present"><%= meetingStats.present %> presente(s)</span>
+                        <span class="status-chip absent"><%= meetingStats.absent %> falta(s)</span>
+                        <span class="status-chip pending"><%= meetingStats.pending %> pendente(s)</span>
+                    </div>
+                </summary>
+
+                <% if (canManageAttendance) { %>
+                    <form action="/turmas/<%= encodeURIComponent(evaluatorName) %>/<%= turma.id %>/attendance/<%= meeting.id %>" method="POST">
+                        <div class="attendance-table-wrap">
+                            <table class="attendance-table">
+                                <thead>
+                                    <tr>
+                                        <th>Aluno</th>
+                                        <th>Status atual</th>
+                                        <th>Presença acumulada</th>
+                                        <th>Marcação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% candidates.forEach(c => {
+                                        const saved = attendanceMap[c.id];
+                                        const summary = attendanceSummary[c.id];
+                                    %>
+                                        <tr class="<%= saved ? '' : 'attendance-pending-row' %>">
+                                            <td><strong><%= c.name %></strong></td>
+                                            <td>
+                                                <% if (saved === 'present') { %>
+                                                    <span class="status-chip present">Presente</span>
+                                                <% } else if (saved === 'absent') { %>
+                                                    <span class="status-chip absent">Falta</span>
+                                                <% } else { %>
+                                                    <span class="status-chip pending">Pendente</span>
+                                                <% } %>
+                                            </td>
+                                            <td><%= summary ? summary.label : c.presence %></td>
+                                            <td>
+                                                <div class="attendance-options compact">
+                                                    <label class="attendance-option present">
+                                                        <input type="radio" name="attendance[<%= c.id %>]" value="present" <%= saved === 'present' ? 'checked' : '' %>>
+                                                        Presente
+                                                    </label>
+                                                    <label class="attendance-option absent">
+                                                        <input type="radio" name="attendance[<%= c.id %>]" value="absent" <%= saved === 'absent' ? 'checked' : '' %>>
+                                                        Falta
+                                                    </label>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <% }) %>
+                                </tbody>
+                            </table>
+                        </div>
+                        <button type="submit" style="margin-top:16px;">Salvar chamada</button>
+                    </form>
+                <% } else { %>
+                    <p class="panel-copy">Somente o professor responsável pode lançar presença nesta turma.</p>
+                <% } %>
+            </details>
+            <% }) %>
+        </section>
+    </main>
+
+    <script id="room-config" type="application/json">
+        { "evaluatorName": <%- JSON.stringify(evaluatorName) %>, "turmaId": <%= turma.id %> }
+    </script>
+    <script>
+        const roomConfig = JSON.parse(document.getElementById('room-config').textContent);
+        document.getElementById('evaluationAccessForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const code = event.target.code.value.trim();
+            const response = await fetch('/turmas/evaluate-access', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...roomConfig, code }),
+            });
+            const payload = await response.json();
+            if (payload.success) {
+                window.location.href = payload.redirectUrl;
+                return;
+            }
+            if (window.showToast) {
+                showToast(payload.message || 'PIN inválido.', 'error');
+            } else {
+                alert(payload.message || 'PIN inválido.');
+            }
+        });
+    </script>
+    <script src="/transitions.js"></script>
+    <script src="/toast.js"></script>
+</body>
+</html>
