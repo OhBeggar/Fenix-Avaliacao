@@ -15,7 +15,7 @@ const config = require('./src/config');
 const app = express();
 
 // Middlewares
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'static')));
@@ -88,6 +88,20 @@ function turmaCookieName(turmaId) {
 
 function evaluationCookieName(turmaId) {
   return `evaluation_access_${turmaId}`;
+}
+
+function getAttendanceRecordsFromBody(body = {}) {
+  if (body.attendance && typeof body.attendance === 'object') {
+    return body.attendance;
+  }
+
+  return Object.entries(body).reduce((records, [key, value]) => {
+    const match = /^attendance\[(\d+)\]$/.exec(key);
+    if (match) {
+      records[match[1]] = value;
+    }
+    return records;
+  }, {});
 }
 
 // === ROTAS PÚBLICAS ===
@@ -204,7 +218,7 @@ app.post('/turmas/:name/:turmaId/attendance/:meetingId', (req, res) => {
   }
 
   try {
-    evaluationService.markAttendance(req.params.meetingId, req.body.attendance, evaluatorName, turmaId);
+    evaluationService.markAttendance(req.params.meetingId, getAttendanceRecordsFromBody(req.body), evaluatorName, turmaId);
     res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}/${turmaId}`);
   } catch (error) {
     res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}/${turmaId}?message=${encodeURIComponent(error.message)}`);
@@ -498,7 +512,7 @@ app.post('/admin/turma/:id/meetings', adminAuthMiddleware, (req, res) => {
 
 app.post('/admin/turma/:id/attendance/:meetingId', adminAuthMiddleware, (req, res) => {
   try {
-    evaluationService.markAttendance(req.params.meetingId, req.body.attendance, 'admin', req.params.id);
+    evaluationService.markAttendance(req.params.meetingId, getAttendanceRecordsFromBody(req.body), 'admin', req.params.id);
   } catch (error) {
     console.error('Erro ao salvar presença:', error);
   }
