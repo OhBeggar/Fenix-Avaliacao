@@ -55,9 +55,15 @@
             </form>
         </section>
 
-        <section class="panel">
-            <h2>Presença da Turma</h2>
-            <p class="panel-copy">A presença oficial agora vem das chamadas registradas. O valor antigo só entra como fallback.</p>
+        <details class="panel admin-accordion">
+            <summary class="accordion-summary">
+                <div>
+                    <h2>Presença da Turma</h2>
+                    <p class="panel-copy">A presença oficial agora vem das chamadas registradas. O valor antigo só entra como fallback.</p>
+                </div>
+                <span class="accordion-indicator">Expandir</span>
+            </summary>
+            <div class="accordion-content">
 
             <% if (canManageAttendance) { %>
                 <form action="/turmas/<%= encodeURIComponent(evaluatorName) %>/<%= turma.id %>/meetings" method="POST" class="candidate-form" style="margin-top:16px;">
@@ -93,11 +99,18 @@
                     </article>
                 <% }) %>
             </div>
-        </section>
+            </div>
+        </details>
 
-        <section class="panel">
-            <h2>Histórico de Chamadas</h2>
-            <p class="panel-copy">Chamadas mais recentes aparecem primeiro. Alunos sem marcação ficam pendentes e não entram no percentual.</p>
+        <details class="panel admin-accordion" open>
+            <summary class="accordion-summary">
+                <div>
+                    <h2>Histórico de Chamadas</h2>
+                    <p class="panel-copy"><%= meetings.length %> chamada(s). Alunos sem marcação ficam pendentes e não entram no percentual.</p>
+                </div>
+                <span class="accordion-indicator">Expandir</span>
+            </summary>
+            <div class="accordion-content">
 
             <% if (meetings.length === 0) { %>
                 <p class="panel-copy">Nenhuma chamada criada ainda.</p>
@@ -111,7 +124,7 @@
                     return acc;
                 }, { present: 0, absent: 0, pending: 0 });
             %>
-            <details class="attendance-entry" <%= index === 0 ? 'open' : '' %>>
+            <details class="attendance-entry">
                 <summary>
                     <div>
                         <strong><%= meeting.title %></strong>
@@ -177,7 +190,8 @@
                 <% } %>
             </details>
             <% }) %>
-        </section>
+            </div>
+        </details>
     </main>
 
     <script id="room-config" type="application/json">
@@ -203,6 +217,17 @@
             } else {
                 alert(payload.message || 'PIN inválido.');
             }
+        });
+
+        document.querySelectorAll('.attendance-entry').forEach((entry) => {
+            entry.addEventListener('toggle', () => {
+                if (!entry.open) return;
+                document.querySelectorAll('.attendance-entry[open]').forEach((openEntry) => {
+                    if (openEntry !== entry) {
+                        openEntry.open = false;
+                    }
+                });
+            });
         });
     </script>
     <script src="/transitions.js"></script>

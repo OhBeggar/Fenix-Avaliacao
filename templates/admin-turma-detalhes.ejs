@@ -80,8 +80,15 @@
             <% } %>
         </section>
 
-        <section class="panel">
-            <h2>Chamadas da Turma</h2>
+        <details class="panel admin-accordion" open>
+            <summary class="accordion-summary">
+                <div>
+                    <h2>Chamadas da Turma</h2>
+                    <p class="panel-copy"><%= meetings.length %> chamada(s) cadastrada(s).</p>
+                </div>
+                <span class="accordion-indicator">Expandir</span>
+            </summary>
+            <div class="accordion-content">
             <form action="/admin/turma/<%= turma.id %>/meetings" method="POST" class="candidate-form" style="margin-bottom:20px;">
                 <label>
                     Nome da chamada
@@ -106,7 +113,7 @@
                     return acc;
                 }, { present: 0, absent: 0, pending: 0 });
             %>
-                <details class="attendance-entry" <%= index === 0 ? 'open' : '' %>>
+                <details class="attendance-entry">
                     <summary>
                         <div>
                             <strong><%= meeting.title %></strong>
@@ -167,10 +174,23 @@
                     </form>
                 </details>
             <% }) %>
-        </section>
+            </div>
+        </details>
     </main>
 
     <script src="/transitions.js"></script>
     <script src="/toast.js"></script>
+    <script>
+        document.querySelectorAll('.attendance-entry').forEach((entry) => {
+            entry.addEventListener('toggle', () => {
+                if (!entry.open) return;
+                document.querySelectorAll('.attendance-entry[open]').forEach((openEntry) => {
+                    if (openEntry !== entry) {
+                        openEntry.open = false;
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
