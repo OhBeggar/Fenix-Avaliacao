@@ -1,112 +1,115 @@
-/* ===== Container Principal ===== */
-.turmas-container {
-    width: min(960px, calc(100% - 32px));
-    margin: 48px auto;
+:root {
+    --bg: #f8fafc;
+    --panel: #ffffff;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --primary: #4f46e5;
+    --primary-light: #eef2ff;
+    --primary-dark: #4338ca;
+    --success: #059669;
+    --success-light: #d1fae5;
+    --danger: #dc2626;
+    --warning: #d97706;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --radius: 12px;
+    --radius-lg: 16px;
 }
 
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    margin: 0;
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ===== CONTAINER ===== */
+.turmas-container {
+    width: min(960px, calc(100% - 32px));
+    margin: 32px auto;
+    animation: fadeInUp 0.5s ease-out;
+}
+
+/* ===== TOPBAR ===== */
 .turmas-topbar {
     display: flex;
     gap: 12px;
     align-items: center;
     justify-content: space-between;
-    border-radius: 10px;
+    margin-bottom: 24px;
+    animation: fadeInDown 0.4s ease-out;
 }
 
+/* ===== HEADER ===== */
 .turmas-header {
     text-align: center;
-    margin-bottom: 2.5rem;
+    margin-bottom: 32px;
+    animation: fadeInUp 0.5s ease-out 0.1s both;
 }
 
-/* ===== Grid de Turmas ===== */
-.turmas-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.5rem;
+.turmas-header img {
+    height: 48px;
+    width: auto;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.08));
 }
 
-.turma-card {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 1.5rem;
-    cursor: pointer;
-    min-height: 180px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-}
-
-.turma-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-    border-color: var(--primary);
-    background: #fff;
-}
-
-.turma-card:focus {
-    outline: none;
-    box-shadow: 0 0 0 6px rgba(15, 118, 110, 0.12), 0 12px 24px rgba(0, 0, 0, 0.08);
-    border-color: var(--primary);
-}
-
-.turma-card h3 {
-    margin: 0 0 0.5rem;
-    color: var(--ink);
-    font-size: 1.2rem;
-}
-
-.turma-card p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 0.9rem;
-}
-
-.turma-badge {
+.eyebrow {
     display: inline-block;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    margin-top: 1rem;
-    background: #dcfce7;
-    color: #166534;
-}
-
-.turma-badge.is-active {
-    background: rgba(15, 118, 110, 0.12);
-    color: var(--primary-dark);
-}
-
-.turma-card-footer {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    margin-top: 1.25rem;
-}
-
-.turma-card-hint {
-    color: var(--primary);
-    font-size: 0.85rem;
+    margin-bottom: 8px;
+    font-size: 0.78rem;
     font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--primary);
+    background: var(--primary-light);
+    padding: 4px 12px;
+    border-radius: 999px;
 }
 
+.turmas-header h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+}
+
+.intro {
+    color: var(--muted);
+    font-size: 1rem;
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+/* ===== GLOBAL BUTTON ===== */
 .global-evaluation-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    min-height: 42px;
-    padding: 10px 16px;
+    min-height: 44px;
+    padding: 10px 18px;
     border: 0;
     border-radius: 999px;
     color: #fff;
     background: var(--primary);
     font-weight: 800;
+    font-size: 0.9rem;
     cursor: pointer;
-    box-shadow: 0 10px 22px rgba(15, 118, 110, 0.18);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: inherit;
 }
 
 .global-evaluation-button strong {
@@ -119,43 +122,145 @@
     color: var(--primary);
     background: #fff;
     font-size: 0.8rem;
+    font-weight: 800;
 }
 
 .global-evaluation-button:not(:disabled):hover {
-    transform: translateY(-3px);
+    transform: translateY(-2px);
     background: var(--primary-dark);
-    box-shadow: 0 14px 28px rgba(15, 118, 110, 0.24);
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
 }
 
 .global-evaluation-button:focus {
     outline: none;
-    box-shadow: 0 0 0 6px rgba(15, 118, 110, 0.12), 0 10px 22px rgba(15, 118, 110, 0.18);
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12), 0 4px 12px rgba(79, 70, 229, 0.2);
 }
 
 .global-evaluation-button.is-idle {
     color: var(--muted);
-    background: rgba(255, 255, 255, 0.85);
-    border: 1px solid var(--line);
+    background: #fff;
+    border: 1.5px solid var(--line);
     box-shadow: none;
     cursor: not-allowed;
+    transform: none !important;
 }
 
-/* ===== Estado Vazio ===== */
+/* ===== GRID ===== */
+.turmas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    animation: fadeInUp 0.5s ease-out 0.15s both;
+}
+
+.turma-card {
+    background: var(--panel);
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    cursor: pointer;
+    min-height: 170px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.turma-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--primary);
+    border-radius: var(--radius) var(--radius) 0 0;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+}
+
+.turma-card:hover::before {
+    transform: scaleX(1);
+}
+
+.turma-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: #c7d2fe;
+}
+
+.turma-card:focus {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1), var(--shadow-lg);
+    border-color: var(--primary);
+}
+
+.turma-card h3 {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.turma-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+}
+
+.turma-card-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.turma-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #e2e8f0;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    transition: all 0.2s ease;
+}
+
+.turma-badge.is-active {
+    background: var(--success-light);
+    color: var(--success);
+    border-color: #a7f3d0;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.turma-card-hint {
+    color: var(--primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* ===== EMPTY STATE ===== */
 .empty-state {
     text-align: center;
-    padding: 60px 20px;
+    padding: 60px 24px;
     color: var(--muted);
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     background: var(--panel);
-    border-radius: 16px;
-    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    border: 2px dashed var(--line);
+    animation: fadeInUp 0.4s ease-out;
 }
 
-/* ===== Modal com Backdrop Blur ===== */
+/* ===== MODAL ===== */
 .modal-backdrop {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(15, 23, 42, 0.4);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     display: flex;
@@ -164,7 +269,7 @@
     z-index: 1000;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s ease;
+    transition: opacity 0.25s ease;
 }
 
 .modal-backdrop.active {
@@ -174,14 +279,15 @@
 
 .modal-card {
     background: var(--panel);
-    padding: 2rem;
-    border-radius: 20px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+    padding: 32px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
     width: 90%;
     max-width: 420px;
     text-align: center;
     transform: scale(0.95);
-    transition: transform 0.2s ease;
+    transition: transform 0.25s ease;
+    border: 1px solid var(--line);
 }
 
 .modal-backdrop.active .modal-card {
@@ -189,20 +295,21 @@
 }
 
 .modal-card h3 {
-    margin: 0 0 0.5rem;
-    color: var(--ink);
+    margin: 0 0 8px;
+    font-size: 1.2rem;
+    font-weight: 800;
 }
 
 .modal-card p {
-    margin: 0 0 1.5rem;
+    margin: 0 0 20px;
     color: var(--muted);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
 }
 
 .evaluation-turma-list {
     display: grid;
     gap: 10px;
-    margin-bottom: 1rem;
+    margin-bottom: 16px;
 }
 
 .evaluation-turma-list[hidden] {
@@ -211,39 +318,46 @@
 
 .evaluation-turma-option {
     width: 100%;
-    padding: 12px;
-    border: 1px solid var(--line);
-    border-radius: 12px;
+    padding: 14px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
     background: #fff;
     color: var(--ink);
     text-align: left;
     cursor: pointer;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    font-family: inherit;
+    font-size: 0.92rem;
+    transition: all 0.2s ease;
 }
 
-.evaluation-turma-option strong,
+.evaluation-turma-option strong {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
 .evaluation-turma-option span {
     display: block;
-}
-
-.evaluation-turma-option span {
-    margin-top: 4px;
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
 }
 
 .evaluation-turma-option:hover,
 .evaluation-turma-option.is-selected {
     border-color: var(--primary);
-    background: rgba(15, 118, 110, 0.08);
-    box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.08);
+    background: var(--primary-light);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
 }
 
 .modal-error {
     color: var(--danger);
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     font-weight: 700;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
+    padding: 8px 12px;
+    background: var(--danger-light);
+    border-radius: var(--radius-sm);
+    border: 1px solid #fecaca;
 }
 
 .pin-input {
@@ -251,26 +365,29 @@
     padding: 14px;
     font-size: 1.5rem;
     text-align: center;
-    letter-spacing: 0.6em;
-    margin-bottom: 1.5rem;
+    letter-spacing: 0.5em;
+    margin-bottom: 20px;
     border: 2px solid var(--line);
-    border-radius: 12px;
+    border-radius: var(--radius);
     outline: none;
-    transition: border-color 0.2s;
-}
-
-input[type="password"].pin-input {
-    letter-spacing: 0.08em;
-    font-size: 1rem;
+    transition: all 0.2s ease;
+    font-family: 'SF Mono', monospace;
+    font-weight: 700;
 }
 
 .pin-input:focus {
     border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
 }
 
 .pin-input.error {
     border-color: var(--danger);
-    animation: shake 0.3s;
+    animation: shake 0.4s ease-in-out;
+}
+
+input[type="password"].pin-input {
+    letter-spacing: 0.1em;
+    font-size: 1rem;
 }
 
 .modal-actions {
@@ -280,82 +397,153 @@ input[type="password"].pin-input {
 
 .modal-actions button {
     flex: 1;
+    min-height: 44px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.92rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modal-actions button:not(.btn-cancel) {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(79, 70, 229, 0.2);
+}
+
+.modal-actions button:not(.btn-cancel):hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(79, 70, 229, 0.25);
 }
 
 .btn-cancel {
-    background: var(--muted);
-    color: #fff;
+    background: #f1f5f9;
+    color: var(--muted);
+    border: 1.5px solid var(--line) !important;
 }
 
 .btn-cancel:hover {
-    opacity: 0.9;
+    background: #e2e8f0;
+    color: var(--ink);
 }
 
-/* ===== Animação de Erro ===== */
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    75% { transform: translateX(5px); }
-}
-
-/* ===== Responsivo ===== */
-@media (max-width: 640px) {
-    .turmas-container {
-        margin: 24px auto;
-    }
-
-    .turmas-topbar {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .global-evaluation-button,
-    .ghost-link {
-        width: 100%;
-    }
-    
-    .turmas-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Botão Voltar */
+/* ===== GHOST LINK ===== */
 .ghost-link {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     justify-content: center;
-    min-height: 42px;
-    padding: 8px 14px;
+    min-height: 40px;
+    padding: 8px 18px;
     border-radius: 999px;
     color: var(--ink);
     text-decoration: none;
-    background: rgba(255,255,255,0.95);
-    border: 1px solid var(--line);
+    background: #fff;
+    border: 1.5px solid var(--line);
     font-weight: 600;
-    box-shadow: 0 6px 12px rgba(15,23,42,0.06);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    font-size: 0.88rem;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+    font-family: inherit;
+    cursor: pointer;
 }
 
 .ghost-link::before {
-    content: "\2190";
+    content: "←";
     display: inline-block;
-    font-size: 0.95rem;
-    transform: translateX(0);
-    transition: transform 0.15s ease;
+    font-size: 0.9rem;
+    transition: transform 0.2s ease;
 }
 
 .ghost-link:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 24px rgba(15,23,42,0.12);
-    background: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 .ghost-link:hover::before {
-    transform: translateX(-4px);
+    transform: translateX(-3px);
 }
 
-.ghost-link:focus {
-    outline: none;
-    box-shadow: 0 0 0 6px rgba(29,78,216,0.08);
+/* ===== RESPONSIVE ===== */
+@media (max-width: 640px) {
+    .turmas-container {
+        margin: 20px auto;
+    }
+
+    .turmas-topbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .global-evaluation-button,
+    .ghost-link {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .turmas-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .turma-card {
+        min-height: auto;
+    }
+
+    .modal-card {
+        padding: 24px;
+    }
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.03); opacity: 0.9; }
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }

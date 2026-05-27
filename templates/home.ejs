@@ -6,6 +6,7 @@
     <title>Avaliação de Bolsistas | Login</title>
     <link rel="stylesheet" href="/home.css">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+<base target="_blank">
 </head>
 <body>
     <div class="container">
@@ -30,18 +31,40 @@
             </script>
         <% } %>
 
-        <form method="POST" action="/login" class="card">
+        <form class="card" id="loginForm" onsubmit="return false;">
             <label>
                 Nome do Professor
-                <input type="text" name="name" placeholder="Ex: Eduarda Cavalcante" required autofocus>
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        id="nameInput"
+                        name="name" 
+                        placeholder="Ex: Eduarda Cavalcante" 
+                        required 
+                        autofocus
+                        autocomplete="off"
+                    >
+                    <span class="status-dot" id="statusDot"></span>
+                    <span class="input-loader" id="inputLoader"></span>
+                </div>
+                <span class="feedback-msg" id="nameFeedback"></span>
             </label>
 
-            <label>
+            <label class="password-group" id="passwordGroup">
                 Senha de Acesso
-                <input type="password" name="password" placeholder="Sua senha" required>
+                <div class="input-wrapper">
+                    <input 
+                        type="password" 
+                        id="passwordInput"
+                        name="password" 
+                        placeholder="Sua senha" 
+                        required
+                        disabled
+                    >
+                </div>
             </label>
 
-            <button type="submit">Entrar na Avaliação</button>
+            <button type="button" id="loginBtn" disabled>Entrar na Avaliação</button>
         </form>
 
         <div class="actions">
@@ -71,5 +94,182 @@
 
     <script src="/transitions.js"></script>
     <script src="/toast.js"></script>
+
+    <script>
+    (function() {
+        const nameInput = document.getElementById('nameInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const passwordGroup = document.getElementById('passwordGroup');
+        const statusDot = document.getElementById('statusDot');
+        const inputLoader = document.getElementById('inputLoader');
+        const nameFeedback = document.getElementById('nameFeedback');
+        const loginBtn = document.getElementById('loginBtn');
+        const loginForm = document.getElementById('loginForm');
+
+        let debounceTimer;
+        let lastCheckedName = '';
+
+        function setStatus(type, msg) {
+            statusDot.className = 'status-dot';
+            nameFeedback.className = 'feedback-msg';
+            nameFeedback.textContent = '';
+
+            if (type === 'loading') {
+                inputLoader.classList.add('show');
+                return;
+            }
+
+            inputLoader.classList.remove('show');
+
+            if (type === 'success') {
+                statusDot.classList.add('green', 'show');
+                nameFeedback.classList.add('success');
+                nameFeedback.textContent = msg || 'Professor cadastrado';
+            } else if (type === 'error') {
+                statusDot.classList.add('red', 'show');
+                nameFeedback.classList.add('error');
+                nameFeedback.textContent = msg || 'Professor não cadastrado';
+            }
+        }
+
+        function clearStatus() {
+            statusDot.className = 'status-dot';
+            nameFeedback.className = 'feedback-msg';
+            nameFeedback.textContent = '';
+            inputLoader.classList.remove('show');
+        }
+
+        function hidePassword() {
+            passwordGroup.classList.remove('visible');
+            passwordInput.disabled = true;
+            passwordInput.value = '';
+            loginBtn.disabled = true;
+        }
+
+        function showPassword() {
+            passwordGroup.classList.add('visible');
+            passwordInput.disabled = false;
+            loginBtn.disabled = false;
+            setTimeout(() => passwordInput.focus(), 350);
+        }
+
+        async function checkTeacher(name) {
+            if (!name || name.length < 2) {
+                clearStatus();
+                hidePassword();
+                return;
+            }
+
+            setStatus('loading');
+
+            try {
+                const res = await fetch('/api/check-teacher', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const data = await res.json();
+
+                if (nameInput.value.trim() !== name) return;
+
+                if (data.exists) {
+                    setStatus('success');
+                    showPassword();
+                } else {
+                    setStatus('error', 'Professor não cadastrado');
+                    hidePassword();
+                }
+            } catch (err) {
+                clearStatus();
+                hidePassword();
+            }
+        }
+
+        nameInput.addEventListener('input', function() {
+            const name = this.value.trim();
+            clearTimeout(debounceTimer);
+
+            if (name.length === 0) {
+                clearStatus();
+                hidePassword();
+                return;
+            }
+
+            if (name.toLowerCase() === lastCheckedName.toLowerCase()) return;
+
+            debounceTimer = setTimeout(() => {
+                lastCheckedName = name;
+                checkTeacher(name);
+            }, 500);
+        });
+
+        // Login via fetch (evita abrir nova aba)
+        async function doLogin() {
+            const name = nameInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!name || !password) {
+                if (window.showToast) showToast('Preencha nome e senha.', 'error');
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Entrando...';
+
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ name, password }),
+                    redirect: 'manual'
+                });
+
+                // Se o servidor redirecionou (302), seguimos manualmente
+                if (res.status === 0 || res.redirected || res.ok) {
+                    // Tenta pegar o Location header ou faz redirect baseado no nome
+                    const redirectUrl = res.headers.get('Location');
+                    if (redirectUrl) {
+                        window.location.href = redirectUrl;
+                    } else {
+                        window.location.href = '/turmas/' + encodeURIComponent(name);
+                    }
+                    return;
+                }
+
+                // Se não redirecionou, pode ter dado erro
+                const html = await res.text();
+                // Verifica se a resposta contém mensagem de erro
+                if (html.includes('Professor ou senha inválidos') || res.status === 200) {
+                    // Recarrega a página para mostrar a mensagem de erro do servidor
+                    window.location.reload();
+                }
+            } catch (err) {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Entrar na Avaliação';
+                if (window.showToast) showToast('Erro ao entrar. Tente novamente.', 'error');
+            }
+        }
+
+        loginBtn.addEventListener('click', doLogin);
+
+        // Enter no campo de senha também dispara login
+        passwordInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                doLogin();
+            }
+        });
+
+        // Enter no campo de nome (se senha já visível)
+        nameInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (!passwordInput.disabled) {
+                    passwordInput.focus();
+                }
+            }
+        });
+    })();
+    </script>
 </body>
 </html>

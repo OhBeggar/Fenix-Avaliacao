@@ -131,6 +131,19 @@ app.post('/login', async (req, res) => {
   res.redirect(`/turmas/${encodeURIComponent(name)}`);
 });
 
+// API: Verificar se professor está cadastrado (para validação em tempo real no login)
+app.post('/api/check-teacher', (req, res) => {
+  const { name } = req.body;
+  if (!name || typeof name !== 'string') {
+    return res.json({ exists: false });
+  }
+  const teachers = evaluationService.getTeacherList();
+  const exists = teachers.some(
+    t => t.name && t.name.toLowerCase().trim() === name.toLowerCase().trim()
+  );
+  res.json({ exists });
+});
+
 // Página de Seleção de Turmas
 app.get('/turmas/:name', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
