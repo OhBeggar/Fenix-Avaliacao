@@ -9,9 +9,20 @@
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
 </head>
 <body>
+    <% const availableEvaluationTurmas = typeof activeEvaluationTurmas !== 'undefined' ? activeEvaluationTurmas : []; %>
     <div class="turmas-container">
-        <div style="display:flex; gap:12px; align-items:center; border-radius: 10px;">
-            <a href="/" class="ghost-link">Voltar ao Início</a>
+        <div class="turmas-topbar">
+            <a href="/" class="ghost-link">Voltar</a>
+            <button
+                type="button"
+                id="globalEvaluationButton"
+                class="global-evaluation-button <%= availableEvaluationTurmas.length === 0 ? 'is-idle' : '' %>"
+                <%= availableEvaluationTurmas.length === 0 ? 'disabled' : '' %>>
+                <span><%= availableEvaluationTurmas.length === 0 ? 'Aguardando avaliação' : 'Entrar na avaliação' %></span>
+                <% if (availableEvaluationTurmas.length > 0) { %>
+                    <strong><%= availableEvaluationTurmas.length %></strong>
+                <% } %>
+            </button>
         </div>
         <header class="turmas-header">
             <div style="display:flex; gap:12px; align-items:center; justify-content:center; margin-bottom: 8px;">
@@ -21,8 +32,12 @@
                     <h1>Selecione a Turma</h1>
                 </div>
             </div>
-            <p class="intro">Escolha a turma e informe a senha configurada pelo administrador.</p>
+            <p class="intro">Entre na avaliação com o PIN do admin ou acesse a sala interna com a senha da turma.</p>
         </header>
+
+        <% if (typeof message !== 'undefined' && message) { %>
+            <div class="message error" style="margin-bottom:18px;"><%= message %></div>
+        <% } %>
 
         <% if (turmas.length === 0) { %>
             <div class="empty-state">
@@ -31,12 +46,22 @@
         <% } else { %>
             <div class="turmas-grid">
                 <% turmas.forEach(t => { %>
-                    <div class="turma-card"
-                            data-turma-id="<%= t.id %>"
-                            data-turma-name="<%= t.name.replace(/"/g, '&quot;') %>">
-                        <h3><%= t.name %></h3>
-                        <p>Responsável: <%= t.teacher_name || 'Não definido' %></p>
-                        <span class="turma-badge">Disponível</span>
+                    <div
+                        class="turma-card"
+                        role="button"
+                        tabindex="0"
+                        data-action="room"
+                        data-turma-id="<%= t.id %>"
+                        data-turma-name="<%= t.name.replace(/"/g, '&quot;') %>">
+                        <div>
+                            <h3><%= t.name %></h3>
+                            <p>Responsável: <%= t.teacher_name || 'Não definido' %></p>
+                        </div>
+                        <div class="turma-card-footer">
+                            <span class="turma-badge <%= t.hasActiveEvaluation ? 'is-active' : '' %>">
+                                <%= t.hasActiveEvaluation ? 'Avaliação liberada' : 'Disponível' %>
+                            </span>
+                        </div>
                     </div>
                 <% }) %>
             </div>
@@ -44,20 +69,122 @@
     </div>
 
     <!-- Modal de Senha da Turma -->
-    <div class="modal-backdrop" id="codeModal">
+    <div class="modal-backdrop" id="roomModal">
         <div class="modal-card">
             <h3>Senha da Turma</h3>
-            <p id="modalTurmaName">Turma: ...</p>
-            <input type="password" id="pinInput" class="pin-input" autocomplete="current-password" placeholder="Senha da turma">
+            <p id="roomModalTurmaName">Turma: ...</p>
+            <input type="password" id="roomPasswordInput" class="pin-input" autocomplete="current-password" placeholder="Senha da turma">
             <div class="modal-actions">
-                <button class="btn-cancel" id="btnCancel">Cancelar</button>
-                <button id="btnConfirm">Entrar na turma</button>
+                <button class="btn-cancel" id="btnRoomCancel">Cancelar</button>
+                <button id="btnRoomConfirm">Entrar na turma</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de PIN da Avaliação -->
+    <div class="modal-backdrop" id="evaluationModal">
+        <div class="modal-card">
+            <h3>Entrar na Avaliação</h3>
+            <p id="evaluationModalTurmaName">Selecione a turma liberada pelo admin e informe o PIN.</p>
+            <div class="evaluation-turma-list" id="evaluationTurmaList"></div>
+            <input type="text" id="evaluationPinInput" class="pin-input" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="0000">
+            <div class="modal-actions">
+                <button class="btn-cancel" id="btnEvaluationCancel">Cancelar</button>
+                <button id="btnEvaluationConfirm">Confirmar PIN</button>
             </div>
         </div>
     </div>
 
     <script id="turmas-config" type="application/json">
-        { "evaluatorName": <%- JSON.stringify(evaluatorName) %> }
+        {
+            "evaluatorName": <%- JSON.stringify(evaluatorName) %>,
+            "activeEvaluationTurmas": <%- JSON.stringify(availableEvaluationTurmas) %>
+        }
+    </script>
+    <script>
+        (function(){
+            const cfg = JSON.parse(document.getElementById('turmas-config').textContent || '{}');
+            const evaluatorName = cfg.evaluatorName;
+            const activeSet = new Set((cfg.activeEvaluationTurmas || []).map(t => Number(t.id)));
+
+            const globalBtn = document.getElementById('globalEvaluationButton');
+            function updateGlobalButton() {
+                const count = activeSet.size;
+                globalBtn.classList.toggle('is-idle', count === 0);
+                globalBtn.disabled = count === 0;
+                globalBtn.querySelector('span').textContent = count === 0 ? 'Aguardando avaliação' : 'Entrar na avaliação';
+                const strong = globalBtn.querySelector('strong');
+                if (count > 0) {
+                    if (!strong) {
+                        const s = document.createElement('strong');
+                        s.textContent = String(count);
+                        globalBtn.appendChild(s);
+                    } else {
+                        strong.textContent = String(count);
+                    }
+                } else {
+                    if (strong) strong.remove();
+                }
+            }
+
+            function markTurmaActive(turmaId) {
+                const card = document.querySelector(`.turma-card[data-turma-id="${turmaId}"]`);
+                if (!card) return;
+                const badge = card.querySelector('.turma-badge');
+                if (badge) {
+                    badge.classList.add('is-active');
+                    badge.textContent = 'Avaliação liberada';
+                }
+            }
+            function markTurmaIdle(turmaId) {
+                const card = document.querySelector(`.turma-card[data-turma-id="${turmaId}"]`);
+                if (!card) return;
+                const badge = card.querySelector('.turma-badge');
+                if (badge) {
+                    badge.classList.remove('is-active');
+                    badge.textContent = 'Disponível';
+                }
+            }
+
+            updateGlobalButton();
+
+            if (window.EventSource) {
+                try {
+                    const es = new EventSource('/events');
+                    es.onmessage = (e) => {
+                        try {
+                            const payload = JSON.parse(e.data);
+                            if (!payload) return;
+                            if (payload.event === 'session_started' && payload.turmaId) {
+                                activeSet.add(Number(payload.turmaId));
+                                markTurmaActive(Number(payload.turmaId));
+                                updateGlobalButton();
+                                // dispatch custom event so other scripts can react
+                                window.dispatchEvent(new CustomEvent('sse:session_started', { detail: payload }));
+                            }
+                            if (payload.event === 'session_closed' && payload.turmaId) {
+                                activeSet.delete(Number(payload.turmaId));
+                                markTurmaIdle(Number(payload.turmaId));
+                                updateGlobalButton();
+                                window.dispatchEvent(new CustomEvent('sse:session_closed', { detail: payload }));
+                            }
+                            if (payload.event === 'session_ended') {
+                                // limpa todas as sessões ativas
+                                Array.from(activeSet).forEach(tid => {
+                                    markTurmaIdle(Number(tid));
+                                });
+                                activeSet.clear();
+                                updateGlobalButton();
+                                window.dispatchEvent(new CustomEvent('sse:session_ended'));
+                            }
+                        } catch (err) { console.error('SSE parse', err); }
+                    };
+                    es.onerror = (err) => {
+                        // console.warn('EventSource error', err);
+                    };
+                } catch (e) { console.error('EventSource init failed', e); }
+            }
+        })();
     </script>
     <script>
         // Passa dados do servidor para o JS de forma segura para o linter

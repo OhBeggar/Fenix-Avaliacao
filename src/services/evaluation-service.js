@@ -802,6 +802,71 @@ function getEvaluationHistoryReport(eventId) {
   };
 }
 
+/**
+ * Fecha o semestre (ou reinicia dados) para turmas especificadas.
+ * @param {Array<number>} turmaIds
+ * @param {string} closedBy
+ * @param {object} options - { preserveSnapshots: boolean }
+ * @returns {object} resumo { successes: [], errors: [{turmaId, error}] }
+ */
+function closeSemesterForTurmas(turmaIds = [], closedBy = 'admin', options = { preserveSnapshots: true }) {
+  if (!Array.isArray(turmaIds)) turmaIds = [turmaIds];
+
+  const summary = { successes: [], errors: [] };
+
+  turmaIds.forEach(tid => {
+    try {
+      // 1) Fecha a avaliação oficial (gera evento + snapshots)
+      // closeEvaluationEvent já valida sessão ativa e avaliadores
+      try {
+        closeEvaluationEvent(tid, closedBy);
+      } catch (e) {
+        // Se não houver sessão ativa ou avaliadores, registramos o erro e continuamos
+        throw e;
+      }
+
+      // 2) Encerra sessão ativa da turma
+      endSessionByTurma(tid);
+
+      // 3) Se preservamos snapshots, removemos apenas reuniões e presenças para reiniciar o semestre
+      //    Os registros históricos (evaluation_events / evaluation_snapshots) já foram gravados.
+      //    Ajustamos também o campo `presence` dos candidatos para '0%'.
+      runInTransaction(() => {
+        // Remove presenças e reuniões relacionados a esta turma
+        db.prepare('DELETE FROM attendance_records WHERE meeting_id IN (SELECT id FROM class_meetings WHERE turma_id = ?)').run(tid);
+        db.prepare('DELETE FROM class_meetings WHERE turma_id = ?').run(tid);
+
+        // Zera presença manual dos candidatos desta turma para reinício
+        db.prepare("UPDATE candidates SET presence = '0%' WHERE turma_id = ?").run(tid);
+      });
+
+      summary.successes.push(tid);
+    } catch (error) {
+      summary.errors.push({ turmaId: tid, error: String(error && error.message ? error.message : error) });
+    }
+  });
+
+  return summary;
+}
+
+/**
+ * Reabre o semestre/cria nova sessão para a turma se já houver evento histórico.
+ * Não restaura reuniões apagadas; cria uma nova sessão ativa para que avaliações possam recomeçar.
+ * @param {number} turmaId
+ * @param {string} reopenedBy
+ * @returns {string} novo código de sessão
+ */
+function reopenSemesterForTurma(turmaId, reopenedBy = 'admin') {
+  const lastEvent = db.prepare('SELECT id FROM evaluation_events WHERE turma_id = ? ORDER BY closed_at DESC LIMIT 1').get(turmaId);
+  if (!lastEvent) {
+    throw new Error('Não há eventos fechados para esta turma.');
+  }
+
+  // Gera uma nova sessão ativa para a turma
+  const code = generateSessionCode(turmaId);
+  return code;
+}
+
 function safeJsonParse(value, fallback) {
   try {
     return JSON.parse(value);
@@ -900,6 +965,8 @@ module.exports = {
   getActiveEvaluatorStatus,
   getResultsReport,
   closeEvaluationEvent,
+  closeSemesterForTurmas,
+  reopenSemesterForTurma,
   getEvaluationHistory,
   getEvaluationHistoryReport,
 

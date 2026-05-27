@@ -27,7 +27,6 @@ function getDynamicTitle(results) {
 
     // 1. Tenta identificar o nível base da maioria dos alunos
     const validCandidates = results.filter(r => RANK_HIERARCHY.includes(r.status));
-
     let baseRank = 'Candidato'; // Fallback padrão
 
     if (validCandidates.length > 0) {

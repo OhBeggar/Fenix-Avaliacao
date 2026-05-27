@@ -19,7 +19,7 @@
                 </div>
             </div>
             <div style="display: flex; gap: 12px;">
-                <a href="/admin" class="ghost-link">← Voltar para Admin</a>
+                <a href="/admin" class="ghost-link">Voltar</a>
             </div>
         </header>
 
@@ -79,103 +79,6 @@
                 </div>
             <% } %>
         </section>
-
-        <details class="panel admin-accordion" open>
-            <summary class="accordion-summary">
-                <div>
-                    <h2>Chamadas da Turma</h2>
-                    <p class="panel-copy"><%= meetings.length %> chamada(s) cadastrada(s).</p>
-                </div>
-                <span class="accordion-indicator">Expandir</span>
-            </summary>
-            <div class="accordion-content">
-            <form action="/admin/turma/<%= turma.id %>/meetings" method="POST" class="candidate-form" style="margin-bottom:20px;">
-                <label>
-                    Nome da chamada
-                    <input type="text" name="title" value="Aula" required>
-                </label>
-                <label>
-                    Data
-                    <input type="date" name="meetingDate" value="<%= new Date().toISOString().slice(0, 10) %>" required>
-                </label>
-                <button type="submit">Criar chamada</button>
-            </form>
-
-            <% if (meetings.length === 0) { %>
-                <p style="color:var(--muted);">Nenhuma chamada criada ainda.</p>
-            <% } %>
-
-            <% meetings.forEach((meeting, index) => { 
-                const attendanceMap = meetingAttendanceMaps[meeting.id] || {};
-                const meetingStats = candidates.reduce((acc, c) => {
-                    const status = attendanceMap[c.id] || 'pending';
-                    acc[status] = (acc[status] || 0) + 1;
-                    return acc;
-                }, { present: 0, absent: 0, pending: 0 });
-            %>
-                <details class="attendance-entry">
-                    <summary>
-                        <div>
-                            <strong><%= meeting.title %></strong>
-                            <span><%= meeting.meeting_date %></span>
-                        </div>
-                        <div class="attendance-stats">
-                            <span class="status-chip present"><%= meetingStats.present %> presente(s)</span>
-                            <span class="status-chip absent"><%= meetingStats.absent %> falta(s)</span>
-                            <span class="status-chip pending"><%= meetingStats.pending %> pendente(s)</span>
-                        </div>
-                    </summary>
-                    <form action="/admin/turma/<%= turma.id %>/attendance/<%= meeting.id %>" method="POST">
-                        <div class="attendance-table-wrap">
-                            <table class="attendance-table">
-                                <thead>
-                                    <tr>
-                                        <th>Aluno</th>
-                                        <th>Status atual</th>
-                                        <th>Presença acumulada</th>
-                                        <th>Marcação</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% candidates.forEach(c => {
-                                        const saved = attendanceMap[c.id];
-                                        const summary = attendanceSummary[c.id];
-                                    %>
-                                        <tr class="<%= saved ? '' : 'attendance-pending-row' %>">
-                                            <td><strong><%= c.name %></strong></td>
-                                            <td>
-                                                <% if (saved === 'present') { %>
-                                                    <span class="status-chip present">Presente</span>
-                                                <% } else if (saved === 'absent') { %>
-                                                    <span class="status-chip absent">Falta</span>
-                                                <% } else { %>
-                                                    <span class="status-chip pending">Pendente</span>
-                                                <% } %>
-                                            </td>
-                                            <td><%= summary ? summary.label : c.presence %></td>
-                                            <td>
-                                                <div class="attendance-options compact">
-                                                    <label class="attendance-option present">
-                                                        <input type="radio" name="attendance[<%= c.id %>]" value="present" <%= saved === 'present' ? 'checked' : '' %>>
-                                                        Presente
-                                                    </label>
-                                                    <label class="attendance-option absent">
-                                                        <input type="radio" name="attendance[<%= c.id %>]" value="absent" <%= saved === 'absent' ? 'checked' : '' %>>
-                                                        Falta
-                                                    </label>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    <% }) %>
-                                </tbody>
-                            </table>
-                        </div>
-                        <button type="submit" style="margin-top:16px;">Salvar presença</button>
-                    </form>
-                </details>
-            <% }) %>
-            </div>
-        </details>
     </main>
 
     <script src="/transitions.js"></script>

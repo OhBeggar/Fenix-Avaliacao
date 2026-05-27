@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const cookieParser = require('cookie-parser');
 const evaluationService = require('./src/services/evaluation-service');
+const { commonCriteria, maleCriteria, femaleCriteria } = require('./src/constants');
 const { isAdminAuthenticated, setAdminCookie, clearAdminCookie } = require('./src/utils/admin-auth');
 const { buildResultsPdf } = require('./src/services/pdf-service');
 const config = require('./src/config');
@@ -26,6 +27,11 @@ app.set('views', path.join(__dirname, 'templates'));
 
 // Inicializar banco de dados
 evaluationService.initDb();
+
+// Server-Sent Events: EventEmitter para comunicar mudanças ao cliente (PINs, sessões)
+const EventEmitter = require('events');
+const serverEvents = new EventEmitter();
+app.locals.serverEvents = serverEvents;
 
 // Middleware de autenticação admin
 function adminAuthMiddleware(req, res, next) {
@@ -128,8 +134,27 @@ app.post('/login', async (req, res) => {
 // Página de Seleção de Turmas
 app.get('/turmas/:name', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
-  const turmas = evaluationService.getTurmas();
-  res.render('turmas', { evaluatorName, turmas, message: null });
+  const turmas = evaluationService.getTurmas().map(turma => {
+    const activeSession = evaluationService.getActiveSessionForTurma(turma.id);
+    return {
+      ...turma,
+      hasActiveEvaluation: Boolean(activeSession),
+    };
+  });
+  const activeEvaluationTurmas = turmas
+    .filter(turma => turma.hasActiveEvaluation)
+    .map(turma => ({
+      id: turma.id,
+      name: turma.name,
+      teacher_name: turma.teacher_name,
+    }));
+
+  res.render('turmas', {
+    evaluatorName,
+    turmas,
+    activeEvaluationTurmas,
+    message: req.query.message || null,
+  });
 });
 
 // API: Verificar senha da turma
@@ -228,10 +253,6 @@ app.post('/turmas/:name/:turmaId/attendance/:meetingId', (req, res) => {
 // API: Verificar Código PIN da avaliação
 app.post('/turmas/evaluate-access', (req, res) => {
   const { evaluatorName, turmaId, code } = req.body;
-
-  if (!hasAccess(req, turmaCookieName(turmaId), { type: 'turma', evaluatorName, turmaId })) {
-    return res.json({ success: false, message: 'Entre na sala da turma antes de acessar a avaliação.' });
-  }
   
   // 1. Verificar se o código existe e está ativo
   const session = evaluationService.verifySessionCode(code, turmaId);
@@ -255,7 +276,7 @@ app.get('/evaluate/:name', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
   if (!turmaId || !hasAccess(req, evaluationCookieName(turmaId), { type: 'evaluation', evaluatorName, turmaId })) {
-    return res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}/${turmaId || ''}?message=${encodeURIComponent('Informe o PIN ativo antes de avaliar.')}`);
+    return res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}?message=${encodeURIComponent('Informe o PIN ativo antes de avaliar.')}`);
   }
 
   const attendanceSummary = evaluationService.getAttendanceSummary(turmaId);
@@ -306,19 +327,17 @@ app.get('/api/evaluators/status', (req, res) => {
   res.json(evaluationService.getActiveEvaluatorStatus());
 });
 
-// Resultados com Filtro de Turma
+// Resultados em Tempo Real (SEM botão de PDF)
 app.get('/results', (req, res) => {
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
-
-  // Passa o ID para o serviço gerar o relatório apenas daquela turma
   const report = evaluationService.getResultsReport(turmaId);
-  const turmas = evaluationService.getTurmas(); // Lista para o dropdown
+  const turmas = evaluationService.getTurmas();
 
   res.render('resultados', {
     ...report,
     turmas,
     selectedTurmaId: turmaId || '',
-    canExportPdf: isAdminAuthenticated(req),
+    canExportPdf: false, // Remove o PDF da página de resultados
   });
 });
 
@@ -337,6 +356,27 @@ app.get('/export_pdf', adminAuthMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Erro ao gerar PDF:', error);
     res.status(500).send('Erro ao gerar PDF');
+  }
+});
+
+// === NOVA ROTA: PDF do Histórico ===
+app.get('/export_pdf/history/:eventId', adminAuthMiddleware, async (req, res) => {
+  try {
+    // Busca os dados congelados do histórico
+    const report = evaluationService.getEvaluationHistoryReport(req.params.eventId);
+    if (!report) return res.status(404).send('Histórico não encontrado.');
+    
+    // Gera o PDF com a biblioteca atual
+    const pdfBytes = await buildResultsPdf(report);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    // Gera um nome de arquivo seguro (ex: historico-Avaliacao-Teste.pdf)
+    const filename = `historico-${report.event.title.replace(/[\s\/\\]/g, '_')}.pdf`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(Buffer.from(pdfBytes));
+  } catch (error) {
+    console.error('Erro ao gerar PDF do histórico:', error);
+    res.status(500).send('Erro ao gerar PDF.');
   }
 });
 
@@ -368,12 +408,43 @@ app.get('/admin', adminAuthMiddleware, (req, res) => {
   res.render('adm', getAdminLocals());
 });
 
+// SSE endpoint para clientes ouvirem eventos do servidor (PINs / sessões)
+app.get('/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders && res.flushHeaders();
+
+  const send = (data) => {
+    try {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // Envia um ping inicial para confirmar conexão
+  send({ event: 'connected', time: new Date().toISOString() });
+
+  const handler = (payload) => send(payload);
+  serverEvents.on('session', handler);
+
+  req.on('close', () => {
+    serverEvents.removeListener('session', handler);
+    try { res.end(); } catch (e) {}
+  });
+});
+
 // Gerar Código de Sessão
 app.post('/admin/generate-code', adminAuthMiddleware, (req, res) => {
   const { turmaId } = req.body;
   const code = evaluationService.generateSessionCode(turmaId);
   const turma = evaluationService.getTurmas().find(t => t.id == turmaId);
-  
+  // Emite evento para clientes informando que uma sessão foi iniciada (PIN gerado)
+  try {
+    app.locals.serverEvents.emit('session', { event: 'session_started', turmaId: Number(turmaId), code });
+  } catch (e) {}
+
   res.render('adm', getAdminLocals(
     { type: 'success', text: 'Código gerado com sucesso!' },
     {
@@ -386,6 +457,7 @@ app.post('/admin/generate-code', adminAuthMiddleware, (req, res) => {
 // Encerrar Sessão
 app.post('/admin/end-session', adminAuthMiddleware, (req, res) => {
   evaluationService.endCurrentSession();
+  try { app.locals.serverEvents.emit('session', { event: 'session_ended' }); } catch (e) {}
 
   res.render('adm', getAdminLocals({ type: 'success', text: 'Sessão encerrada!' }));
 });
@@ -393,9 +465,59 @@ app.post('/admin/end-session', adminAuthMiddleware, (req, res) => {
 app.post('/admin/close-evaluation', adminAuthMiddleware, (req, res) => {
   try {
     const eventId = evaluationService.closeEvaluationEvent(req.body.turmaId, 'admin');
+    try { app.locals.serverEvents.emit('session', { event: 'session_closed', turmaId: Number(req.body.turmaId) }); } catch (e) {}
     res.render('adm', getAdminLocals({ type: 'success', text: `Avaliação fechada no histórico #${eventId}.` }));
   } catch (error) {
     res.render('adm', getAdminLocals({ type: 'error', text: error.message }));
+  }
+});
+
+// Fechar semestre (para turmas selecionadas)
+app.post('/admin/close-semester', adminAuthMiddleware, (req, res) => {
+  try {
+    // turmaIds pode vir como uma string única ou um array
+    let turmaIds = req.body.turmaIds || req.body.turmaId || [];
+    if (!Array.isArray(turmaIds)) {
+      turmaIds = turmaIds ? [turmaIds] : [];
+    }
+    // Normaliza para inteiros
+    turmaIds = turmaIds.map(id => parseInt(id, 10)).filter(Boolean);
+
+    if (turmaIds.length === 0) {
+      return res.render('adm', getAdminLocals({ type: 'error', text: 'Nenhuma turma selecionada para fechamento.' }));
+    }
+
+    const result = evaluationService.closeSemesterForTurmas(turmaIds, 'admin', { preserveSnapshots: true });
+
+    const successCount = result.successes.length;
+    const errorCount = result.errors.length;
+
+    const messages = [];
+    if (successCount) messages.push(`${successCount} turma(s) fechada(s) com sucesso.`);
+    if (errorCount) messages.push(`${errorCount} erro(s): ${result.errors.map(e => `Turma ${e.turmaId}: ${e.error}`).join('; ')}`);
+
+    // Emite eventos de sessão encerrada para as turmas que foram fechadas
+    try {
+      result.successes.forEach(tid => app.locals.serverEvents.emit('session', { event: 'session_closed', turmaId: Number(tid) }));
+    } catch (e) {}
+
+    res.render('adm', getAdminLocals({ type: errorCount ? 'error' : 'success', text: messages.join(' ') }));
+  } catch (error) {
+    res.render('adm', getAdminLocals({ type: 'error', text: String(error.message || error) }));
+  }
+});
+
+// Reabrir semestre (cria nova sessão) para uma turma específica
+app.post('/admin/reopen-semester', adminAuthMiddleware, (req, res) => {
+  try {
+    const turmaId = req.body.turmaId ? parseInt(req.body.turmaId, 10) : null;
+    if (!turmaId) return res.render('adm', getAdminLocals({ type: 'error', text: 'Turma não informada.' }));
+
+    const code = evaluationService.reopenSemesterForTurma(turmaId, 'admin');
+    try { app.locals.serverEvents.emit('session', { event: 'session_started', turmaId: Number(turmaId), code }); } catch (e) {}
+    res.render('adm', getAdminLocals({ type: 'success', text: `Semestre reaberto. Novo código de sessão: ${code}` }));
+  } catch (error) {
+    res.render('adm', getAdminLocals({ type: 'error', text: String(error.message || error) }));
   }
 });
 
@@ -453,7 +575,6 @@ app.post('/admin/candidate/add', adminAuthMiddleware, (req, res) => {
 });
 
 // Vincular Alunos à Turma
-// Vincular Alunos à Turma (CORRIGIDO)
 app.post('/admin/turma/assign', adminAuthMiddleware, (req, res) => {
   const { turmaId, candidates } = req.body;
 
@@ -539,6 +660,15 @@ app.post('/admin/turma/delete', adminAuthMiddleware, (req, res) => {
   evaluationService.deleteTurma(turmaId);
 
   res.render('adm', getAdminLocals({ type: 'success', text: 'Turma removida com sucesso.' }));
+});
+
+// Histórico de Avaliações (Lista)
+app.get('/results/history', adminAuthMiddleware, (req, res) => {
+  const history = evaluationService.getEvaluationHistory();
+  res.render('historico', {
+    history,
+    message: null,
+  });
 });
 
 app.get('/results/history/:eventId', adminAuthMiddleware, (req, res) => {

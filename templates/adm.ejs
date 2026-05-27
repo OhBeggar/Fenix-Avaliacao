@@ -9,21 +9,22 @@
 </head>
 <body class="admin-body">
     <main class="admin-shell">
-        <header class="admin-header">
-            <div style="display:flex; gap:16px; align-items:center;">
-                <img src="/images/fenix.png" alt="Logo Fênix" style="height: 50px; width: auto; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));">
-                <div>
-                    <span class="eyebrow">Painel Administrativo</span>
-                    <h1>Secretaria fenix</h1>
-                </div>
-            </div>
-            <div style="display:flex; gap:12px; align-items:center;">
-                <a href="/" class="ghost-link">Voltar ao Início</a>
-                <form action="/admin/logout" method="POST" style="margin:0">
-                    <button type="submit" class="danger">Sair</button>
-                </form>
-            </div>
-        </header>
+                <header class="admin-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <a href="/" class="ghost-link" style="padding:8px 14px;">Voltar</a>
+                    </div>
+
+                    <div style="text-align:center;">
+                        <span class="eyebrow">Painel Administrativo</span>
+                        <h1 style="margin:0;">Secretaria Fênix</h1>
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <form action="/admin/logout" method="POST" style="margin:0;">
+                            <button type="submit" class="danger" style="padding:8px 16px; border-radius:12px;">Sair</button>
+                        </form>
+                    </div>
+                </header>
 
         <% if (typeof message !== 'undefined' && message) { %>
             <div id="toast-data" 
@@ -100,6 +101,33 @@
                     </div>
                 </div>
             <% } %>
+            </div>
+        </details>
+
+        <!-- SEÇÃO: FECHAR SEMESTRE (aplica apenas às turmas selecionadas) -->
+        <details class="panel admin-accordion">
+            <summary class="accordion-summary">
+                <div>
+                    <h2>📦 Fechar Semestre</h2>
+                    <p class="panel-copy">Selecione uma ou mais turmas para fechar o período. Isso arquiva o resultado atual e reinicia chamadas e percentuais para as turmas selecionadas.</p>
+                </div>
+                <span class="accordion-indicator">Expandir</span>
+            </summary>
+            <div class="accordion-content">
+                <form action="/admin/close-semester" method="POST" onsubmit="return confirm('Fechar o semestre gravará o histórico e reiniciará chamadas para as turmas selecionadas. Continuar?');">
+                    <div style="max-height:260px; overflow:auto; margin-bottom:12px; display:grid; gap:8px;">
+                        <% turmas.forEach(t => { %>
+                            <label style="display:flex; gap:8px; align-items:center;">
+                                <input type="checkbox" name="turmaIds" value="<%= t.id %>">
+                                <strong style="min-width:220px;"><%= t.name %></strong>
+                                <span style="color:var(--muted);">Prof: <%= t.teacher_name %></span>
+                            </label>
+                        <% }) %>
+                    </div>
+                    <div style="display:flex; gap:12px; justify-content:flex-end;">
+                        <button type="submit" class="danger">Fechar Semestre para turmas selecionadas</button>
+                    </div>
+                </form>
             </div>
         </details>
 
@@ -191,7 +219,7 @@
                     </label>
                     <label style="flex:1">
                         Senha Inicial
-                        <input type="text" name="password" required placeholder="Defina uma senha">
+                        <input type="password" name="password" required placeholder="Defina uma senha" autocomplete="new-password">
                     </label>
                     <button type="submit">Adicionar Professor</button>
                 </div>
@@ -212,7 +240,7 @@
                                 <td>
                                     <form action="/admin/teacher/reset-password" method="POST" style="display:inline; margin-right:10px;">
                                         <input type="hidden" name="teacherId" value="<%= t.id %>">
-                                        <input type="text" name="newPassword" placeholder="Nova senha" style="width:120px; padding:8px;" required>
+                                        <input type="password" name="newPassword" placeholder="Nova senha" style="width:120px; padding:8px;" required autocomplete="new-password">
                                         <button type="submit">Redefinir Senha</button>
                                     </form>
 
@@ -257,7 +285,7 @@
                     </label>
                     <label style="flex:1">
                         Senha da Turma
-                        <input type="text" name="accessPassword" required placeholder="Senha compartilhada">
+                        <input type="password" name="accessPassword" required placeholder="Senha compartilhada" autocomplete="new-password">
                     </label>
                     <button type="submit">Criar Turma</button>
                 </div>
@@ -297,7 +325,7 @@
                                             <input type="hidden" name="turmaId" value="<%= t.id %>">
                                             <label>
                                                 Nova senha da turma
-                                                <input type="text" name="accessPassword" required placeholder="Nova senha compartilhada">
+                                                <input type="password" name="accessPassword" required placeholder="Nova senha compartilhada" autocomplete="new-password">
                                             </label>
                                             <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:16px;">
                                                 <button type="button" onclick="this.closest('dialog').close()" class="ghost-link">Cancelar</button>
@@ -340,40 +368,8 @@
                     <h2>Histórico Oficial de Avaliações</h2>
                     <p class="panel-copy">Avaliações fechadas ficam congeladas aqui, mesmo que notas, presenças ou professores mudem depois.</p>
                 </div>
-                <span class="accordion-indicator">Expandir</span>
+                    <a href="/results/history" class="ghost-link" style="padding:8px 14px;">📜 Histórico</a>
             </summary>
-            <div class="accordion-content">
-            <div class="admin-table-wrap" style="margin-top:20px;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Turma</th>
-                            <th>Fechada em</th>
-                            <th>Avaliadores</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <% if (history && history.length > 0) { %>
-                            <% history.forEach(item => { %>
-                                <tr>
-                                    <td>#<%= item.id %></td>
-                                    <td><%= item.turma_name || 'Turma removida' %></td>
-                                    <td><%= item.closed_at %></td>
-                                    <td><%= item.num_evaluators %></td>
-                                    <td><a href="/results/history/<%= item.id %>" class="ghost-link">Ver histórico</a></td>
-                                </tr>
-                            <% }) %>
-                        <% } else { %>
-                            <tr>
-                                <td colspan="5" style="text-align:center; color:var(--muted); padding:24px;">Nenhuma avaliação fechada ainda.</td>
-                            </tr>
-                        <% } %>
-                    </tbody>
-                </table>
-            </div>
-            </div>
         </details>
     </main>
 

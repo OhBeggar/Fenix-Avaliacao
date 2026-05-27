@@ -97,6 +97,8 @@ Variáveis de ambiente obrigatórias no `.env`:
 - **UX/UI:** Animações, Transições, Toast Notifications e Scrollbar customizada.
 - **Rede:** QR Code de acesso rápido no terminal ao iniciar.
 
+[![This Website is Powered by DigitalPlat FreeDomain Get a free domain from DigitalPlat.](https://img.shields.io/badge/DigitalPlat-Get%20a%20free%20domain%20from%20DigitalPlat.-e2e8f0?style=flat-square&logo=databricks&logoColor=ffffff)](https://dash.domain.digitalplat.org/signup?ref=gBJOEoVVvW)
+
 ### 🚧 Pendências / Melhorias Futuras
 - Configuração de DNS local (ex: `fenix.local`) para acesso amigável.
 - Backup automático do banco de dados `evaluations.db`.

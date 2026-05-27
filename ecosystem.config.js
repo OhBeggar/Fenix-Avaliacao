@@ -1,7 +1,7 @@
 // E:\\0IA\\avali\\ecosystem.config.js
 module.exports = {
   apps: [{
-    name: "fenix-avaliacao",
+    name: "avali",
     script: "app.js",
     cwd: "E:\\0IA\\avali",
     instances: 1,

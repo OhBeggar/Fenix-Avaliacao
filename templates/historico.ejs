@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Histórico Oficial | Fênix Dança</title>
+    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+    <link rel="stylesheet" href="/adm.css">
+    <style>
+         .placeholder-text {
+            color: var(--muted);
+            font-size: 1.0rem;
+            line-height: 1.6;
+            text-align: center;
+            margin: 20px auto 40px auto;
+            max-width: 600px;
+        }
+        .historico-shell {
+            width: min(1240px, calc(100% - 24px));
+            margin: 20px auto 40px;
+        }
+        .historico-header {
+            margin-bottom: 18px;
+        }
+        .historico-header-top {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+        .historico-header-top img {
+            height: 50px;
+            width: auto;
+        }
+        .historico-header-top .header-text {
+            text-align: center;
+        }
+        .historico-actions {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .historico-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 16px;
+        }
+        .historico-card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.2s ease;
+        }
+        .historico-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        }
+        .historico-card h3 {
+            margin: 0 0 8px;
+            color: var(--ink);
+            font-size: 1.1rem;
+        }
+        .historico-card p {
+            margin: 4px 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+        .historico-card .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        .historico-card .actions button,
+        .historico-card .actions a {
+            flex: 1;
+            text-align: center;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .btn-view {
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-pdf {
+            background: #166534;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+            background: var(--panel);
+            border-radius: 16px;
+            border: 2px dashed var(--line);
+        }
+    </style>
+</head>
+<body class="admin-body">
+    <div class="historico-shell">
+        <header class="historico-header">
+            <div class="historico-header-top">
+                <img src="/images/icons8-fenix-cute-color-96.png" alt="Fênix Dança">
+                <div class="header-text">
+                    <span class="eyebrow">Painel Administrativo</span>
+                    <h1>Histórico Oficial de Avaliações</h1>
+                </div>
+            </div>
+            <p class="placeholder-text">Avaliações fechadas ficam congeladas aqui, mesmo que notas, presenças ou professores mudem depois. Gere PDFs de qualquer audição passada.</p>
+        </header>
+
+        <div class="historico-actions">
+            <a href="/admin" class="ghost-link">
+                Voltar
+            </a>
+        </div>
+
+        <% if (history && history.length > 0) { %>
+            <div class="historico-grid">
+                <% history.forEach(event => { %>
+                    <div class="historico-card">
+                        <h3><%= event.title %></h3>
+                        <p><strong>Turma:</strong> <%= event.turma_name || 'N/A' %></p>
+                        <p><strong>Fechada em:</strong> <%= new Date(event.closed_at).toLocaleDateString('pt-BR') %></p>
+                        <p><strong>Avaliadores:</strong> <%= event.num_evaluators %></p>
+                        <div class="actions">
+                            <a href="/results/history/<%= event.id %>" class="btn-view">
+                                Ver Detalhes
+                            </a>
+                            <a href="/export_pdf/history/<%= event.id %>" class="btn-pdf">
+                                📄 PDF
+                            </a>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        <% } else { %>
+            <div class="empty-state">
+                <p style="font-size: 1.1rem; margin: 0;">Nenhuma avaliação fechada ainda.</p>
+                <p style="margin: 8px 0 0;">Feche uma sessão de avaliação para vê-la aqui.</p>
+            </div>
+        <% } %>
+    </div>
+</body>
+</html>

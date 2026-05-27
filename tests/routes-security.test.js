@@ -11,6 +11,7 @@ process.env.ADMIN_PASSWORD = 'test-admin-password';
 process.env.ADMIN_COOKIE_SECRET = 'test-cookie-secret';
 
 const app = require('../app');
+const service = require('../src/services/evaluation-service');
 const { db } = require('../src/db');
 
 function request(server, pathname) {
@@ -24,6 +25,33 @@ function request(server, pathname) {
 
         req.on('error', reject);
         req.end();
+    });
+}
+
+function postJson(server, pathname, payload) {
+    const { port } = server.address();
+    const body = JSON.stringify(payload);
+
+    return new Promise((resolve, reject) => {
+        const req = http.request({
+            port,
+            path: pathname,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body),
+            },
+        }, (res) => {
+            const chunks = [];
+            res.on('data', chunk => chunks.push(chunk));
+            res.on('end', () => {
+                const text = Buffer.concat(chunks).toString('utf8');
+                resolve({ res, text, json: JSON.parse(text) });
+            });
+        });
+
+        req.on('error', reject);
+        req.end(body);
     });
 }
 
@@ -62,6 +90,37 @@ test('historical results require admin authentication', async () => {
         const res = await request(server, '/results/history/1');
         assert.equal(res.statusCode, 302);
         assert.equal(res.headers.location, '/admin/login');
+    } finally {
+        server.close();
+    }
+});
+
+test('evaluation PIN does not require turma room access', async () => {
+    service.addTeacher('Avaliador PIN', 'senha');
+    const teacher = service.getTeacherList().find((row) => row.name === 'Avaliador PIN');
+    service.createTurma('Turma PIN', teacher.id, 'senha-da-turma');
+    const turma = service.getTurmas().find((row) => row.name === 'Turma PIN');
+    service.createCandidate({ name: 'Aluno PIN', gender: 'male', presence: '100%', status: 'Bolsista', turma_id: turma.id });
+    const code = service.generateSessionCode(turma.id);
+
+    const server = http.createServer(app).listen(0);
+
+    try {
+        const bad = await postJson(server, '/turmas/evaluate-access', {
+            evaluatorName: 'Avaliador PIN',
+            turmaId: turma.id,
+            code: '0000',
+        });
+        assert.equal(bad.json.success, false);
+
+        const good = await postJson(server, '/turmas/evaluate-access', {
+            evaluatorName: 'Avaliador PIN',
+            turmaId: turma.id,
+            code,
+        });
+        assert.equal(good.json.success, true);
+        assert.equal(good.json.redirectUrl, `/evaluate/Avaliador%20PIN?turmaId=${turma.id}`);
+        assert.match(good.res.headers['set-cookie'][0], new RegExp(`evaluation_access_${turma.id}=`));
     } finally {
         server.close();
     }
