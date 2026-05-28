@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerenciar <%= turma.name %> | Admin</title>
+    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/adm.css">
+    <link rel="stylesheet" href="/theme.css">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
 </head>
 <body class="admin-body">
@@ -18,8 +20,12 @@
                     <p style="color: var(--muted); margin: 8px 0 0;">Responsável: <%= turma.teacher_name %></p>
                 </div>
             </div>
-            <div style="display: flex; gap: 12px;">
-                <a href="/admin" class="ghost-link">Voltar</a>
+            <div style="display: flex; align-items:center; gap: 12px;">
+                <button type="button" class="theme-toggle" data-theme-toggle aria-label="Alternar tema">
+                    <span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-knob"></span></span>
+                    <span data-theme-label>Claro</span>
+                </button>
+                <a href="/admin" class="ghost-link nav-action back">Voltar</a>
             </div>
         </header>
 

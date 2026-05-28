@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Selecionar Turma | Avaliação</title>
+    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/home.css">
     <link rel="stylesheet" href="/turmas.css">
+    <link rel="stylesheet" href="/theme.css">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -14,7 +16,11 @@
     <% const availableEvaluationTurmas = typeof activeEvaluationTurmas !== 'undefined' ? activeEvaluationTurmas : []; %>
     <div class="turmas-container">
         <div class="turmas-topbar">
-            <a href="/" class="ghost-link">Voltar</a>
+            <a href="/" class="ghost-link nav-action back">Voltar</a>
+            <button type="button" class="theme-toggle" data-theme-toggle aria-label="Alternar tema">
+                <span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-knob"></span></span>
+                <span data-theme-label>Claro</span>
+            </button>
             <button
                 type="button"
                 id="globalEvaluationButton"

@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administração | Fênix Dança</title>
+    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/adm.css">
+    <link rel="stylesheet" href="/theme.css">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -14,7 +16,7 @@
         <!-- HEADER -->
         <header class="admin-header">
             <div style="display:flex; align-items:center; gap:12px;">
-                <a href="/" class="ghost-link">Voltar</a>
+                <a href="/" class="ghost-link nav-action back">Voltar</a>
             </div>
 
             <div style="text-align:center;">
@@ -22,9 +24,13 @@
                 <h1 style="margin:4px 0 0; font-size:1.5rem;">Secretaria Fênix</h1>
             </div>
 
-            <div>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <button type="button" class="theme-toggle" data-theme-toggle aria-label="Alternar tema">
+                    <span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-knob"></span></span>
+                    <span data-theme-label>Claro</span>
+                </button>
                 <form action="/admin/logout" method="POST" style="margin:0;">
-                    <button type="submit" class="danger" style="padding:8px 18px; border-radius:999px; font-size:0.88rem;">Sair</button>
+                    <button type="submit" class="danger nav-action exit" style="padding:8px 18px; font-size:0.88rem;">Sair</button>
                 </form>
             </div>
         </header>
