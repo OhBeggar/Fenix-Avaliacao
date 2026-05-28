@@ -8,7 +8,6 @@
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<base target="_blank">
 </head>
 <body class="admin-body">
     <main class="admin-shell">
@@ -400,22 +399,5 @@
     <script src="/transitions.js?v=2"></script>
     <script src="/toast.js?v=2"></script>
 
-    <!-- PROTEÇÃO: Impede abertura de nova aba em formulários e links internos -->
-    <script>
-    (function() {
-        // Remove target="_blank" de todos os formulários e links internos
-        document.querySelectorAll('form[action^="/"], a[href^="/"]').forEach(function(el) {
-            el.removeAttribute('target');
-        });
-
-        // Garante que submits de formulários internos não abram nova aba
-        document.addEventListener('submit', function(e) {
-            const form = e.target;
-            if (form.getAttribute('action') && form.getAttribute('action').startsWith('/')) {
-                form.removeAttribute('target');
-            }
-        }, true);
-    })();
-    </script>
 </body>
 </html>
