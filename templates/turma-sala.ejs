@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sala da Turma | <%= turma.name %></title>
-    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/home.css">
     <link rel="stylesheet" href="/turmas.css">
     <link rel="stylesheet" href="/adm.css">
@@ -25,10 +24,6 @@
                 </div>
             </div>
             <div style="display:flex; align-items:center; gap:12px;">
-                <button type="button" class="theme-toggle" data-theme-toggle aria-label="Alternar tema">
-                    <span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-knob"></span></span>
-                    <span data-theme-label>Claro</span>
-                </button>
                 <a href="/turmas/<%= encodeURIComponent(evaluatorName) %>" class="ghost-link nav-action back">Voltar</a>
             </div>
         </header>

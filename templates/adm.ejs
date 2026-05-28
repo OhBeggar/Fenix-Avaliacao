@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administração | Fênix Dança</title>
-    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/adm.css">
     <link rel="stylesheet" href="/theme.css">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
@@ -25,10 +24,6 @@
             </div>
 
             <div style="display:flex; align-items:center; gap:12px;">
-                <button type="button" class="theme-toggle" data-theme-toggle aria-label="Alternar tema">
-                    <span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-knob"></span></span>
-                    <span data-theme-label>Claro</span>
-                </button>
                 <form action="/admin/logout" method="POST" style="margin:0;">
                     <button type="submit" class="danger nav-action exit" style="padding:8px 18px; font-size:0.88rem;">Sair</button>
                 </form>
@@ -137,6 +132,7 @@
                         <% turmas.forEach(t => { %>
                             <label class="selection-option">
                                 <input type="checkbox" name="turmaIds" value="<%= t.id %>" class="selection-checkbox">
+                                <span class="checkbox-visual" aria-hidden="true"></span>
                                 <div class="selection-copy">
                                     <strong><%= t.name %></strong>
                                     <span>Prof: <%= t.teacher_name %></span>
@@ -367,6 +363,7 @@
                                                         <label class="assign-option">
                                                             <input type="checkbox" name="candidates" value="<%= c.id %>" <%= c.turma_id == t.id ? 'checked' : '' %> 
                                                                    class="assign-checkbox">
+                                                            <span class="checkbox-visual" aria-hidden="true"></span>
                                                             <span><%= c.name %></span>
                                                         </label>
                                                     <% }) %>

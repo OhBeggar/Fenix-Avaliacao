@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= typeof historicalEvent !== 'undefined' ? 'Histórico Oficial' : 'Resultados Finais' %> | Fênix Dança</title>
-    <script src="/theme.js"></script>
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
     <link rel="stylesheet" href="/resultados.css">
     <link rel="stylesheet" href="/theme.css">
@@ -32,11 +31,6 @@
             <a href="<%= typeof historicalEvent !== 'undefined' ? '/results/history' : '/' %>" class="ghost-link nav-action back">
                 Voltar
             </a>
-            <button type="button" class="theme-toggle" data-theme-toggle aria-label="Alternar tema">
-                <span class="theme-toggle-track" aria-hidden="true"><span class="theme-toggle-knob"></span></span>
-                <span data-theme-label>Claro</span>
-            </button>
-            
             <% if (typeof historicalEvent === 'undefined') { %>
                 <form method="GET" action="/results" class="turma-filter-form">
                     <select name="turmaId" onchange="this.form.submit()">
