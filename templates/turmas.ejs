@@ -14,6 +14,17 @@
 <body>
     <% const availableEvaluationTurmas = typeof activeEvaluationTurmas !== 'undefined' ? activeEvaluationTurmas : []; %>
     <div class="turmas-container">
+        <header class="turmas-header">
+            <div style="display:flex; gap:12px; align-items:center; justify-content:center; margin-bottom: 8px;">
+                <img src="/images/icons8-fenix-cute-color-70.png" alt="Icon" style="height: 40px; width: auto;">
+                <div>
+                    <span class="eyebrow">Bem-vindo, <%= evaluatorName %></span>
+                    <h1>Selecione a Turma</h1>
+                </div>
+            </div>
+            <p class="intro">Entre na avaliação com o PIN do admin ou acesse a sala interna com a senha da turma.</p>
+        </header>
+
         <div class="turmas-topbar">
             <a href="/" class="ghost-link nav-action back">Voltar</a>
             <button
@@ -27,16 +38,6 @@
                 <% } %>
             </button>
         </div>
-        <header class="turmas-header">
-            <div style="display:flex; gap:12px; align-items:center; justify-content:center; margin-bottom: 8px;">
-                <img src="/images/icons8-fenix-cute-color-70.png" alt="Icon" style="height: 40px; width: auto;">
-                <div>
-                    <span class="eyebrow">Bem-vindo, <%= evaluatorName %></span>
-                    <h1>Selecione a Turma</h1>
-                </div>
-            </div>
-            <p class="intro">Entre na avaliação com o PIN do admin ou acesse a sala interna com a senha da turma.</p>
-        </header>
 
         <% if (typeof message !== 'undefined' && message) { %>
             <div class="message error" style="margin-bottom:18px;"><%= message %></div>

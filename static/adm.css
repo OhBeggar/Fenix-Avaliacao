@@ -1086,17 +1086,48 @@ code {
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 900px) {
+    /* Header permanece em linha: [Voltar] [Título] [Sair] */
     .admin-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 12px;
-        position: relative;
-        top: 0;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        position: sticky;
+        top: 8px;
     }
 
+    /* Colunas laterais não esticam; título ocupa o espaço do meio */
     .admin-header > div:first-child,
     .admin-header > div:last-child {
+        flex-shrink: 0;
         justify-content: center;
+    }
+
+    .admin-header > div:nth-child(2) {
+        flex: 1;
+        min-width: 0;
+        text-align: center;
+    }
+
+    /* Título compacto no mobile */
+    .admin-header h1 {
+        font-size: 1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .admin-header .eyebrow {
+        font-size: 0.65rem;
+        padding: 2px 8px;
+    }
+
+    /* Botões laterais menores */
+    .admin-header .ghost-link,
+    .admin-header button {
+        padding: 7px 12px;
+        font-size: 0.82rem;
+        min-height: 36px;
     }
 
     .session-header {
