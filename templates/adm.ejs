@@ -127,15 +127,13 @@
             <div class="accordion-content">
                 <form action="/admin/close-semester" method="POST" 
                       onsubmit="return confirm('Fechar o semestre gravará o histórico e reiniciará chamadas para as turmas selecionadas. Continuar?');">
-                    <div style="max-height:280px; overflow:auto; margin-bottom:16px; display:grid; gap:10px; padding:4px;">
+                    <div class="selection-list">
                         <% turmas.forEach(t => { %>
-                            <label style="display:flex; gap:12px; align-items:center; padding:12px 14px; border-radius:var(--radius-sm); border:1.5px solid var(--line); cursor:pointer; transition:all 0.15s ease;"
-                                   onmouseover="this.style.borderColor='#c7d2fe'; this.style.background='var(--primary-light)'"
-                                   onmouseout="this.style.borderColor='var(--line)'; this.style.background=''">
-                                <input type="checkbox" name="turmaIds" value="<%= t.id %>" style="width:20px; height:20px; accent-color:var(--primary); flex-shrink:0;">
-                                <div style="flex:1;">
-                                    <strong style="display:block; font-size:0.95rem;"><%= t.name %></strong>
-                                    <span style="font-size:0.82rem; color:var(--muted); font-weight:500;">Prof: <%= t.teacher_name %></span>
+                            <label class="selection-option">
+                                <input type="checkbox" name="turmaIds" value="<%= t.id %>" class="selection-checkbox">
+                                <div class="selection-copy">
+                                    <strong><%= t.name %></strong>
+                                    <span>Prof: <%= t.teacher_name %></span>
                                 </div>
                             </label>
                         <% }) %>
@@ -358,14 +356,12 @@
                                             <h3>Vincular Alunos à <%= t.name %></h3>
                                             <form action="/admin/turma/assign" method="POST">
                                                 <input type="hidden" name="turmaId" value="<%= t.id %>">
-                                                <div style="max-height:360px; overflow:auto; margin:16px 0; display:grid; gap:8px;">
+                                                <div class="assign-list">
                                                     <% allCandidates.forEach(c => { %>
-                                                        <label style="display:flex; gap:10px; align-items:center; padding:10px 12px; border-radius:var(--radius-sm); border:1.5px solid var(--line); cursor:pointer; transition:all 0.15s ease;"
-                                                               onmouseover="this.style.borderColor='#c7d2fe'; this.style.background='var(--primary-light)'"
-                                                               onmouseout="this.style.borderColor='var(--line)'; this.style.background=''">
+                                                        <label class="assign-option">
                                                             <input type="checkbox" name="candidates" value="<%= c.id %>" <%= c.turma_id == t.id ? 'checked' : '' %> 
-                                                                   style="width:18px; height:18px; accent-color:var(--primary); flex-shrink:0;">
-                                                            <span style="font-weight:500; font-size:0.92rem;"><%= c.name %></span>
+                                                                   class="assign-checkbox">
+                                                            <span><%= c.name %></span>
                                                         </label>
                                                     <% }) %>
                                                 </div>

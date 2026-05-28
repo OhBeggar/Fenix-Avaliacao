@@ -930,8 +930,11 @@ dialog {
     border: 1.5px solid var(--line);
     max-width: 480px;
     width: 90%;
+    max-height: min(720px, calc(100vh - 48px));
+    margin: auto;
     background: var(--panel);
     box-shadow: var(--shadow-lg);
+    overflow: hidden;
 }
 
 dialog::backdrop {
@@ -953,6 +956,109 @@ dialog .modal-actions {
     gap: 12px;
     justify-content: flex-end;
     margin-top: 20px;
+}
+
+.assign-list {
+    display: grid;
+    gap: 8px;
+    max-height: min(380px, 52vh);
+    margin: 16px 0;
+    padding-right: 4px;
+    overflow: auto;
+}
+
+.assign-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.assign-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.assign-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+
+.selection-list {
+    display: grid;
+    gap: 10px;
+    max-height: 280px;
+    margin-bottom: 16px;
+    padding: 4px;
+    overflow: auto;
+}
+
+.selection-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.selection-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.selection-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+
+.selection-option,
+.assign-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 56px;
+    margin: 0;
+    padding: 12px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.selection-option:hover,
+.selection-option:has(.selection-checkbox:focus-visible),
+.assign-option:hover,
+.assign-option:has(.assign-checkbox:focus-visible) {
+    border-color: #c7d2fe;
+    background: var(--primary-light);
+    box-shadow: var(--shadow-sm);
+}
+
+.selection-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.selection-copy strong {
+    display: block;
+    font-size: 0.95rem;
+    line-height: 1.3;
+}
+
+.selection-copy span {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+.assign-option span {
+    min-width: 0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.3;
+}
+
+.selection-checkbox,
+.assign-checkbox {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    margin: 0;
+    accent-color: var(--primary);
 }
 
 /* ===== BACK LINK ===== */

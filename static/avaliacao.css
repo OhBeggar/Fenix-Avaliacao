@@ -166,6 +166,7 @@ body {
     background: var(--panel);
     box-shadow: var(--shadow);
     max-height: calc(100vh - 280px);
+    overscroll-behavior: contain;
     animation: fadeInUp 0.5s ease-out 0.1s both;
 }
 
@@ -188,7 +189,8 @@ body {
 }
 
 table {
-    width: 100%;
+    width: max-content;
+    min-width: 1420px;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 0.88rem;
@@ -208,15 +210,41 @@ thead th {
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--accent-dark);
-    padding: 14px 10px;
+    padding: 12px 8px;
     text-align: center;
     vertical-align: middle;
     border-bottom: 2px solid #99f6e4;
     white-space: normal;
-    min-width: 90px;
-    max-width: 130px;
+    width: 106px;
+    min-width: 106px;
+    max-width: 126px;
     line-height: 1.3;
     position: relative;
+}
+
+thead th:nth-child(1),
+tbody td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    z-index: 12;
+    width: 64px;
+    min-width: 64px;
+    background: inherit;
+}
+
+thead th:nth-child(2),
+tbody td:nth-child(2) {
+    position: sticky;
+    left: 64px;
+    z-index: 12;
+    background: inherit;
+    box-shadow: 8px 0 12px -12px rgba(15, 23, 42, 0.35);
+}
+
+thead th:nth-child(1),
+thead th:nth-child(2) {
+    z-index: 15;
+    background: linear-gradient(180deg, #f0fdfa, #ccfbf1);
 }
 
 thead th::after {
@@ -252,17 +280,35 @@ tbody tr:hover {
     background: #f0fdfa;
 }
 
+tbody tr:nth-child(odd) td:nth-child(1),
+tbody tr:nth-child(odd) td:nth-child(2) {
+    background: #fff;
+}
+
+tbody tr:nth-child(even) td:nth-child(1),
+tbody tr:nth-child(even) td:nth-child(2) {
+    background: #f8fafc;
+}
+
+tbody tr:hover td:nth-child(1),
+tbody tr:hover td:nth-child(2) {
+    background: #f0fdfa;
+}
+
 tbody tr:hover td {
     border-right-color: #e2e8f0;
 }
 
 .candidate-name {
     text-align: left;
-    min-width: 180px;
+    width: 190px;
+    min-width: 190px;
+    max-width: 190px;
     font-weight: 700;
     color: var(--ink);
     padding-left: 14px;
-    white-space: nowrap;
+    white-space: normal;
+    line-height: 1.35;
 }
 
 /* Number inputs in table */
@@ -305,6 +351,7 @@ td:nth-child(3) {
     justify-content: flex-end;
     gap: 12px;
     margin-top: 16px;
+    padding-bottom: 6px;
     animation: fadeInUp 0.4s ease-out 0.15s both;
 }
 
@@ -326,6 +373,8 @@ td:nth-child(3) {
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
+    user-select: none;
+    white-space: nowrap;
 }
 
 .toolbar button:hover {
@@ -389,10 +438,15 @@ td:nth-child(3) {
         border-radius: var(--radius);
     }
 
+    table {
+        min-width: 1180px;
+    }
+
     thead th {
         font-size: 0.7rem;
         padding: 10px 6px;
-        min-width: 70px;
+        width: 86px;
+        min-width: 86px;
     }
 
     td input[type="text"] {
@@ -402,9 +456,22 @@ td:nth-child(3) {
     }
 
     .candidate-name {
-        min-width: 140px;
+        width: 150px;
+        min-width: 150px;
+        max-width: 150px;
         font-size: 0.85rem;
         padding-left: 10px;
+    }
+
+    thead th:nth-child(1),
+    tbody td:nth-child(1) {
+        width: 52px;
+        min-width: 52px;
+    }
+
+    thead th:nth-child(2),
+    tbody td:nth-child(2) {
+        left: 52px;
     }
 
     th, td {
