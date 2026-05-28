@@ -452,22 +452,11 @@ input[type="password"].pin-input {
     cursor: pointer;
 }
 
-.ghost-link::before {
-    content: "←";
-    display: inline-block;
-    font-size: 0.9rem;
-    transition: transform 0.2s ease;
-}
-
 .ghost-link:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow);
     border-color: var(--primary);
     color: var(--primary);
-}
-
-.ghost-link:hover::before {
-    transform: translateX(-3px);
 }
 
 /* ===== RESPONSIVE ===== */
