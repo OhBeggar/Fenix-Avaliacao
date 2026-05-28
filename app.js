@@ -418,7 +418,15 @@ app.post('/admin/logout', (req, res) => {
 
 // Admin Dashboard
 app.get('/admin', adminAuthMiddleware, (req, res) => {
-  res.render('adm', getAdminLocals());
+  const activeSessions = evaluationService.getActiveSessions();
+  const latestSession = activeSessions[0] || null;
+
+  res.render('adm', getAdminLocals(null, {
+    sessionCode: latestSession ? latestSession.code : null,
+    currentTurmaName: latestSession ? latestSession.turma_name : null,
+    currentTurmaId: latestSession ? latestSession.turma_id : null,
+    activeSessions: activeSessions,
+  }));
 });
 
 // SSE endpoint para clientes ouvirem eventos do servidor (PINs / sessões)
@@ -458,13 +466,7 @@ app.post('/admin/generate-code', adminAuthMiddleware, (req, res) => {
     app.locals.serverEvents.emit('session', { event: 'session_started', turmaId: Number(turmaId), code });
   } catch (e) {}
 
-  res.render('adm', getAdminLocals(
-    { type: 'success', text: 'Código gerado com sucesso!' },
-    {
-    sessionCode: code,
-    currentTurmaName: turma ? turma.name : '',
-    }
-  ));
+  res.redirect('/admin');
 });
 
 // Encerrar Sessão
@@ -472,14 +474,14 @@ app.post('/admin/end-session', adminAuthMiddleware, (req, res) => {
   evaluationService.endCurrentSession();
   try { app.locals.serverEvents.emit('session', { event: 'session_ended' }); } catch (e) {}
 
-  res.render('adm', getAdminLocals({ type: 'success', text: 'Sessão encerrada!' }));
+  res.redirect('/admin');
 });
 
 app.post('/admin/close-evaluation', adminAuthMiddleware, (req, res) => {
   try {
     const eventId = evaluationService.closeEvaluationEvent(req.body.turmaId, 'admin');
     try { app.locals.serverEvents.emit('session', { event: 'session_closed', turmaId: Number(req.body.turmaId) }); } catch (e) {}
-    res.render('adm', getAdminLocals({ type: 'success', text: `Avaliação fechada no histórico #${eventId}.` }));
+    res.redirect('/admin');
   } catch (error) {
     res.render('adm', getAdminLocals({ type: 'error', text: error.message }));
   }

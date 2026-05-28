@@ -9,6 +9,7 @@
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<base target="_blank">
 </head>
 <body>
     <% const availableEvaluationTurmas = typeof activeEvaluationTurmas !== 'undefined' ? activeEvaluationTurmas : []; %>
@@ -192,8 +193,17 @@
         // Passa dados do servidor para o JS de forma segura para o linter
         window.TURMAS_CONFIG = JSON.parse(document.getElementById('turmas-config').textContent);
     </script>
-    <script src="/transitions.js"></script>
-    <script src="/toast.js"></script>
+    <script src="/transitions.js?v=2"></script>
+    <script src="/toast.js?v=2"></script>
     <script src="/turmas.js"></script>
+
+    <!-- PROTEÇÃO: Impede abertura de nova aba -->
+    <script>
+    (function() {
+        document.querySelectorAll('a[href^="/"], form[action^="/"]').forEach(function(el) {
+            el.removeAttribute('target');
+        });
+    })();
+    </script>
 </body>
 </html>

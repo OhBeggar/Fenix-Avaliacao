@@ -132,6 +132,9 @@ function initDb() {
   try {
     db.exec("ALTER TABLE sessions ADD COLUMN closed_at TEXT");
   } catch (e) {}
+  try {
+    db.exec("ALTER TABLE sessions ADD COLUMN expires_at TEXT");
+  } catch (e) {}
 
   migrateJustifiedAttendance();
   seedCandidates();
@@ -281,10 +284,12 @@ function generateSessionCode(turmaId) {
   }
 
   const now = new Date();
+  const expiresAt = new Date(now.getTime() + (6 * 60 * 60 * 1000)); // +6 horas
+
   db.prepare("UPDATE sessions SET status = 'closed', closed_at = ? WHERE turma_id = ? AND status = 'active'")
     .run(now.toISOString(), turmaId);
-  db.prepare('INSERT INTO sessions (code, turma_id, status, created_at, session_date) VALUES (?, ?, ?, ?, ?)')
-    .run(code, turmaId, 'active', now.toISOString(), getLocalDateString(now));
+  db.prepare('INSERT INTO sessions (code, turma_id, status, created_at, session_date, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(code, turmaId, 'active', now.toISOString(), getLocalDateString(now), expiresAt.toISOString());
   return code;
 }
 
@@ -867,6 +872,24 @@ function reopenSemesterForTurma(turmaId, reopenedBy = 'admin') {
   return code;
 }
 
+function getActiveSessions() {
+  const now = new Date().toISOString();
+  return db.prepare(`SELECT s.*, t.name as turma_name 
+    FROM sessions s 
+    JOIN turmas t ON t.id = s.turma_id 
+    WHERE s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > ?)
+    ORDER BY s.created_at DESC`).all(now);
+}
+
+function getActiveSessionCodeForTurma(turmaId) {
+  const now = new Date().toISOString();
+  return db.prepare(`SELECT code, turma_id, expires_at, t.name as turma_name 
+    FROM sessions s 
+    JOIN turmas t ON t.id = s.turma_id 
+    WHERE s.turma_id = ? AND s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > ?)
+    ORDER BY s.id DESC LIMIT 1`).get(turmaId, now);
+}
+
 function safeJsonParse(value, fallback) {
   try {
     return JSON.parse(value);
@@ -969,6 +992,8 @@ module.exports = {
   reopenSemesterForTurma,
   getEvaluationHistory,
   getEvaluationHistoryReport,
+  getActiveSessions,
+  getActiveSessionCodeForTurma,
 
   // Admin
   createCandidate,
