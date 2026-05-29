@@ -841,6 +841,9 @@ function closeSemesterForTurmas(turmaIds = [], closedBy = 'admin', options = { p
         db.prepare('DELETE FROM attendance_records WHERE meeting_id IN (SELECT id FROM class_meetings WHERE turma_id = ?)').run(tid);
         db.prepare('DELETE FROM class_meetings WHERE turma_id = ?').run(tid);
 
+        // Remove notas (scores) dos candidatos desta turma para reinício
+        db.prepare('DELETE FROM scores WHERE candidate_id IN (SELECT id FROM candidates WHERE turma_id = ?)').run(tid);
+
         // Zera presença manual dos candidatos desta turma para reinício
         db.prepare("UPDATE candidates SET presence = '0%' WHERE turma_id = ?").run(tid);
       });

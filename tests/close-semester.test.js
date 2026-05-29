@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const { getCriteriaFor } = require('../src/constants');
+
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'avali-close-semester-'));
 process.env.EVALUATIONS_DB_PATH = path.join(tempDir, 'evaluations.db');
 
@@ -42,6 +44,18 @@ test('closeSemesterForTurmas closes a turma with active session and evaluator', 
     const evaluator = service.getOrCreateEvaluator('tester-close');
     assert.ok(evaluator && evaluator.id);
 
+    // Create and save sample scores for the candidate so we can assert they are cleared on close
+    const formBody = {};
+    const criteria = getCriteriaFor(candidate.gender);
+    criteria.forEach(criterion => {
+        formBody[`${candidate.id}_${criterion}`] = '5';
+    });
+    service.saveScores(evaluator.id, formBody);
+
+    // Ensure there were scores before closing
+    const preScores = service.getEvaluatorScores(evaluator.id);
+    assert.ok(Object.keys(preScores).length > 0);
+
     // Call closeSemesterForTurmas
     const result = service.closeSemesterForTurmas([turma.id], 'test', { preserveSnapshots: true });
 
@@ -59,6 +73,10 @@ test('closeSemesterForTurmas closes a turma with active session and evaluator', 
     // There should be at least one evaluation_event recorded
     const history = service.getEvaluationHistory().filter(h => h.turma_id === turma.id);
     assert.ok(history.length >= 1);
+
+    // After close, scores for evaluators should be cleared
+    const postScores = service.getEvaluatorScores(evaluator.id);
+    assert.equal(Object.keys(postScores).length, 0);
 });
 
 test('closeSemesterForTurmas returns error when there is no active session', () => {
