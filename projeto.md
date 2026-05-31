@@ -18,17 +18,26 @@ O sistema segue as regras oficiais definidas nos documentos de referência da au
 - **Peso 2:** Deslocamento/Floreio (80 pts)
 - **Peso 3:** Demais critérios (150 pts)
 - **Total:** 250 pontos
-- **Nota Final:** Escala de 0 a 10 (Pontuação / 25)
+- **Aprovação por pontos:** 175 pontos, equivalentes a 70% de 250.
+- **Nota Final:** Escala de 0 a 10 (Pontuação / 25). Assim, 175 pontos equivalem a nota 7,0.
 
 ### Regra de Aprovação
 O candidato deve cumprir **todos** os requisitos abaixo:
 1. Presença nas aulas $\ge$ 80% (Eliminatória)
-2. Nota final $\ge$ 7,0
+2. Nota final $\ge$ 7,0 (175 pontos ou mais)
 3. Aprovação pela maioria simples dos avaliadores ativos
+
+Maioria simples significa **mais da metade** dos avaliadores, portanto empate reprova. Exemplos:
+- 2 avaliadores: aprova com 2/2; reprova com 1/2.
+- 3 avaliadores: aprova com 2/3.
+- 9 avaliadores: aprova com 5/9.
+- 10 avaliadores: aprova com 6/10.
+- 16 avaliadores: aprova com 9/16.
+- 22 avaliadores: aprova com 12/22.
 
 ### Escala de Avaliação
 - Notas inteiras de **1 a 10**.
-- **X** para item não avaliado (excluído da média).
+- **X** para item não avaliado. O `X` não entra na média daquele critério; se um critério ficar sem nenhuma nota válida, ele conta como zero na consolidação final.
 
 ## Arquitetura Técnica
 

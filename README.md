@@ -30,6 +30,15 @@ npm test
 npm run check
 ```
 
+## Regras de Avaliação
+
+- Frequência mínima: candidato com menos de `80%` de presença fica automaticamente reprovado.
+- Notas: professores atribuem notas inteiras de `1` a `10`; use `X` quando um item não for avaliado.
+- Pontuação total: `20 + 80 + 150 = 250` pontos.
+- Nota final: `pontuação / 25`; aprovação exige nota final mínima `7,0`, equivalente a `175/250`.
+- Maioria simples: aprovação exige mais da metade dos avaliadores aprovando. Empate reprova.
+- Promoção: candidato aprovado sobe uma patente no fechamento oficial, por exemplo `Bolsista -> Auxiliar`.
+
 ## Segurança de Dados
 
 Este projeto lida com nomes, notas, presença e histórico de avaliação. Não versionar:
