@@ -223,6 +223,10 @@ function verifyTeacher(name, password) {
   return { id: teacher.id, name: teacher.name };
 }
 
+function getTeacherById(teacherId) {
+  return db.prepare('SELECT id, name FROM evaluators WHERE id = ? AND password_hash IS NOT NULL').get(teacherId) || null;
+}
+
 function getTeacherList() {
   return db.prepare('SELECT id, name FROM evaluators ORDER BY name').all();
 }
@@ -703,6 +707,19 @@ function getNextStatus(currentStatus) {
   return hierarchy[currentIndex + 1];
 }
 
+function promoteApprovedCandidates(results, idByName) {
+  const updateStatus = db.prepare('UPDATE candidates SET status = ? WHERE id = ?');
+
+  results.forEach(result => {
+    if (!result || result.status !== 'Aprovado') return;
+
+    const candidateId = idByName.get(result.name);
+    if (!candidateId || !result.final_status) return;
+
+    updateStatus.run(result.final_status, candidateId);
+  });
+}
+
 /**
  * Calcula o resultado individual de um candidato
  */
@@ -851,6 +868,8 @@ function closeEvaluationEvent(turmaId, closedBy = 'admin') {
     report.results.forEach(result => {
       insertSnapshot.run(eventId, idByName.get(result.name) || null, result.name, JSON.stringify(result));
     });
+
+    promoteApprovedCandidates(report.results, idByName);
 
     db.prepare("UPDATE sessions SET status = 'closed', closed_at = ? WHERE id = ?").run(getNowIsoString(), session.id);
     db.prepare('UPDATE evaluators SET last_seen_at = NULL').run();
@@ -1034,6 +1053,7 @@ module.exports = {
   // Autenticação
   addTeacher,
   verifyTeacher,
+  getTeacherById,
   getTeacherList,
   resetTeacherPassword,
   deleteTeacher,

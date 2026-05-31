@@ -31,9 +31,7 @@
         <!-- Banner SSE: mostra quando uma sessão de avaliação estiver disponível (não entra automaticamente) -->
         <div id="sse-banner" style="display:none; background: #fff8e6; border: 1px solid #ffd966; padding: 12px; margin: 12px 0; border-radius:6px;">
             <strong>Avaliação disponível</strong>
-            <span id="sse-code" style="font-weight:600; margin-left:8px;"></span>
-            <button id="sse-join-btn" style="margin-left:16px;">Ir para avaliação</button>
-            <small style="display:block; margin-top:6px; color:var(--muted);">Clique no botão para abrir a avaliação manualmente.</small>
+            <small style="display:block; margin-top:6px; color:var(--muted);">Volte à seleção de turmas e informe o PIN compartilhado pelo admin.</small>
         </div>
 
         <% if (message) { %>
@@ -182,13 +180,9 @@
     <script>
         (function(){
             const turmaId = <%= JSON.stringify(turma.id) %>;
-            const evaluatorName = <%= JSON.stringify(evaluatorName) %>;
             const banner = document.getElementById('sse-banner');
-            const codeEl = document.getElementById('sse-code');
-            const joinBtn = document.getElementById('sse-join-btn');
 
-            function showBanner(code) {
-                codeEl.textContent = code || '';
+            function showBanner() {
                 banner.style.display = 'block';
             }
 
@@ -204,7 +198,7 @@
                             const payload = JSON.parse(e.data);
                             if (!payload) return;
                             if (payload.event === 'session_started' && Number(payload.turmaId) === Number(turmaId)) {
-                                showBanner(payload.code);
+                                showBanner();
                             }
                             if (payload.event === 'session_closed' && Number(payload.turmaId) === Number(turmaId)) {
                                 hideBanner();
@@ -226,27 +220,6 @@
                     console.error('EventSource not available', e);
                 }
             }
-
-            joinBtn.addEventListener('click', async () => {
-                const code = codeEl.textContent;
-                if (!code) return alert('Código não disponível.');
-                try {
-                    const res = await fetch('/turmas/evaluate-access', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ evaluatorName, turmaId, code })
-                    });
-                    const data = await res.json();
-                    if (data && data.success) {
-                        window.location = data.redirectUrl;
-                    } else {
-                        alert((data && data.message) || 'Não foi possível acessar a avaliação.');
-                    }
-                } catch (err) {
-                    console.error(err);
-                    alert('Erro ao conectar com o servidor.');
-                }
-            });
         })();
     </script>
 

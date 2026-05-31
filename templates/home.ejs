@@ -123,7 +123,7 @@
             if (type === 'success') {
                 statusDot.classList.add('green', 'show');
                 nameFeedback.classList.add('success');
-                nameFeedback.textContent = msg || 'Professor cadastrado';
+                nameFeedback.textContent = msg || 'Continue com sua senha';
             } else if (type === 'error') {
                 statusDot.classList.add('red', 'show');
                 nameFeedback.classList.add('error');
@@ -175,7 +175,7 @@
                     setStatus('success');
                     showPassword();
                 } else {
-                    setStatus('error', 'Professor não cadastrado');
+                    setStatus('error', 'Informe o nome completo');
                     hidePassword();
                 }
             } catch (err) {
@@ -224,9 +224,9 @@
                 });
 
                 // Se o servidor redirecionou (302), seguimos manualmente
-                if (res.status === 0 || res.redirected || res.ok) {
+                const redirectUrl = res.headers.get('Location');
+                if (res.status === 0 || res.status === 302 || res.redirected || redirectUrl) {
                     // Tenta pegar o Location header ou faz redirect baseado no nome
-                    const redirectUrl = res.headers.get('Location');
                     if (redirectUrl) {
                         window.location.href = redirectUrl;
                     } else {
@@ -239,8 +239,9 @@
                 const html = await res.text();
                 // Verifica se a resposta contém mensagem de erro
                 if (html.includes('Professor ou senha inválidos') || res.status === 200) {
-                    // Recarrega a página para mostrar a mensagem de erro do servidor
-                    window.location.reload();
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Entrar na Avaliação';
+                    if (window.showToast) showToast('Professor ou senha inválidos.', 'error');
                 }
             } catch (err) {
                 loginBtn.disabled = false;

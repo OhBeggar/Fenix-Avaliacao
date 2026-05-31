@@ -32,18 +32,22 @@ function isAdminAuthenticated(req) {
     return cookies[ADMIN_COOKIE_NAME] === config.adminCookieValue;
 }
 
-function setAdminCookie(res) {
+function getSecureAttribute(secure = false) {
+    return secure ? '; Secure' : '';
+}
+
+function setAdminCookie(res, secure = false) {
     const maxAge = 1000 * 60 * 60 * 8;
     res.setHeader(
         'Set-Cookie',
-        `${ADMIN_COOKIE_NAME}=${encodeURIComponent(config.adminCookieValue)}; HttpOnly; Path=/; Max-Age=${maxAge / 1000}; SameSite=Lax`
+        `${ADMIN_COOKIE_NAME}=${encodeURIComponent(config.adminCookieValue)}; HttpOnly; Path=/; Max-Age=${maxAge / 1000}; SameSite=Lax${getSecureAttribute(secure)}`
     );
 }
 
-function clearAdminCookie(res) {
+function clearAdminCookie(res, secure = false) {
     res.setHeader(
         'Set-Cookie',
-        `${ADMIN_COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`
+        `${ADMIN_COOKIE_NAME}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${getSecureAttribute(secure)}`
     );
 }
 

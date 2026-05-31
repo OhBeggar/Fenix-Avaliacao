@@ -14,6 +14,9 @@ const { buildResultsPdf } = require('./src/services/pdf-service');
 const config = require('./src/config');
 
 const app = express();
+app.set('trust proxy', 1);
+
+const TEACHER_COOKIE_NAME = 'teacher_access';
 
 // Middlewares
 app.use(express.urlencoded({ extended: false }));
@@ -39,6 +42,10 @@ function adminAuthMiddleware(req, res, next) {
     return res.redirect('/admin/login');
   }
   next();
+}
+
+function isSecureRequest(req) {
+  return Boolean(req.secure || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https');
 }
 
 function getAdminLocals(message = null, extra = {}) {
@@ -81,10 +88,11 @@ function readAccessPayload(token) {
   }
 }
 
-function setAccessCookie(res, name, payload) {
+function setAccessCookie(req, res, name, payload) {
   res.cookie(name, signAccessPayload(payload), {
     httpOnly: true,
     sameSite: 'lax',
+    secure: isSecureRequest(req),
     maxAge: 1000 * 60 * 60 * 8,
   });
 }
@@ -101,6 +109,34 @@ function turmaCookieName(turmaId) {
 
 function evaluationCookieName(turmaId) {
   return `evaluation_access_${turmaId}`;
+}
+
+function setTeacherCookie(req, res, teacher) {
+  setAccessCookie(req, res, TEACHER_COOKIE_NAME, {
+    type: 'teacher',
+    evaluatorId: teacher.id,
+    evaluatorName: teacher.name,
+  });
+}
+
+function getTeacherSession(req, expectedName = null) {
+  const payload = readAccessPayload(req.cookies[TEACHER_COOKIE_NAME]);
+  if (!payload || payload.type !== 'teacher') return null;
+
+  const teacher = evaluationService.getTeacherById(payload.evaluatorId);
+  if (!teacher || teacher.name !== payload.evaluatorName) return null;
+  if (expectedName && teacher.name !== expectedName) return null;
+
+  return teacher;
+}
+
+function requireTeacherSession(req, res, expectedName = null) {
+  const teacher = getTeacherSession(req, expectedName);
+  if (!teacher) {
+    res.redirect(`/?message=${encodeURIComponent('Faça login para acessar suas turmas.')}`);
+    return null;
+  }
+  return teacher;
 }
 
 function getLiveSessionState(turmaId = null) {
@@ -133,7 +169,7 @@ function getAttendanceRecordsFromBody(body = {}) {
 
 // Home - Login
 app.get('/', (req, res) => {
-  res.render('home', { message: null });
+  res.render('home', { message: req.query.message || null });
 });
 
 // Login POST
@@ -146,8 +182,10 @@ app.post('/login', async (req, res) => {
     return res.render('home', { message: 'Professor ou senha inválidos.' });
   }
 
+  setTeacherCookie(req, res, teacher);
+
   // 2. Redirecionar para seleção de turmas
-  res.redirect(`/turmas/${encodeURIComponent(name)}`);
+  res.redirect(`/turmas/${encodeURIComponent(teacher.name)}`);
 });
 
 // API: Verificar se professor está cadastrado (para validação em tempo real no login)
@@ -156,16 +194,15 @@ app.post('/api/check-teacher', (req, res) => {
   if (!name || typeof name !== 'string') {
     return res.json({ exists: false });
   }
-  const teachers = evaluationService.getTeacherList();
-  const exists = teachers.some(
-    t => t.name && t.name.toLowerCase().trim() === name.toLowerCase().trim()
-  );
-  res.json({ exists });
+  res.json({ exists: name.trim().length >= 2 });
 });
 
 // Página de Seleção de Turmas
 app.get('/turmas/:name', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
+  const teacher = requireTeacherSession(req, res, evaluatorName);
+  if (!teacher) return;
+
   const turmas = evaluationService.getTurmas().map(turma => {
     const activeSession = evaluationService.getActiveSessionForTurma(turma.id);
     return {
@@ -191,25 +228,31 @@ app.get('/turmas/:name', (req, res) => {
 
 // API: Verificar senha da turma
 app.post('/turmas/access', (req, res) => {
-  const { evaluatorName, turmaId, password } = req.body;
+  const { turmaId, password } = req.body;
+  const teacher = getTeacherSession(req);
+  if (!teacher) {
+    return res.status(401).json({ success: false, message: 'Faça login novamente para acessar a turma.' });
+  }
 
   if (!evaluationService.verifyTurmaPassword(turmaId, password)) {
     return res.json({ success: false, message: 'Senha da turma inválida.' });
   }
 
-  setAccessCookie(res, turmaCookieName(turmaId), {
+  setAccessCookie(req, res, turmaCookieName(turmaId), {
     type: 'turma',
-    evaluatorName,
+    evaluatorName: teacher.name,
     turmaId,
   });
 
-  res.json({ success: true, redirectUrl: `/turmas/${encodeURIComponent(evaluatorName)}/${turmaId}` });
+  res.json({ success: true, redirectUrl: `/turmas/${encodeURIComponent(teacher.name)}/${turmaId}` });
 });
 
 // Sala da Turma
 app.get('/turmas/:name/:turmaId', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = parseInt(req.params.turmaId, 10);
+  const teacher = requireTeacherSession(req, res, evaluatorName);
+  if (!teacher) return;
 
   if (!hasAccess(req, turmaCookieName(turmaId), { type: 'turma', evaluatorName, turmaId })) {
     return res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}`);
@@ -243,6 +286,8 @@ app.post('/turmas/:name/:turmaId/meetings', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = parseInt(req.params.turmaId, 10);
   const turma = evaluationService.getTurmaById(turmaId);
+  const teacher = requireTeacherSession(req, res, evaluatorName);
+  if (!teacher) return;
 
   if (!hasAccess(req, turmaCookieName(turmaId), { type: 'turma', evaluatorName, turmaId })) {
     return res.status(403).send('Acesso à turma não liberado.');
@@ -265,6 +310,8 @@ app.post('/turmas/:name/:turmaId/attendance/:meetingId', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = parseInt(req.params.turmaId, 10);
   const turma = evaluationService.getTurmaById(turmaId);
+  const teacher = requireTeacherSession(req, res, evaluatorName);
+  if (!teacher) return;
 
   if (!hasAccess(req, turmaCookieName(turmaId), { type: 'turma', evaluatorName, turmaId })) {
     return res.status(403).send('Acesso à turma não liberado.');
@@ -284,7 +331,11 @@ app.post('/turmas/:name/:turmaId/attendance/:meetingId', (req, res) => {
 
 // API: Verificar Código PIN da avaliação
 app.post('/turmas/evaluate-access', (req, res) => {
-  const { evaluatorName, turmaId, code } = req.body;
+  const { turmaId, code } = req.body;
+  const teacher = getTeacherSession(req);
+  if (!teacher) {
+    return res.status(401).json({ success: false, message: 'Faça login novamente para acessar a avaliação.' });
+  }
   
   // 1. Verificar se o código existe e está ativo
   const session = evaluationService.verifySessionCode(code, turmaId);
@@ -292,14 +343,14 @@ app.post('/turmas/evaluate-access', (req, res) => {
     return res.json({ success: false, message: 'PIN inválido, expirado ou fora da data de avaliação.' });
   }
 
-  setAccessCookie(res, evaluationCookieName(turmaId), {
+  setAccessCookie(req, res, evaluationCookieName(turmaId), {
     type: 'evaluation',
-    evaluatorName,
+    evaluatorName: teacher.name,
     turmaId,
     sessionId: session.id,
   });
 
-  res.json({ success: true, redirectUrl: `/evaluate/${encodeURIComponent(evaluatorName)}?turmaId=${turmaId}` });
+  res.json({ success: true, redirectUrl: `/evaluate/${encodeURIComponent(teacher.name)}?turmaId=${turmaId}` });
 });
 
 
@@ -307,6 +358,9 @@ app.post('/turmas/evaluate-access', (req, res) => {
 app.get('/evaluate/:name', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
+  const teacher = requireTeacherSession(req, res, evaluatorName);
+  if (!teacher) return;
+
   if (!turmaId || !hasAccess(req, evaluationCookieName(turmaId), { type: 'evaluation', evaluatorName, turmaId })) {
     return res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}?message=${encodeURIComponent('Informe o PIN ativo antes de avaliar.')}`);
   }
@@ -342,6 +396,9 @@ app.get('/evaluate/:name', (req, res) => {
 app.post('/evaluate/:name', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
+  const teacher = requireTeacherSession(req, res, evaluatorName);
+  if (!teacher) return;
+
   if (!turmaId || !hasAccess(req, evaluationCookieName(turmaId), { type: 'evaluation', evaluatorName, turmaId })) {
     return res.status(403).send('Acesso à avaliação não liberado.');
   }
@@ -367,12 +424,12 @@ app.get('/api/evaluators/status', (req, res) => {
     });
   }
 
-  const evaluatorName = req.query.evaluatorName ? String(req.query.evaluatorName) : '';
+  const teacher = getTeacherSession(req);
   if (
-    evaluatorName
-    && hasAccess(req, evaluationCookieName(turmaId), { type: 'evaluation', evaluatorName, turmaId })
+    teacher
+    && hasAccess(req, evaluationCookieName(turmaId), { type: 'evaluation', evaluatorName: teacher.name, turmaId })
   ) {
-    const evaluator = evaluationService.getOrCreateEvaluator(evaluatorName);
+    const evaluator = evaluationService.getOrCreateEvaluator(teacher.name);
     evaluationService.touchEvaluatorForSession(evaluator.id, turmaId);
   }
 
@@ -457,7 +514,7 @@ app.post('/admin/login', (req, res) => {
   const { password } = req.body;
   
   if (password === config.adminPassword) {
-    setAdminCookie(res);
+    setAdminCookie(res, isSecureRequest(req));
     return res.redirect('/admin');
   }
   
@@ -465,7 +522,7 @@ app.post('/admin/login', (req, res) => {
 });
 
 app.post('/admin/logout', (req, res) => {
-  clearAdminCookie(res);
+  clearAdminCookie(res, isSecureRequest(req));
   res.redirect('/');
 });
 
@@ -483,7 +540,8 @@ app.get('/events', (req, res) => {
 
   const send = (data) => {
     try {
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      const { code, ...safePayload } = data || {};
+      res.write(`data: ${JSON.stringify(safePayload)}\n\n`);
     } catch (e) {
       // ignore
     }
@@ -508,7 +566,7 @@ app.post('/admin/generate-code', adminAuthMiddleware, (req, res) => {
   const turma = evaluationService.getTurmas().find(t => t.id == turmaId);
   // Emite evento para clientes informando que uma sessão foi iniciada (PIN gerado)
   try {
-    app.locals.serverEvents.emit('session', { event: 'session_started', turmaId: Number(turmaId), code });
+    app.locals.serverEvents.emit('session', { event: 'session_started', turmaId: Number(turmaId) });
   } catch (e) {}
 
   res.redirect('/admin');
@@ -574,7 +632,7 @@ app.post('/admin/reopen-semester', adminAuthMiddleware, (req, res) => {
     if (!turmaId) return res.render('adm', getAdminLocals({ type: 'error', text: 'Turma não informada.' }));
 
     const code = evaluationService.reopenSemesterForTurma(turmaId, 'admin');
-    try { app.locals.serverEvents.emit('session', { event: 'session_started', turmaId: Number(turmaId), code }); } catch (e) {}
+    try { app.locals.serverEvents.emit('session', { event: 'session_started', turmaId: Number(turmaId) }); } catch (e) {}
     res.render('adm', getAdminLocals({ type: 'success', text: `Semestre reaberto. Novo código de sessão: ${code}` }));
   } catch (error) {
     res.render('adm', getAdminLocals({ type: 'error', text: String(error.message || error) }));

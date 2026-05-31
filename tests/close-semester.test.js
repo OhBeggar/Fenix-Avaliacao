@@ -33,6 +33,20 @@ function createTurmaWithCandidate(presence = '100%') {
     return { turma, candidate };
 }
 
+function saveScoresForCandidate(candidate, score) {
+    const evaluator = service.getOrCreateEvaluator(`avaliador-${Date.now()}-${Math.random()}`);
+    service.touchEvaluatorForSession(evaluator.id, candidate.turma_id);
+
+    const formBody = {};
+    const criteria = getCriteriaFor(candidate.gender);
+    criteria.forEach(criterion => {
+        formBody[`${candidate.id}_${criterion}`] = String(score);
+    });
+    service.saveScores(evaluator.id, formBody);
+
+    return evaluator;
+}
+
 test('closeSemesterForTurmas closes a turma with active session and evaluator', () => {
     const { turma, candidate } = createTurmaWithCandidate('100%');
 
@@ -88,4 +102,42 @@ test('closeSemesterForTurmas returns error when there is no active session', () 
     assert.equal(result.successes.length, 0);
     assert.equal(result.errors.length, 1);
     assert.ok(result.errors[0].error.includes('sessão') || result.errors[0].error.length > 0);
+});
+
+test('approved candidate is promoted after official close', () => {
+    const { turma, candidate } = createTurmaWithCandidate('100%');
+    service.generateSessionCode(turma.id);
+    saveScoresForCandidate(candidate, 10);
+
+    const eventId = service.closeEvaluationEvent(turma.id, 'test');
+    assert.ok(eventId);
+
+    const refreshed = service.getCandidatesByTurma(turma.id).find(c => c.id === candidate.id);
+    assert.equal(refreshed.status, 'Auxiliar');
+
+    const snapshot = service.getEvaluationHistoryReport(eventId).results.find(result => result.name === candidate.name);
+    assert.equal(snapshot.status, 'Aprovado');
+    assert.equal(snapshot.final_status, 'Auxiliar');
+});
+
+test('reproved candidate keeps current rank after official close', () => {
+    const { turma, candidate } = createTurmaWithCandidate('100%');
+    service.generateSessionCode(turma.id);
+    saveScoresForCandidate(candidate, 5);
+
+    service.closeEvaluationEvent(turma.id, 'test');
+
+    const refreshed = service.getCandidatesByTurma(turma.id).find(c => c.id === candidate.id);
+    assert.equal(refreshed.status, 'Bolsista');
+});
+
+test('presence insufficient candidate keeps current rank after official close', () => {
+    const { turma, candidate } = createTurmaWithCandidate('75%');
+    service.generateSessionCode(turma.id);
+    saveScoresForCandidate(candidate, 10);
+
+    service.closeEvaluationEvent(turma.id, 'test');
+
+    const refreshed = service.getCandidatesByTurma(turma.id).find(c => c.id === candidate.id);
+    assert.equal(refreshed.status, 'Bolsista');
 });
