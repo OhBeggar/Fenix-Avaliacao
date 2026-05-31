@@ -76,6 +76,17 @@ function initDb() {
     PRIMARY KEY(evaluator_id, candidate_id, criterion)
   )`);
 
+  db.exec(`CREATE TABLE IF NOT EXISTS evaluator_session_presence (
+    session_id INTEGER NOT NULL,
+    turma_id INTEGER NOT NULL,
+    evaluator_id INTEGER NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    PRIMARY KEY(session_id, evaluator_id),
+    FOREIGN KEY (session_id) REFERENCES sessions(id),
+    FOREIGN KEY (turma_id) REFERENCES turmas(id),
+    FOREIGN KEY (evaluator_id) REFERENCES evaluators(id)
+  )`);
+
   db.exec(`CREATE TABLE IF NOT EXISTS class_meetings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     turma_id INTEGER NOT NULL,
@@ -328,6 +339,22 @@ function touchEvaluator(evaluatorId) {
   db.prepare('UPDATE evaluators SET last_seen_at = ? WHERE id = ?').run(getNowIsoString(), evaluatorId);
 }
 
+function touchEvaluatorForSession(evaluatorId, turmaId) {
+  const session = getActiveSessionForTurma(turmaId);
+  if (!session) return false;
+
+  const now = getNowIsoString();
+  db.prepare('UPDATE evaluators SET last_seen_at = ? WHERE id = ?').run(now, evaluatorId);
+  db.prepare(`INSERT INTO evaluator_session_presence
+    (session_id, turma_id, evaluator_id, last_seen_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(session_id, evaluator_id) DO UPDATE SET
+      turma_id = excluded.turma_id,
+      last_seen_at = excluded.last_seen_at`)
+    .run(session.id, turmaId, evaluatorId, now);
+  return true;
+}
+
 function getOrCreateEvaluator(name) {
   let evaluator = db.prepare('SELECT id, name FROM evaluators WHERE name = ?').get(name);
   if (evaluator) {
@@ -342,17 +369,71 @@ function getOrCreateEvaluator(name) {
   return { id: insert.lastInsertRowid, name };
 }
 
-function getActiveEvaluators() {
-  const cutoffIso = new Date(
+function getActiveEvaluatorCutoffIso() {
+  return new Date(
     Date.now() - (config.evaluatorOnlineWindowMinutes * 60 * 1000)
   ).toISOString();
+}
+
+function getGlobalActiveEvaluators(cutoffIso) {
   return db.prepare(
     'SELECT id, name, last_seen_at FROM evaluators WHERE last_seen_at IS NOT NULL AND last_seen_at >= ? ORDER BY name'
   ).all(cutoffIso);
 }
 
-function getActiveEvaluatorStatus() {
-  const activeEvaluators = getActiveEvaluators();
+function getGlobalActiveEvaluatorsForTurma(turmaId, cutoffIso) {
+  return db.prepare(`SELECT DISTINCT e.id, e.name, e.last_seen_at
+    FROM evaluators e
+    INNER JOIN scores s ON s.evaluator_id = e.id
+    INNER JOIN candidates c ON c.id = s.candidate_id
+    WHERE c.turma_id = ?
+      AND e.last_seen_at IS NOT NULL
+      AND e.last_seen_at >= ?
+    ORDER BY e.name`).all(turmaId, cutoffIso);
+}
+
+function getActiveEvaluators(turmaId = null) {
+  const cutoffIso = getActiveEvaluatorCutoffIso();
+
+  if (turmaId) {
+    const session = getActiveSessionForTurma(turmaId);
+    if (!session) return [];
+
+    const scoped = db.prepare(`SELECT e.id, e.name, p.last_seen_at
+      FROM evaluator_session_presence p
+      INNER JOIN evaluators e ON e.id = p.evaluator_id
+      WHERE p.session_id = ?
+        AND p.turma_id = ?
+        AND p.last_seen_at >= ?
+      ORDER BY e.name`).all(session.id, turmaId, cutoffIso);
+
+    if (scoped.length > 0) return scoped;
+
+    const legacyByTurma = getGlobalActiveEvaluatorsForTurma(turmaId, cutoffIso);
+    return legacyByTurma.length > 0
+      ? legacyByTurma
+      : getGlobalActiveEvaluators(cutoffIso);
+  }
+
+  const activeSessions = getActiveSessions();
+  if (activeSessions.length === 0) return [];
+
+  const sessionIds = activeSessions.map(session => session.id);
+  const placeholders = sessionIds.map(() => '?').join(', ');
+  const scoped = db.prepare(`SELECT DISTINCT e.id, e.name, p.last_seen_at
+    FROM evaluator_session_presence p
+    INNER JOIN evaluators e ON e.id = p.evaluator_id
+    WHERE p.session_id IN (${placeholders})
+      AND p.last_seen_at >= ?
+    ORDER BY e.name`).all(...sessionIds, cutoffIso);
+
+  return scoped.length > 0
+    ? scoped
+    : getGlobalActiveEvaluators(cutoffIso);
+}
+
+function getActiveEvaluatorStatus(turmaId = null) {
+  const activeEvaluators = getActiveEvaluators(turmaId);
   return {
     activeCount: activeEvaluators.length,
     activeNames: activeEvaluators.map((evaluator) => evaluator.name),
@@ -581,7 +662,7 @@ function calculateCandidatePresence(candidate) {
  * @returns {object} { results, numEvaluators, activeEvaluators }
  */
 function getResultsReport(turmaId = null) {
-  const activeEvaluators = getActiveEvaluators();
+  const activeEvaluators = getActiveEvaluators(turmaId);
   const evaluatorIds = activeEvaluators.map(e => e.id);
   const numEvaluators = evaluatorIds.length;
 
@@ -711,8 +792,8 @@ function isEvaluatorApproved(evaluatorId, candidateId, criteria, peso2Criterion)
     return false;
   }
 
-  const totalPoints = calculateTotalPoints(scores, peso2Criterion);
-  return totalPoints >= 175; // 175 pontos = aprovação
+  const finalNote = calculateFinalNote(scores, peso2Criterion);
+  return finalNote >= 7; // Utiliza a mesma lógica de arredondamento da nota final
 }
 
 // --- Funções Auxiliares ---
@@ -986,6 +1067,7 @@ module.exports = {
   initDb,
   getCandidates: getCandidatesByTurma,
   getOrCreateEvaluator,
+  touchEvaluatorForSession,
   saveScores,
   getEvaluatorScores,
   getActiveEvaluatorStatus,

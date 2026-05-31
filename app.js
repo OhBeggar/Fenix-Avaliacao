@@ -42,12 +42,19 @@ function adminAuthMiddleware(req, res, next) {
 }
 
 function getAdminLocals(message = null, extra = {}) {
+  const activeSessions = evaluationService.getActiveSessions();
+  const latestSession = activeSessions[0] || null;
+
   return {
     teachers: evaluationService.getTeacherList(),
     turmas: evaluationService.getTurmas(),
     allCandidates: evaluationService.getCandidatesByTurma('all'),
     activeStatus: evaluationService.getActiveEvaluatorStatus(),
     history: evaluationService.getEvaluationHistory(),
+    sessionCode: latestSession ? latestSession.code : null,
+    currentTurmaName: latestSession ? latestSession.turma_name : null,
+    currentTurmaId: latestSession ? latestSession.turma_id : null,
+    activeSessions: activeSessions,
     message,
     ...extra,
   };
@@ -94,6 +101,18 @@ function turmaCookieName(turmaId) {
 
 function evaluationCookieName(turmaId) {
   return `evaluation_access_${turmaId}`;
+}
+
+function getLiveSessionState(turmaId = null) {
+  const turmas = turmaId ? [{ id: turmaId }] : evaluationService.getTurmas();
+  const activeTurmaIds = turmas
+    .filter(turma => Boolean(evaluationService.getActiveSessionForTurma(turma.id)))
+    .map(turma => turma.id);
+
+  return {
+    hasLiveSession: activeTurmaIds.length > 0,
+    activeTurmaIds,
+  };
 }
 
 function getAttendanceRecordsFromBody(body = {}) {
@@ -300,11 +319,12 @@ app.get('/evaluate/:name', (req, res) => {
 
   // Identifica ou cria o avaliador
   const evaluator = evaluationService.getOrCreateEvaluator(evaluatorName);
+  evaluationService.touchEvaluatorForSession(evaluator.id, turmaId);
 
   // Busca as notas salvas usando o ID do avaliador
   const currentScores = evaluationService.getEvaluatorScores(evaluator.id);
 
-  const activeEvaluatorStatus = evaluationService.getActiveEvaluatorStatus();
+  const activeEvaluatorStatus = evaluationService.getActiveEvaluatorStatus(turmaId);
   const { commonCriteria, maleCriteria, femaleCriteria } = require('./src/constants');
 
   res.render('avaliacao', {
@@ -327,17 +347,39 @@ app.post('/evaluate/:name', (req, res) => {
   }
 
   const evaluator = evaluationService.getOrCreateEvaluator(evaluatorName);
+  evaluationService.touchEvaluatorForSession(evaluator.id, turmaId);
 
   evaluationService.saveScores(evaluator.id, req.body);
   res.redirect(`/evaluate/${encodeURIComponent(evaluatorName)}?turmaId=${turmaId}&saved=1`);
 });
 
 app.get('/api/evaluators/status', (req, res) => {
-  if (req.query.evaluatorName) {
-    const evaluator = evaluationService.getOrCreateEvaluator(String(req.query.evaluatorName));
-    evaluationService.getEvaluatorScores(evaluator.id);
+  const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
+  const { hasLiveSession } = getLiveSessionState(turmaId);
+
+  if (!turmaId || !hasLiveSession) {
+    return res.json({
+      activeCount: 0,
+      activeNames: [],
+      activeEvaluators: [],
+      timeoutMinutes: config.evaluatorOnlineWindowMinutes,
+      sessionClosed: true,
+    });
   }
-  res.json(evaluationService.getActiveEvaluatorStatus());
+
+  const evaluatorName = req.query.evaluatorName ? String(req.query.evaluatorName) : '';
+  if (
+    evaluatorName
+    && hasAccess(req, evaluationCookieName(turmaId), { type: 'evaluation', evaluatorName, turmaId })
+  ) {
+    const evaluator = evaluationService.getOrCreateEvaluator(evaluatorName);
+    evaluationService.touchEvaluatorForSession(evaluator.id, turmaId);
+  }
+
+  res.json({
+    ...evaluationService.getActiveEvaluatorStatus(turmaId),
+    sessionClosed: false,
+  });
 });
 
 // Resultados em Tempo Real (SEM botão de PDF)
@@ -345,11 +387,22 @@ app.get('/results', (req, res) => {
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
   const report = evaluationService.getResultsReport(turmaId);
   const turmas = evaluationService.getTurmas();
+  const { hasLiveSession } = getLiveSessionState(turmaId);
+  const liveEvaluatorStatus = hasLiveSession
+    ? evaluationService.getActiveEvaluatorStatus(turmaId)
+    : {
+      activeCount: 0,
+      activeNames: [],
+      activeEvaluators: [],
+      timeoutMinutes: config.evaluatorOnlineWindowMinutes,
+    };
 
   res.render('resultados', {
     ...report,
     turmas,
     selectedTurmaId: turmaId || '',
+    liveEvaluatorStatus,
+    sessionClosed: !hasLiveSession,
     canExportPdf: false, // Remove o PDF da página de resultados
   });
 });
@@ -418,15 +471,7 @@ app.post('/admin/logout', (req, res) => {
 
 // Admin Dashboard
 app.get('/admin', adminAuthMiddleware, (req, res) => {
-  const activeSessions = evaluationService.getActiveSessions();
-  const latestSession = activeSessions[0] || null;
-
-  res.render('adm', getAdminLocals(null, {
-    sessionCode: latestSession ? latestSession.code : null,
-    currentTurmaName: latestSession ? latestSession.turma_name : null,
-    currentTurmaId: latestSession ? latestSession.turma_id : null,
-    activeSessions: activeSessions,
-  }));
+  res.render('adm', getAdminLocals());
 });
 
 // SSE endpoint para clientes ouvirem eventos do servidor (PINs / sessões)

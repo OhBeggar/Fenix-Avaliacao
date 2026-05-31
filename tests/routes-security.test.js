@@ -28,6 +28,29 @@ function request(server, pathname) {
     });
 }
 
+function getText(server, pathname, headers = {}) {
+    const { port } = server.address();
+
+    return new Promise((resolve, reject) => {
+        const req = http.request({ port, path: pathname, method: 'GET', headers }, (res) => {
+            const chunks = [];
+            res.on('data', chunk => chunks.push(chunk));
+            res.on('end', () => resolve({ res, text: Buffer.concat(chunks).toString('utf8') }));
+        });
+
+        req.on('error', reject);
+        req.end();
+    });
+}
+
+async function getJson(server, pathname, headers = {}) {
+    const response = await getText(server, pathname, headers);
+    return {
+        res: response.res,
+        json: JSON.parse(response.text),
+    };
+}
+
 function postJson(server, pathname, payload) {
     const { port } = server.address();
     const body = JSON.stringify(payload);
@@ -121,6 +144,61 @@ test('evaluation PIN does not require turma room access', async () => {
         assert.equal(good.json.success, true);
         assert.equal(good.json.redirectUrl, `/evaluate/Avaliador%20PIN?turmaId=${turma.id}`);
         assert.match(good.res.headers['set-cookie'][0], new RegExp(`evaluation_access_${turma.id}=`));
+    } finally {
+        server.close();
+    }
+});
+
+test('evaluator heartbeat requires evaluation cookie and stops after session closes', async () => {
+    service.addTeacher('Avaliador Online Seguro', 'senha');
+    const teacher = service.getTeacherList().find((row) => row.name === 'Avaliador Online Seguro');
+    service.createTurma('Turma Online Seguro', teacher.id, 'senha-da-turma');
+    const turma = service.getTurmas().find((row) => row.name === 'Turma Online Seguro');
+    service.createCandidate({ name: 'Aluno Online Seguro', gender: 'male', presence: '100%', status: 'Bolsista', turma_id: turma.id });
+    const code = service.generateSessionCode(turma.id);
+
+    const server = http.createServer(app).listen(0);
+
+    try {
+        const unsigned = await getJson(
+            server,
+            `/api/evaluators/status?evaluatorName=${encodeURIComponent(teacher.name)}&turmaId=${turma.id}`
+        );
+        assert.equal(unsigned.json.sessionClosed, false);
+        assert.equal(unsigned.json.activeCount, 0);
+
+        const access = await postJson(server, '/turmas/evaluate-access', {
+            evaluatorName: teacher.name,
+            turmaId: turma.id,
+            code,
+        });
+        const cookie = access.res.headers['set-cookie'][0].split(';')[0];
+
+        const active = await getJson(
+            server,
+            `/api/evaluators/status?evaluatorName=${encodeURIComponent(teacher.name)}&turmaId=${turma.id}`,
+            { Cookie: cookie }
+        );
+        assert.equal(active.json.sessionClosed, false);
+        assert.equal(active.json.activeCount, 1);
+        assert.deepEqual(active.json.activeNames, [teacher.name]);
+
+        const live = await getText(server, `/results?turmaId=${turma.id}`);
+        assert.match(live.text, /Avaliadores ativos/);
+
+        service.endSessionByTurma(turma.id);
+
+        const closed = await getJson(
+            server,
+            `/api/evaluators/status?evaluatorName=${encodeURIComponent(teacher.name)}&turmaId=${turma.id}`,
+            { Cookie: cookie }
+        );
+        assert.equal(closed.json.sessionClosed, true);
+        assert.equal(closed.json.activeCount, 0);
+
+        const closedResults = await getText(server, `/results?turmaId=${turma.id}`);
+        assert.match(closedResults.text, /Sessão encerrada/);
+        assert.doesNotMatch(closedResults.text, /Avaliadores ativos: <strong>1<\/strong>/);
     } finally {
         server.close();
     }

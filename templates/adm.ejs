@@ -81,36 +81,15 @@
                         <span class="pin-code"><%= sessionCode %></span>
                         <span class="pin-turma">Turma: <strong><%= currentTurmaName %></strong></span>
                     </div>
+
+                    <!-- Encerrar Sessão -->
+                    <form action="/admin/end-session" method="POST" style="margin: 16px 0 0;">
+                        <button type="submit" class="danger" style="font-size:0.88rem; padding:8px 16px;">
+                            Encerrar Sessão Atual
+                        </button>
+                    </form>
                 <% } %>
 
-                <!-- Encerrar Sessão -->
-                <form action="/admin/end-session" method="POST" style="margin: 16px 0 0;">
-                    <button type="submit" class="danger" style="font-size:0.88rem; padding:8px 16px;">
-                        Encerrar Sessão Atual
-                    </button>
-                </form>
-
-                <!-- Fechar Avaliação -->
-                <form action="/admin/close-evaluation" method="POST" class="session-form" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--line);">
-                    <div>
-                        <label style="flex:1; min-width:240px;">
-                            Fechar avaliação oficial
-                            <select name="turmaId" required>
-                                <option value="">Selecione uma turma...</option>
-                                <% turmas.forEach(t => { %>
-                                    <option value="<%= t.id %>"><%= t.name %></option>
-                                <% }) %>
-                            </select>
-                        </label>
-                        <button type="submit" class="danger" 
-                                style="margin-bottom:2px; background:var(--success); box-shadow:0 1px 3px rgba(5,150,105,0.2);"
-                                onmouseover="this.style.background='#047857'"
-                                onmouseout="this.style.background='var(--success)'"
-                                onclick="return confirm('Fechar a avaliação grava um histórico imutável e encerra a sessão ativa. Continuar?')">
-                            Fechar e salvar histórico
-                        </button>
-                    </div>
-                </form>
             </div>
         </details>
 
@@ -141,10 +120,24 @@
                         <% }) %>
                     </div>
                     <div style="display:flex; justify-content:flex-end;">
-                        <button type="submit" class="danger">Fechar Semestre Selecionado</button>
+                        <button type="submit" id="fecharSemestreBtn" class="danger" style="display:none;">Fechar Semestre Selecionado</button>
                     </div>
                 </form>
             </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const checkboxes = document.querySelectorAll('.selection-checkbox');
+                    const btn = document.getElementById('fecharSemestreBtn');
+                    if (checkboxes.length && btn) {
+                        const toggleBtn = () => {
+                            const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+                            btn.style.display = anyChecked ? 'block' : 'none';
+                        };
+                        checkboxes.forEach(cb => cb.addEventListener('change', toggleBtn));
+                        toggleBtn();
+                    }
+                });
+            </script>
         </details>
 
         <!-- SEÇÃO 3: GERENCIAR ALUNOS -->

@@ -127,16 +127,24 @@
     <script src="/transitions.js"></script>
     <script src="/toast.js"></script>
     <script id="evaluator-config" type="application/json">
-        { "evaluatorName": <%- JSON.stringify(evaluatorName) %> }
+        {
+            "evaluatorName": <%- JSON.stringify(evaluatorName) %>,
+            "turmaId": <%- JSON.stringify(turmaId) %>
+        }
     </script>
     <script>
         const onlineCountElement = document.getElementById('online-count');
         const configData = JSON.parse(document.getElementById('evaluator-config').textContent);
         const evaluatorName = configData.evaluatorName;
+        const turmaId = configData.turmaId;
 
         async function refreshOnlineEvaluators() {
             try {
-                const response = await fetch(`/api/evaluators/status?evaluatorName=${encodeURIComponent(evaluatorName)}`, {
+                const params = new URLSearchParams({
+                    evaluatorName,
+                    turmaId,
+                });
+                const response = await fetch(`/api/evaluators/status?${params.toString()}`, {
                     cache: 'no-store',
                 });
                 if (!response.ok) {
@@ -144,6 +152,12 @@
                 }
 
                 const payload = await response.json();
+                if (payload.sessionClosed) {
+                    onlineCountElement.textContent = 'Sessão encerrada';
+                    onlineCountElement.title = 'O admin encerrou esta avaliação.';
+                    return;
+                }
+
                 onlineCountElement.textContent = `${payload.activeCount} avaliador(es) online`;
                 onlineCountElement.title = payload.activeNames.length
                     ? `Online agora: ${payload.activeNames.join(', ')}`

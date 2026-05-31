@@ -38,7 +38,9 @@ function calculateFinalNote(scoreMap, peso2Criterion) {
 }
 
 function determineResultStatus(finalNote, approved, numEvaluators) {
-    return finalNote >= 7 && approved > Math.floor(numEvaluators / 2)
+    // Aprovado se: nota >= 7 E aprovados >= metade dos avaliadores.
+    // Em empate (ex: 1 de 2), a nota consolidada >= 7 é o critério decisivo.
+    return finalNote >= 7 && approved >= Math.ceil(numEvaluators / 2)
         ? 'Aprovado'
         : 'Reprovado';
 }

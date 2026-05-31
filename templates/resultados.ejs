@@ -9,29 +9,41 @@
     <link rel="stylesheet" href="/theme.css">
 </head>
 <body>
+    <%
+        const isHistorical = typeof historicalEvent !== 'undefined';
+        const liveStatus = typeof liveEvaluatorStatus !== 'undefined' && liveEvaluatorStatus
+            ? liveEvaluatorStatus
+            : { activeCount: numEvaluators, activeNames: activeEvaluators || [] };
+        const isSessionClosed = !isHistorical && typeof sessionClosed !== 'undefined' && sessionClosed;
+        const summaryLabel = isHistorical
+            ? 'Avaliadores registrados'
+            : (isSessionClosed ? 'Sessão encerrada' : 'Avaliadores ativos');
+        const summaryCount = isHistorical ? numEvaluators : liveStatus.activeCount;
+        const summaryNames = isHistorical ? activeEvaluators : liveStatus.activeNames;
+    %>
     <main class="results-shell">
         <header class="results-header">
             <div class="results-header-top">
                 <img src="/images/icons8-fenix-cute-color-96.png" alt="Fênix Dança">
                 <div class="header-text">
-                    <span class="eyebrow"><%= typeof historicalEvent !== 'undefined' ? 'HISTÓRICO OFICIAL' : 'CONSOLIDAÇÃO OFICIAL' %></span>
-                    <h1><%= typeof historicalEvent !== 'undefined' ? historicalEvent.title : 'Audição de Bolsistas 2024_2 para Auxiliares 2025_2' %></h1>
+                    <span class="eyebrow"><%= isHistorical ? 'HISTÓRICO OFICIAL' : 'CONSOLIDAÇÃO OFICIAL' %></span>
+                    <h1><%= isHistorical ? historicalEvent.title : 'Audição de Bolsistas 2024_2 para Auxiliares 2025_2' %></h1>
                 </div>
             </div>
             <p>Resultados finais com médias por critério, nota final e maioria simples.</p>
             <p class="active-summary">
-                <%= typeof historicalEvent !== 'undefined' ? 'Avaliadores registrados' : 'Avaliadores ativos' %>: <strong><%= numEvaluators %></strong>
-                <% if (activeEvaluators && activeEvaluators.length > 0) { %>
-                    — <%= activeEvaluators.join(', ') %>
+                <%= summaryLabel %>: <strong><%= summaryCount %></strong>
+                <% if (summaryNames && summaryNames.length > 0) { %>
+                    — <%= summaryNames.join(', ') %>
                 <% } %>
             </p>
         </header>
 
         <div class="results-actions">
-            <a href="<%= typeof historicalEvent !== 'undefined' ? '/results/history' : '/' %>" class="ghost-link nav-action back">
+            <a href="<%= isHistorical ? '/results/history' : '/' %>" class="ghost-link nav-action back">
                 Voltar
             </a>
-            <% if (typeof historicalEvent === 'undefined') { %>
+            <% if (!isHistorical) { %>
                 <form method="GET" action="/results" class="turma-filter-form">
                     <select name="turmaId" onchange="this.form.submit()">
                         <option value="">Todas as Turmas</option>
@@ -114,7 +126,7 @@
 
     <script>
         // Auto-refresh a cada 15 segundos (apenas para resultados em tempo real, não para histórico)
-        <% if (typeof historicalEvent === 'undefined') { %>
+        <% if (!isHistorical) { %>
         setInterval(() => {
             if (!document.hidden) {
                 location.reload();
