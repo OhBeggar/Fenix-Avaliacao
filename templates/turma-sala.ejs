@@ -237,6 +237,16 @@
     </script>
     <script src="/transitions.js"></script>
     <script src="/toast.js"></script>
+    <script>
+        document.querySelectorAll('form[method="POST"], form[method="post"]').forEach((form) => {
+            if (form.querySelector('input[name="_csrf"]')) return;
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = '_csrf';
+            input.value = <%- JSON.stringify(csrfToken) %>;
+            form.prepend(input);
+        });
+    </script>
     <script src="/back.js"></script>
 </body>
 </html>

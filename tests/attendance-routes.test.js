@@ -14,6 +14,7 @@ const app = require('../app');
 const config = require('../src/config');
 const service = require('../src/services/evaluation-service');
 const { db } = require('../src/db');
+const { signAdminPayload } = require('../src/utils/admin-auth');
 
 function postForm(server, pathname, form, cookie = '') {
     const { port } = server.address();
@@ -39,6 +40,36 @@ function postForm(server, pathname, form, cookie = '') {
     });
 }
 
+function getText(server, pathname, cookie = '') {
+    const { port } = server.address();
+
+    return new Promise((resolve, reject) => {
+        const req = http.request({ port, path: pathname, method: 'GET', headers: { Cookie: cookie } }, (res) => {
+            const chunks = [];
+            res.on('data', chunk => chunks.push(chunk));
+            res.on('end', () => resolve({ res, text: Buffer.concat(chunks).toString('utf8') }));
+        });
+
+        req.on('error', reject);
+        req.end();
+    });
+}
+
+function adminCookie() {
+    const token = signAdminPayload({
+        type: 'admin',
+        iat: Date.now(),
+        exp: Date.now() + (60 * 60 * 1000),
+    });
+    return `${config.adminCookieName}=${encodeURIComponent(token)}`;
+}
+
+function extractCsrfToken(html) {
+    const match = html.match(/input\.value = "([^"]+)"/);
+    assert.ok(match, 'admin page should include a CSRF token');
+    return match[1];
+}
+
 test.after(() => {
     db.close();
     fs.rmSync(tempDir, { recursive: true, force: true });
@@ -56,7 +87,7 @@ test('admin attendance route persists bracketed form fields', async () => {
 
     const candidates = service.getCandidatesByTurma(turma.id);
     const meetingId = service.createClassMeeting(turma.id, { title: 'Chamada rota' });
-    const cookie = `${config.adminCookieName}=${encodeURIComponent(config.adminCookieValue)}`;
+    const cookie = adminCookie();
     const form = new URLSearchParams();
     form.set(`attendance[${candidates[0].id}]`, 'present');
     form.set(`attendance[${candidates[1].id}]`, 'absent');
@@ -64,6 +95,9 @@ test('admin attendance route persists bracketed form fields', async () => {
     const server = http.createServer(app).listen(0);
 
     try {
+        const adminPage = await getText(server, `/admin/turma/${turma.id}`, cookie);
+        form.set('_csrf', extractCsrfToken(adminPage.text));
+
         const res = await postForm(server, `/admin/turma/${turma.id}/attendance/${meetingId}`, form, cookie);
         assert.equal(res.statusCode, 302);
         assert.equal(res.headers.location, `/admin/turma/${turma.id}`);

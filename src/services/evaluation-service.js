@@ -446,10 +446,10 @@ function getActiveEvaluatorStatus(turmaId = null) {
   };
 }
 
-function saveScores(evaluatorId, formBody) {
-  // Nota: Idealmente aqui buscaríamos os candidatos da turma do avaliador, 
-  // mas para manter compatibilidade com o loop atual, assumimos que formBody contém apenas os IDs relevantes
-  const candidates = db.prepare('SELECT id, gender FROM candidates ORDER BY id').all();
+function saveScores(evaluatorId, formBody, turmaId = null) {
+  const candidates = turmaId
+    ? db.prepare('SELECT id, gender FROM candidates WHERE turma_id = ? ORDER BY id').all(turmaId)
+    : db.prepare('SELECT id, gender FROM candidates ORDER BY id').all();
   
   const upsert = db.prepare(
     'INSERT OR REPLACE INTO scores (evaluator_id, candidate_id, criterion, score) VALUES (?, ?, ?, ?)'
@@ -490,15 +490,20 @@ function getLocalDateString(date = new Date()) {
 }
 
 // Busca as notas de um avaliador específico
-function getEvaluatorScores(evaluatorId) {
+function getEvaluatorScores(evaluatorId, turmaId = null) {
   if (!evaluatorId) return {};
 
   // Garante que é um número inteiro
   const id = Number.parseInt(evaluatorId, 10);
 
-  const rows = db.prepare(
-    'SELECT candidate_id, criterion, score FROM scores WHERE evaluator_id = ?'
-  ).all(id);
+  const rows = turmaId
+    ? db.prepare(`SELECT s.candidate_id, s.criterion, s.score
+      FROM scores s
+      INNER JOIN candidates c ON c.id = s.candidate_id
+      WHERE s.evaluator_id = ? AND c.turma_id = ?`).all(id, turmaId)
+    : db.prepare(
+      'SELECT candidate_id, criterion, score FROM scores WHERE evaluator_id = ?'
+    ).all(id);
 
   const scoresMap = {};
   rows.forEach(row => {
@@ -666,6 +671,7 @@ function calculateCandidatePresence(candidate) {
  * @returns {object} { results, numEvaluators, activeEvaluators }
  */
 function getResultsReport(turmaId = null) {
+  const turma = getReportTurma(turmaId);
   const activeEvaluators = getActiveEvaluators(turmaId);
   const evaluatorIds = activeEvaluators.map(e => e.id);
   const numEvaluators = evaluatorIds.length;
@@ -674,7 +680,8 @@ function getResultsReport(turmaId = null) {
     return { 
       results: [], 
       numEvaluators: 0, 
-      activeEvaluators: [] 
+      activeEvaluators: [],
+      turma,
     };
   }
 
@@ -689,7 +696,14 @@ function getResultsReport(turmaId = null) {
     results,
     numEvaluators,
     activeEvaluators: activeEvaluators.map(e => e.name),
+    turma,
   };
+}
+
+function getReportTurma(turmaId) {
+  if (!turmaId) return null;
+  const turma = getTurmas().find(row => String(row.id) === String(turmaId));
+  return turma ? { id: turma.id, name: turma.name } : null;
 }
 
 // Define a progressão de patentes

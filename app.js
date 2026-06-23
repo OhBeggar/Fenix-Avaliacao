@@ -10,15 +10,59 @@ const cookieParser = require('cookie-parser');
 const evaluationService = require('./src/services/evaluation-service');
 const { commonCriteria, maleCriteria, femaleCriteria } = require('./src/constants');
 const { isAdminAuthenticated, setAdminCookie, clearAdminCookie } = require('./src/utils/admin-auth');
-const { buildResultsPdf } = require('./src/services/pdf-service');
+const { buildResultsPdf, buildAttachmentDisposition } = require('./src/services/pdf-service');
 const config = require('./src/config');
+
+function validateSecurityConfig() {
+  if (process.env.NODE_ENV !== 'production') return;
+
+  const weakValues = new Set(['', 'troque-esta-senha', 'troque-este-segredo', 'avali-admin-cookie-secret']);
+  if (weakValues.has(config.adminPassword) || weakValues.has(process.env.ADMIN_COOKIE_SECRET || '')) {
+    throw new Error('Configure ADMIN_PASSWORD e ADMIN_COOKIE_SECRET fortes em produção.');
+  }
+}
+
+validateSecurityConfig();
 
 const app = express();
 app.set('trust proxy', 1);
 
 const TEACHER_COOKIE_NAME = 'teacher_access';
+const ACCESS_COOKIE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
+const CSRF_TOKEN_MAX_AGE_MS = 1000 * 60 * 60 * 8;
 
 // Middlewares
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data:",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; ')
+  );
+
+  if (
+    req.path.startsWith('/admin')
+    || req.path.startsWith('/evaluate')
+    || req.path.startsWith('/turmas')
+    || req.path.startsWith('/results')
+    || req.path.startsWith('/export_pdf')
+  ) {
+    res.setHeader('Cache-Control', 'no-store');
+  }
+
+  next();
+});
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser());
@@ -82,18 +126,24 @@ function readAccessPayload(token) {
   if (Buffer.byteLength(signature) !== Buffer.byteLength(expected)) return null;
   if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
   try {
-    return JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    const payload = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    if (payload.exp && Date.now() > Number(payload.exp)) return null;
+    return payload;
   } catch {
     return null;
   }
 }
 
 function setAccessCookie(req, res, name, payload) {
-  res.cookie(name, signAccessPayload(payload), {
+  res.cookie(name, signAccessPayload({
+    ...payload,
+    iat: Date.now(),
+    exp: Date.now() + ACCESS_COOKIE_MAX_AGE_MS,
+  }), {
     httpOnly: true,
     sameSite: 'lax',
     secure: isSecureRequest(req),
-    maxAge: 1000 * 60 * 60 * 8,
+    maxAge: ACCESS_COOKIE_MAX_AGE_MS,
   });
 }
 
@@ -103,12 +153,56 @@ function hasAccess(req, cookieName, expected) {
   return Object.entries(expected).every(([key, value]) => String(payload[key]) === String(value));
 }
 
+function createCsrfToken() {
+  return signAccessPayload({
+    type: 'csrf',
+    iat: Date.now(),
+    exp: Date.now() + CSRF_TOKEN_MAX_AGE_MS,
+  });
+}
+
+function verifyCsrfToken(token) {
+  const payload = readAccessPayload(token);
+  return Boolean(payload && payload.type === 'csrf');
+}
+
+function csrfTokenFromRequest(req) {
+  return req.body?._csrf || req.headers['x-csrf-token'];
+}
+
+function requireCsrf(req, res, next) {
+  if (verifyCsrfToken(csrfTokenFromRequest(req))) {
+    return next();
+  }
+
+  if (req.is('application/json') || (req.accepts('json') && !req.accepts('html'))) {
+    return res.status(403).json({ success: false, message: 'Token CSRF inválido ou ausente.' });
+  }
+
+  return res.status(403).send('Token CSRF inválido ou ausente.');
+}
+
+app.use((req, res, next) => {
+  res.locals.csrfToken = createCsrfToken();
+  next();
+});
+
 function turmaCookieName(turmaId) {
   return `turma_access_${turmaId}`;
 }
 
 function evaluationCookieName(turmaId) {
   return `evaluation_access_${turmaId}`;
+}
+
+function hasEvaluationAccess(req, turmaId, evaluatorName) {
+  const payload = readAccessPayload(req.cookies[evaluationCookieName(turmaId)]);
+  if (!payload || payload.type !== 'evaluation') return false;
+  if (String(payload.evaluatorName) !== String(evaluatorName) || String(payload.turmaId) !== String(turmaId)) return false;
+
+  const activeSession = evaluationService.getActiveSessionForTurma(turmaId);
+  if (!activeSession) return false;
+  return String(payload.sessionId) === String(activeSession.id);
 }
 
 function setTeacherCookie(req, res, teacher) {
@@ -232,7 +326,7 @@ app.get('/turmas/:name', (req, res) => {
 });
 
 // API: Verificar senha da turma
-app.post('/turmas/access', (req, res) => {
+app.post('/turmas/access', requireCsrf, (req, res) => {
   const { turmaId, password } = req.body;
   const teacher = getTeacherSession(req);
   if (!teacher) {
@@ -287,7 +381,7 @@ app.get('/turmas/:name/:turmaId', (req, res) => {
   });
 });
 
-app.post('/turmas/:name/:turmaId/meetings', (req, res) => {
+app.post('/turmas/:name/:turmaId/meetings', requireCsrf, (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = parseInt(req.params.turmaId, 10);
   const turma = evaluationService.getTurmaById(turmaId);
@@ -311,7 +405,7 @@ app.post('/turmas/:name/:turmaId/meetings', (req, res) => {
   res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}/${turmaId}`);
 });
 
-app.post('/turmas/:name/:turmaId/attendance/:meetingId', (req, res) => {
+app.post('/turmas/:name/:turmaId/attendance/:meetingId', requireCsrf, (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = parseInt(req.params.turmaId, 10);
   const turma = evaluationService.getTurmaById(turmaId);
@@ -335,7 +429,7 @@ app.post('/turmas/:name/:turmaId/attendance/:meetingId', (req, res) => {
 });
 
 // API: Verificar Código PIN da avaliação
-app.post('/turmas/evaluate-access', (req, res) => {
+app.post('/turmas/evaluate-access', requireCsrf, (req, res) => {
   const { turmaId, code } = req.body;
   const teacher = getTeacherSession(req);
   if (!teacher) {
@@ -366,7 +460,7 @@ app.get('/evaluate/:name', (req, res) => {
   const teacher = requireTeacherSession(req, res, evaluatorName);
   if (!teacher) return;
 
-  if (!turmaId || !hasAccess(req, evaluationCookieName(turmaId), { type: 'evaluation', evaluatorName, turmaId })) {
+  if (!turmaId || !hasEvaluationAccess(req, turmaId, evaluatorName)) {
     return res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}?message=${encodeURIComponent('Informe o PIN ativo antes de avaliar.')}`);
   }
 
@@ -381,7 +475,7 @@ app.get('/evaluate/:name', (req, res) => {
   evaluationService.touchEvaluatorForSession(evaluator.id, turmaId);
 
   // Busca as notas salvas usando o ID do avaliador
-  const currentScores = evaluationService.getEvaluatorScores(evaluator.id);
+  const currentScores = evaluationService.getEvaluatorScores(evaluator.id, turmaId);
 
   const activeEvaluatorStatus = evaluationService.getActiveEvaluatorStatus(turmaId);
   const { commonCriteria, maleCriteria, femaleCriteria } = require('./src/constants');
@@ -398,20 +492,20 @@ app.get('/evaluate/:name', (req, res) => {
   });
 });
 
-app.post('/evaluate/:name', (req, res) => {
+app.post('/evaluate/:name', requireCsrf, (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
   const teacher = requireTeacherSession(req, res, evaluatorName);
   if (!teacher) return;
 
-  if (!turmaId || !hasAccess(req, evaluationCookieName(turmaId), { type: 'evaluation', evaluatorName, turmaId })) {
+  if (!turmaId || !hasEvaluationAccess(req, turmaId, evaluatorName)) {
     return res.status(403).send('Acesso à avaliação não liberado.');
   }
 
   const evaluator = evaluationService.getOrCreateEvaluator(evaluatorName);
   evaluationService.touchEvaluatorForSession(evaluator.id, turmaId);
 
-  evaluationService.saveScores(evaluator.id, req.body);
+  evaluationService.saveScores(evaluator.id, req.body, turmaId);
   res.redirect(`/evaluate/${encodeURIComponent(evaluatorName)}?turmaId=${turmaId}&saved=1`);
 });
 
@@ -430,16 +524,17 @@ app.get('/api/evaluators/status', (req, res) => {
   }
 
   const teacher = getTeacherSession(req);
-  if (
-    teacher
-    && hasAccess(req, evaluationCookieName(turmaId), { type: 'evaluation', evaluatorName: teacher.name, turmaId })
-  ) {
+  const hasAuthorizedEvaluation = Boolean(teacher && hasEvaluationAccess(req, turmaId, teacher.name));
+  if (hasAuthorizedEvaluation) {
     const evaluator = evaluationService.getOrCreateEvaluator(teacher.name);
     evaluationService.touchEvaluatorForSession(evaluator.id, turmaId);
   }
 
+  const activeStatus = evaluationService.getActiveEvaluatorStatus(turmaId);
   res.json({
-    ...evaluationService.getActiveEvaluatorStatus(turmaId),
+    ...activeStatus,
+    activeNames: hasAuthorizedEvaluation ? activeStatus.activeNames : [],
+    activeEvaluators: hasAuthorizedEvaluation ? activeStatus.activeEvaluators : [],
     sessionClosed: false,
   });
 });
@@ -447,9 +542,17 @@ app.get('/api/evaluators/status', (req, res) => {
 // Resultados em Tempo Real (SEM botão de PDF)
 app.get('/results', (req, res) => {
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
+  const { hasLiveSession } = getLiveSessionState(turmaId);
+
+  if (!turmaId || !hasLiveSession) {
+    if (isAdminAuthenticated(req)) {
+      return res.redirect('/results/history');
+    }
+    return res.redirect('/admin/login');
+  }
+
   const report = evaluationService.getResultsReport(turmaId);
   const turmas = evaluationService.getTurmas();
-  const { hasLiveSession } = getLiveSessionState(turmaId);
   const liveEvaluatorStatus = hasLiveSession
     ? evaluationService.getActiveEvaluatorStatus(turmaId)
     : {
@@ -479,7 +582,7 @@ app.get('/export_pdf', adminAuthMiddleware, async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     // Nome do arquivo inclui o ID da turma se houver filtro
     const filename = turmaId ? `resultados-turma-${turmaId}.pdf` : 'resultados.pdf';
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', buildAttachmentDisposition(filename));
     res.send(Buffer.from(pdfBytes));
   } catch (error) {
     console.error('Erro ao gerar PDF:', error);
@@ -500,7 +603,7 @@ app.get('/export_pdf/history/:eventId', adminAuthMiddleware, async (req, res) =>
     res.setHeader('Content-Type', 'application/pdf');
     // Gera um nome de arquivo seguro (ex: historico-Avaliacao-Teste.pdf)
     const filename = `historico-${report.event.title.replace(/[\s\/\\]/g, '_')}.pdf`;
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', buildAttachmentDisposition(filename));
     res.send(Buffer.from(pdfBytes));
   } catch (error) {
     console.error('Erro ao gerar PDF do histórico:', error);
@@ -526,7 +629,7 @@ app.post('/admin/login', (req, res) => {
   res.render('admin-login', { message: 'Senha incorreta.' });
 });
 
-app.post('/admin/logout', (req, res) => {
+app.post('/admin/logout', adminAuthMiddleware, requireCsrf, (req, res) => {
   clearAdminCookie(res, isSecureRequest(req));
   res.redirect('/');
 });
@@ -565,7 +668,7 @@ app.get('/events', (req, res) => {
 });
 
 // Gerar Código de Sessão
-app.post('/admin/generate-code', adminAuthMiddleware, (req, res) => {
+app.post('/admin/generate-code', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { turmaId } = req.body;
   const code = evaluationService.generateSessionCode(turmaId);
   const turma = evaluationService.getTurmas().find(t => t.id == turmaId);
@@ -578,14 +681,14 @@ app.post('/admin/generate-code', adminAuthMiddleware, (req, res) => {
 });
 
 // Encerrar Sessão
-app.post('/admin/end-session', adminAuthMiddleware, (req, res) => {
+app.post('/admin/end-session', adminAuthMiddleware, requireCsrf, (req, res) => {
   evaluationService.endCurrentSession();
   try { app.locals.serverEvents.emit('session', { event: 'session_ended' }); } catch (e) {}
 
   res.redirect('/admin');
 });
 
-app.post('/admin/close-evaluation', adminAuthMiddleware, (req, res) => {
+app.post('/admin/close-evaluation', adminAuthMiddleware, requireCsrf, (req, res) => {
   try {
     const eventId = evaluationService.closeEvaluationEvent(req.body.turmaId, 'admin');
     try { app.locals.serverEvents.emit('session', { event: 'session_closed', turmaId: Number(req.body.turmaId) }); } catch (e) {}
@@ -596,7 +699,7 @@ app.post('/admin/close-evaluation', adminAuthMiddleware, (req, res) => {
 });
 
 // Fechar semestre (para turmas selecionadas)
-app.post('/admin/close-semester', adminAuthMiddleware, (req, res) => {
+app.post('/admin/close-semester', adminAuthMiddleware, requireCsrf, (req, res) => {
   try {
     // turmaIds pode vir como uma string única ou um array
     let turmaIds = req.body.turmaIds || req.body.turmaId || [];
@@ -631,7 +734,7 @@ app.post('/admin/close-semester', adminAuthMiddleware, (req, res) => {
 });
 
 // Reabrir semestre (cria nova sessão) para uma turma específica
-app.post('/admin/reopen-semester', adminAuthMiddleware, (req, res) => {
+app.post('/admin/reopen-semester', adminAuthMiddleware, requireCsrf, (req, res) => {
   try {
     const turmaId = req.body.turmaId ? parseInt(req.body.turmaId, 10) : null;
     if (!turmaId) return res.render('adm', getAdminLocals({ type: 'error', text: 'Turma não informada.' }));
@@ -645,7 +748,7 @@ app.post('/admin/reopen-semester', adminAuthMiddleware, (req, res) => {
 });
 
 // Adicionar Professor
-app.post('/admin/teacher/add', adminAuthMiddleware, (req, res) => {
+app.post('/admin/teacher/add', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { name, password } = req.body;
   evaluationService.addTeacher(name, password);
 
@@ -653,7 +756,7 @@ app.post('/admin/teacher/add', adminAuthMiddleware, (req, res) => {
 });
 
 // Redefinir Senha Professor
-app.post('/admin/teacher/reset-password', adminAuthMiddleware, (req, res) => {
+app.post('/admin/teacher/reset-password', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { teacherId, newPassword } = req.body;
   evaluationService.resetTeacherPassword(teacherId, newPassword);
 
@@ -661,7 +764,7 @@ app.post('/admin/teacher/reset-password', adminAuthMiddleware, (req, res) => {
 });
 
 // Remover Professor
-app.post('/admin/teacher/delete', adminAuthMiddleware, (req, res) => {
+app.post('/admin/teacher/delete', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { teacherId } = req.body;
   evaluationService.deleteTeacher(teacherId);
 
@@ -669,21 +772,21 @@ app.post('/admin/teacher/delete', adminAuthMiddleware, (req, res) => {
 });
 
 // Criar Turma
-app.post('/admin/turma/add', adminAuthMiddleware, (req, res) => {
+app.post('/admin/turma/add', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { name, teacherId, accessPassword } = req.body;
   evaluationService.createTurma(name, teacherId, accessPassword);
 
   res.render('adm', getAdminLocals({ type: 'success', text: 'Turma criada com sucesso.' }));
 });
 
-app.post('/admin/turma/password', adminAuthMiddleware, (req, res) => {
+app.post('/admin/turma/password', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { turmaId, accessPassword } = req.body;
   evaluationService.setTurmaPassword(turmaId, accessPassword);
   res.render('adm', getAdminLocals({ type: 'success', text: 'Senha da turma atualizada.' }));
 });
 
 // Adicionar Aluno (Admin)
-app.post('/admin/candidate/add', adminAuthMiddleware, (req, res) => {
+app.post('/admin/candidate/add', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { name, gender, status, turmaId } = req.body;
   
   evaluationService.createCandidate({ 
@@ -698,7 +801,7 @@ app.post('/admin/candidate/add', adminAuthMiddleware, (req, res) => {
 });
 
 // Vincular Alunos à Turma
-app.post('/admin/turma/assign', adminAuthMiddleware, (req, res) => {
+app.post('/admin/turma/assign', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { turmaId, candidates } = req.body;
 
   // 1. Remove APENAS os alunos que já estavam nesta turma específica
@@ -745,7 +848,7 @@ app.get('/admin/turma/:id', adminAuthMiddleware, (req, res) => {
   });
 });
 
-app.post('/admin/turma/:id/meetings', adminAuthMiddleware, (req, res) => {
+app.post('/admin/turma/:id/meetings', adminAuthMiddleware, requireCsrf, (req, res) => {
   evaluationService.createClassMeeting(req.params.id, {
     title: req.body.title,
     meetingDate: req.body.meetingDate,
@@ -754,7 +857,7 @@ app.post('/admin/turma/:id/meetings', adminAuthMiddleware, (req, res) => {
   res.redirect(`/admin/turma/${req.params.id}`);
 });
 
-app.post('/admin/turma/:id/attendance/:meetingId', adminAuthMiddleware, (req, res) => {
+app.post('/admin/turma/:id/attendance/:meetingId', adminAuthMiddleware, requireCsrf, (req, res) => {
   try {
     evaluationService.markAttendance(req.params.meetingId, getAttendanceRecordsFromBody(req.body), 'admin', req.params.id);
   } catch (error) {
@@ -764,7 +867,7 @@ app.post('/admin/turma/:id/attendance/:meetingId', adminAuthMiddleware, (req, re
 });
 
 // Excluir aluno (atualizado para redirecionar de volta para a turma)
-app.post('/admin/candidate/delete', adminAuthMiddleware, (req, res) => {
+app.post('/admin/candidate/delete', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { candidateId, turmaId } = req.body;
   evaluationService.deleteCandidate(candidateId);
   
@@ -778,7 +881,7 @@ app.post('/admin/candidate/delete', adminAuthMiddleware, (req, res) => {
 });
 
 // Excluir Turma
-app.post('/admin/turma/delete', adminAuthMiddleware, (req, res) => {
+app.post('/admin/turma/delete', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { turmaId } = req.body;
   evaluationService.deleteTurma(turmaId);
 

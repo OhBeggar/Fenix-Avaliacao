@@ -13,6 +13,8 @@ process.env.ADMIN_COOKIE_SECRET = 'test-cookie-secret';
 const app = require('../app');
 const service = require('../src/services/evaluation-service');
 const { db } = require('../src/db');
+const { signAdminPayload } = require('../src/utils/admin-auth');
+const config = require('../src/config');
 
 function request(server, pathname, headers = {}) {
     const { port } = server.address();
@@ -112,17 +114,57 @@ async function loginTeacher(server, name, password) {
     return rawCookie.split(';')[0];
 }
 
+function adminCookie() {
+    const token = signAdminPayload({
+        type: 'admin',
+        iat: Date.now(),
+        exp: Date.now() + (60 * 60 * 1000),
+    });
+    return `${config.adminCookieName}=${encodeURIComponent(token)}`;
+}
+
+function extractCsrfToken(html) {
+    const match = html.match(/csrfToken\) %>;[\s\S]*?input\.value = "([^"]+)"/)
+        || html.match(/"csrfToken":\s*"([^"]+)"/)
+        || html.match(/name="_csrf" value="([^"]+)"/);
+    assert.ok(match, 'page should include a CSRF token');
+    return match[1].replace(/\\u002F/g, '/');
+}
+
+async function getTeacherCsrf(server, teacherName, cookie) {
+    const page = await getText(server, `/turmas/${encodeURIComponent(teacherName)}`, { Cookie: cookie });
+    assert.equal(page.res.statusCode, 200);
+    return extractCsrfToken(page.text);
+}
+
 test.after(() => {
     db.close();
     fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
-test('results page remains public', async () => {
+test('results require an explicit active turma session', async () => {
+    service.addTeacher('Professor Resultado Seguro', 'senha');
+    const teacher = service.getTeacherList().find((row) => row.name === 'Professor Resultado Seguro');
+    service.createTurma('Turma Resultado Seguro', teacher.id, 'senha-da-turma');
+    const turma = service.getTurmas().find((row) => row.name === 'Turma Resultado Seguro');
+    service.createCandidate({ name: 'Aluno Resultado Seguro', gender: 'male', presence: '100%', status: 'Bolsista', turma_id: turma.id });
+    service.generateSessionCode(turma.id);
+
     const server = http.createServer(app).listen(0);
 
     try {
         const res = await request(server, '/results');
-        assert.equal(res.statusCode, 200);
+        assert.equal(res.statusCode, 302);
+        assert.equal(res.headers.location, '/admin/login');
+
+        const active = await getText(server, `/results?turmaId=${turma.id}`);
+        assert.equal(active.res.statusCode, 200);
+        assert.match(active.text, /Resultados finais/);
+
+        service.endSessionByTurma(turma.id);
+        const closed = await request(server, `/results?turmaId=${turma.id}`);
+        assert.equal(closed.statusCode, 302);
+        assert.equal(closed.headers.location, '/admin/login');
     } finally {
         server.close();
     }
@@ -134,7 +176,7 @@ test('landing is public and evaluation login moved to /avaliacao', async () => {
     try {
         const landing = await getText(server, '/');
         assert.equal(landing.res.statusCode, 200);
-        assert.match(landing.text, /Acessar avalia/);
+        assert.match(landing.text, /Acessar Salas/);
         assert.match(landing.text, /href="\/avaliacao"/);
 
         const login = await getText(server, '/avaliacao');
@@ -212,11 +254,12 @@ test('turma access ignores forged evaluatorName and uses teacher session', async
 
     try {
         const cookie = await loginTeacher(server, 'Professor Dono', 'senha');
+        const csrfToken = await getTeacherCsrf(server, 'Professor Dono', cookie);
         const access = await postJson(server, '/turmas/access', {
             evaluatorName: 'Outro Professor',
             turmaId: turma.id,
             password: 'senha-da-turma',
-        }, { Cookie: cookie });
+        }, { Cookie: cookie, 'X-CSRF-Token': csrfToken });
 
         assert.equal(access.json.success, true);
         assert.equal(access.json.redirectUrl, `/turmas/Professor%20Dono/${turma.id}`);
@@ -283,18 +326,19 @@ test('evaluation PIN does not require turma room access', async () => {
 
     try {
         const cookie = await loginTeacher(server, 'Avaliador PIN', 'senha');
+        const csrfToken = await getTeacherCsrf(server, 'Avaliador PIN', cookie);
         const bad = await postJson(server, '/turmas/evaluate-access', {
             evaluatorName: 'Avaliador PIN',
             turmaId: turma.id,
             code: '0000',
-        }, { Cookie: cookie });
+        }, { Cookie: cookie, 'X-CSRF-Token': csrfToken });
         assert.equal(bad.json.success, false);
 
         const good = await postJson(server, '/turmas/evaluate-access', {
             evaluatorName: 'Avaliador PIN',
             turmaId: turma.id,
             code,
-        }, { Cookie: cookie });
+        }, { Cookie: cookie, 'X-CSRF-Token': csrfToken });
         assert.equal(good.json.success, true);
         assert.equal(good.json.redirectUrl, `/evaluate/Avaliador%20PIN?turmaId=${turma.id}`);
         assert.match(good.res.headers['set-cookie'][0], new RegExp(`evaluation_access_${turma.id}=`));
@@ -315,6 +359,7 @@ test('evaluator heartbeat requires evaluation cookie and stops after session clo
 
     try {
         const teacherCookie = await loginTeacher(server, teacher.name, 'senha');
+        const csrfToken = await getTeacherCsrf(server, teacher.name, teacherCookie);
         const unsigned = await getJson(
             server,
             `/api/evaluators/status?evaluatorName=${encodeURIComponent(teacher.name)}&turmaId=${turma.id}`
@@ -326,7 +371,7 @@ test('evaluator heartbeat requires evaluation cookie and stops after session clo
             evaluatorName: teacher.name,
             turmaId: turma.id,
             code,
-        }, { Cookie: teacherCookie });
+        }, { Cookie: teacherCookie, 'X-CSRF-Token': csrfToken });
         const evaluationCookie = access.res.headers['set-cookie'][0].split(';')[0];
         const authCookies = `${teacherCookie}; ${evaluationCookie}`;
 
@@ -353,8 +398,93 @@ test('evaluator heartbeat requires evaluation cookie and stops after session clo
         assert.equal(closed.json.activeCount, 0);
 
         const closedResults = await getText(server, `/results?turmaId=${turma.id}`);
-        assert.match(closedResults.text, /Sessão encerrada/);
-        assert.doesNotMatch(closedResults.text, /Avaliadores ativos: <strong>1<\/strong>/);
+        assert.equal(closedResults.res.statusCode, 302);
+        assert.equal(closedResults.res.headers.location, '/admin/login');
+    } finally {
+        server.close();
+    }
+});
+
+test('tampered admin cookie is rejected', async () => {
+    const server = http.createServer(app).listen(0);
+
+    try {
+        const forged = `${config.adminCookieName}=${encodeURIComponent(config.adminCookieValue)}`;
+        const res = await request(server, '/admin', { Cookie: forged });
+        assert.equal(res.statusCode, 302);
+        assert.equal(res.headers.location, '/admin/login');
+    } finally {
+        server.close();
+    }
+});
+
+test('sensitive authenticated POSTs require CSRF', async () => {
+    service.addTeacher('Professor CSRF', 'senha');
+    const server = http.createServer(app).listen(0);
+
+    try {
+        const cookie = await loginTeacher(server, 'Professor CSRF', 'senha');
+        const res = await postJson(server, '/turmas/access', {
+            turmaId: 1,
+            password: 'qualquer',
+        }, { Cookie: cookie });
+
+        assert.equal(res.res.statusCode, 403);
+        assert.equal(res.json.success, false);
+    } finally {
+        server.close();
+    }
+});
+
+test('evaluation POST ignores candidate scores outside the authorized turma', async () => {
+    service.addTeacher('Professor Escopo', 'senha');
+    const teacher = service.getTeacherList().find((row) => row.name === 'Professor Escopo');
+    service.createTurma('Turma Permitida', teacher.id, 'senha-a');
+    service.createTurma('Turma Bloqueada', teacher.id, 'senha-b');
+    const allowedTurma = service.getTurmas().find((row) => row.name === 'Turma Permitida');
+    const blockedTurma = service.getTurmas().find((row) => row.name === 'Turma Bloqueada');
+    service.createCandidate({ name: 'Aluno Permitido', gender: 'male', presence: '100%', status: 'Bolsista', turma_id: allowedTurma.id });
+    service.createCandidate({ name: 'Aluno Bloqueado', gender: 'male', presence: '100%', status: 'Bolsista', turma_id: blockedTurma.id });
+    const allowedCandidate = service.getCandidatesByTurma(allowedTurma.id)[0];
+    const blockedCandidate = service.getCandidatesByTurma(blockedTurma.id)[0];
+    const code = service.generateSessionCode(allowedTurma.id);
+
+    const server = http.createServer(app).listen(0);
+
+    try {
+        const teacherCookie = await loginTeacher(server, teacher.name, 'senha');
+        const turmaCsrf = await getTeacherCsrf(server, teacher.name, teacherCookie);
+        const access = await postJson(server, '/turmas/evaluate-access', {
+            turmaId: allowedTurma.id,
+            code,
+        }, { Cookie: teacherCookie, 'X-CSRF-Token': turmaCsrf });
+        const evaluationCookie = access.res.headers['set-cookie'][0].split(';')[0];
+        const authCookies = `${teacherCookie}; ${evaluationCookie}`;
+
+        const evaluatePage = await getText(
+            server,
+            `/evaluate/${encodeURIComponent(teacher.name)}?turmaId=${allowedTurma.id}`,
+            { Cookie: authCookies }
+        );
+        const csrfToken = extractCsrfToken(evaluatePage.text);
+        const form = new URLSearchParams({
+            _csrf: csrfToken,
+            [`${allowedCandidate.id}_presenca_auxilios`]: '8',
+            [`${blockedCandidate.id}_presenca_auxilios`]: '10',
+        });
+
+        const save = await postForm(
+            server,
+            `/evaluate/${encodeURIComponent(teacher.name)}?turmaId=${allowedTurma.id}`,
+            form,
+            { Cookie: authCookies }
+        );
+        assert.equal(save.res.statusCode, 302);
+
+        const allowedScores = service.getEvaluatorScores(teacher.id, allowedTurma.id);
+        const blockedScores = service.getEvaluatorScores(teacher.id, blockedTurma.id);
+        assert.equal(allowedScores[allowedCandidate.id].presenca_auxilios, '8');
+        assert.equal(blockedScores[blockedCandidate.id], undefined);
     } finally {
         server.close();
     }

@@ -1,11 +1,4 @@
-const fs = require('fs');
-const path = require('path');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
-
-const SEMESTER_LABELS = {
-  current: '2024_2',
-  next: '2025_2',
-};
 
 const RANK_HIERARCHY = ['Bolsista', 'Auxiliar', 'Assistente', 'Monitor', 'Professor'];
 const PAGE_SIZE = [842, 595];
@@ -13,36 +6,40 @@ const MARGIN_X = 28;
 const TABLE_WIDTH = PAGE_SIZE[0] - (MARGIN_X * 2);
 const ROW_HEIGHT = 24;
 const HEADER_HEIGHT = 58;
+const BRAND_TOP = 578;
 
 const COLORS = {
-  black: rgb(0.05, 0.05, 0.05),
+  black: rgb(0.12, 0.04, 0.05),
   white: rgb(1, 1, 1),
-  border: rgb(0.08, 0.08, 0.08),
-  softBorder: rgb(0.35, 0.35, 0.35),
-  titleBand: rgb(0.86, 0.83, 0.75),
-  groupBlue: rgb(0.27, 0.49, 0.72),
-  headerCyan: rgb(0.33, 0.92, 0.92),
-  rankGreen: rgb(0.35, 0.95, 0.02),
-  rowCream: rgb(0.86, 0.83, 0.74),
-  rowBlue: rgb(0.48, 0.83, 0.92),
-  passGreen: rgb(0.52, 1, 0.06),
-  failPink: rgb(1, 0.9, 0.9),
-  red: rgb(0.82, 0, 0.08),
+  border: rgb(0.24, 0.12, 0.12),
+  softBorder: rgb(0.75, 0.62, 0.48),
+  titleBand: rgb(0.96, 0.89, 0.78),
+  groupBlue: rgb(0.72, 0.58, 0.40),
+  headerCyan: rgb(0.98, 0.93, 0.84),
+  rankGreen: rgb(0.90, 0.78, 0.58),
+  rowCream: rgb(0.99, 0.95, 0.87),
+  rowBlue: rgb(0.96, 0.86, 0.76),
+  passGreen: rgb(0.94, 0.82, 0.60),
+  failPink: rgb(0.99, 0.88, 0.84),
+  red: rgb(0.72, 0.03, 0.06),
+  brandRed: rgb(0.72, 0.03, 0.06),
+  brandGold: rgb(0.74, 0.58, 0.37),
+  pageCream: rgb(1, 0.97, 0.90),
 };
 
 const COLUMNS = [
-  { key: 'index', label: 'No', width: 20, align: 'center' },
+  { key: 'index', label: 'Nº', width: 20, align: 'center' },
   { key: 'name', label: 'Candidatos', width: 84, align: 'center' },
-  { key: 'presence', label: 'Presenca\nnas aulas\n(80%)', width: 42, align: 'center' },
-  { key: 'presenca_auxilios', label: 'Presenca e\ncomportamento\nnos auxilios', width: 50, align: 'center' },
-  { key: 'comprometimento_eventos', label: 'Comprometimento\ne participacao\nem eventos', width: 58, align: 'center' },
+  { key: 'presence', label: 'Presença\nnas aulas\n(80%)', width: 42, align: 'center' },
+  { key: 'presenca_auxilios', label: 'Presença e\ncomportamento\nnos auxílios', width: 50, align: 'center' },
+  { key: 'comprometimento_eventos', label: 'Comprometimento\ne participação\nem eventos', width: 58, align: 'center' },
   { key: 'genderCriterion', label: 'Deslocamento\n/ Floreio', width: 54, align: 'center' },
-  { key: 'abraco_postura', label: 'Abraco e\nPostura', width: 44, align: 'center' },
-  { key: 'equilibrio', label: 'Equilibrio', width: 40, align: 'center' },
+  { key: 'abraco_postura', label: 'Abraço e\nPostura', width: 44, align: 'center' },
+  { key: 'equilibrio', label: 'Equilíbrio', width: 40, align: 'center' },
   { key: 'passos', label: 'Passos', width: 38, align: 'center' },
   { key: 'ritmo', label: 'Ritmo', width: 36, align: 'center' },
   { key: 'corpo_ritmo', label: 'Corpo do\nRitmo', width: 44, align: 'center' },
-  { key: 'conducao', label: 'Conducao', width: 44, align: 'center' },
+  { key: 'conducao', label: 'Condução', width: 44, align: 'center' },
   { key: 'musicalidade', label: 'Musicalidade', width: 50, align: 'center' },
   { key: 'final_note', label: 'NOTA\nFINAL', width: 44, align: 'center' },
   { key: 'approved', label: 'A', width: 24, align: 'center' },
@@ -53,30 +50,67 @@ const COLUMNS = [
 
 function sanitize(text) {
   return String(text ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\x00-\x7F]/g, '');
+    .replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\u00FF]/g, '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map(line => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .trim();
 }
 
-function getDynamicTitle(results) {
-  if (!results || results.length === 0) return 'RELATORIO DE AVALIACAO';
+function getDynamicTitle(report) {
+  const normalizedReport = Array.isArray(report) ? { results: report } : (report || {});
+  const turmaName = getReportTurmaName(normalizedReport);
 
-  const validCandidates = results.filter(result => (
-    result.current_rank && RANK_HIERARCHY.includes(result.current_rank)
-  ) || (
-    result.final_status && RANK_HIERARCHY.includes(result.final_status)
-  ));
+  if (!turmaName) return 'Avaliação Geral - Resultado Consolidado';
 
-  const firstValid = validCandidates[0];
-  const baseRank = firstValid
-    ? (firstValid.current_rank || firstValid.final_status)
-    : 'Candidato';
-  const currentIndex = RANK_HIERARCHY.indexOf(baseRank);
-  const nextRank = currentIndex !== -1 && currentIndex < RANK_HIERARCHY.length - 1
-    ? RANK_HIERARCHY[currentIndex + 1]
-    : baseRank;
+  const results = Array.isArray(normalizedReport.results) ? normalizedReport.results : [];
+  const baseRank = getPredominantRank(results) || 'Candidato';
+  const nextRank = getNextRank(baseRank);
 
-  return `AUDICAO DE ${pluralizeRank(baseRank).toUpperCase()} ${SEMESTER_LABELS.current} PARA ${pluralizeRank(nextRank).toUpperCase()} ${SEMESTER_LABELS.next}`;
+  return `${turmaName} - ${pluralizeRank(baseRank)} para ${turmaName} ${pluralizeRank(nextRank)}`;
+}
+
+function getReportTurmaName(report) {
+  const turmaName = report?.turma?.name || report?.event?.turma_name || '';
+  return String(turmaName).trim();
+}
+
+function getPredominantRank(results) {
+  const counts = new Map();
+  let bestRank = null;
+  let bestCount = 0;
+
+  results.forEach(result => {
+    const rank = getRankForResult(result);
+    if (!rank) return;
+
+    const count = (counts.get(rank) || 0) + 1;
+    counts.set(rank, count);
+
+    if (count > bestCount) {
+      bestRank = rank;
+      bestCount = count;
+    }
+  });
+
+  return bestRank;
+}
+
+function getRankForResult(result) {
+  if (result?.current_rank && RANK_HIERARCHY.includes(result.current_rank)) {
+    return result.current_rank;
+  }
+  if (result?.final_status && RANK_HIERARCHY.includes(result.final_status)) {
+    return result.final_status;
+  }
+  return null;
+}
+
+function getNextRank(rank) {
+  const currentIndex = RANK_HIERARCHY.indexOf(rank);
+  if (currentIndex === -1 || currentIndex >= RANK_HIERARCHY.length - 1) return rank;
+  return RANK_HIERARCHY[currentIndex + 1];
 }
 
 function pluralizeRank(rank) {
@@ -98,19 +132,20 @@ async function buildResultsPdf(report) {
     regular: await pdfDoc.embedFont(StandardFonts.Helvetica),
     bold: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
     italic: await pdfDoc.embedFont(StandardFonts.HelveticaOblique),
+    brand: await pdfDoc.embedFont(StandardFonts.TimesRomanItalic),
+    brandRegular: await pdfDoc.embedFont(StandardFonts.TimesRoman),
   };
-  const logo = await embedLogo(pdfDoc);
-  const titleText = getDynamicTitle(results);
+  const titleText = getDynamicTitle(report);
 
   let page = pdfDoc.addPage(PAGE_SIZE);
-  let y = drawReportHeader(page, fonts, logo, titleText, report);
+  let y = drawReportHeader(page, fonts, titleText, report);
   drawTableHeader(page, fonts, y, numEvaluators);
   y -= HEADER_HEIGHT;
 
   results.forEach((result, index) => {
     if (y < 98) {
       page = pdfDoc.addPage(PAGE_SIZE);
-      y = drawReportHeader(page, fonts, logo, titleText, report, true);
+      y = drawReportHeader(page, fonts, titleText, report, true);
       drawTableHeader(page, fonts, y, numEvaluators);
       y -= HEADER_HEIGHT;
     }
@@ -124,41 +159,19 @@ async function buildResultsPdf(report) {
   return pdfDoc.save();
 }
 
-async function embedLogo(pdfDoc) {
-  const candidates = [
-    path.join(__dirname, '..', '..', 'static', 'images', 'fenix.png'),
-    path.join(__dirname, '..', '..', 'static', 'images', 'fenix (1).png'),
-  ];
-  const logoPath = candidates.find(filePath => fs.existsSync(filePath));
-  if (!logoPath) return null;
-
-  try {
-    return pdfDoc.embedPng(fs.readFileSync(logoPath));
-  } catch {
-    return null;
-  }
-}
-
-function drawReportHeader(page, fonts, logo, titleText, report, continued = false) {
+function drawReportHeader(page, fonts, titleText, report, continued = false) {
   const pageWidth = PAGE_SIZE[0];
-  let y = PAGE_SIZE[1] - 34;
+  page.drawRectangle({
+    x: 0,
+    y: 0,
+    width: PAGE_SIZE[0],
+    height: PAGE_SIZE[1],
+    color: COLORS.pageCream,
+  });
 
-  if (logo) {
-    const logoWidth = 92;
-    const scaled = logo.scale(logoWidth / logo.width);
-    page.drawImage(logo, {
-      x: (pageWidth - scaled.width) / 2,
-      y: y - scaled.height + 8,
-      width: scaled.width,
-      height: scaled.height,
-    });
-    y -= 36;
-  } else {
-    drawCenteredText(page, 'FENIX DANCA DE SALAO', pageWidth / 2, y, 14, fonts.bold);
-    y -= 22;
-  }
+  drawBrandMark(page, fonts, pageWidth / 2, BRAND_TOP);
 
-  const bandY = y - 18;
+  const bandY = BRAND_TOP - 58;
   page.drawRectangle({
     x: MARGIN_X,
     y: bandY,
@@ -168,7 +181,7 @@ function drawReportHeader(page, fonts, logo, titleText, report, continued = fals
     borderWidth: 1.3,
     color: COLORS.titleBand,
   });
-  drawCenteredText(page, continued ? `${titleText} - CONTINUACAO` : titleText, pageWidth / 2, bandY + 6, 11, fonts.bold);
+  drawCenteredText(page, continued ? `${titleText} - CONTINUAÇÃO` : titleText, pageWidth / 2, bandY + 6, 11, fonts.bold);
 
   const meta = buildMetaText(report);
   if (meta) {
@@ -184,6 +197,37 @@ function drawReportHeader(page, fonts, logo, titleText, report, continued = fals
   return bandY - 28;
 }
 
+function drawBrandMark(page, fonts, centerX, y) {
+  const brand = 'fênix';
+  const brandSize = 26;
+  const brandWidth = fonts.brand.widthOfTextAtSize(brand, brandSize);
+  page.drawText(brand, {
+    x: centerX - (brandWidth / 2),
+    y: y - brandSize,
+    size: brandSize,
+    font: fonts.brand,
+    color: COLORS.brandRed,
+  });
+
+  const subtitle = 'Dança de Salão';
+  const subtitleSize = 6.8;
+  const subtitleWidth = fonts.brandRegular.widthOfTextAtSize(subtitle, subtitleSize);
+  page.drawText(subtitle, {
+    x: centerX - (subtitleWidth / 2),
+    y: y - brandSize - 8,
+    size: subtitleSize,
+    font: fonts.brandRegular,
+    color: COLORS.black,
+  });
+
+  page.drawLine({
+    start: { x: centerX - 58, y: y - brandSize - 13 },
+    end: { x: centerX + 58, y: y - brandSize - 13 },
+    thickness: 0.6,
+    color: COLORS.brandGold,
+  });
+}
+
 function buildMetaText(report) {
   if (report?.event?.title) return report.event.title;
   if (report?.turma?.name) return `Turma: ${report.turma.name}`;
@@ -195,7 +239,7 @@ function drawTableHeader(page, fonts, y, numEvaluators) {
   const groupY = topY - 20;
   const labelY = groupY - 38;
 
-  drawCell(page, MARGIN_X, groupY, COLUMNS[0].width + COLUMNS[1].width, 20, 'JOAO ANTONIO', fonts.bold, 8, {
+  drawCell(page, MARGIN_X, groupY, COLUMNS[0].width + COLUMNS[1].width, 20, 'JOÃO ANTÔNIO', fonts.bold, 8, {
     fill: COLORS.rankGreen,
     align: 'center',
   });
@@ -291,13 +335,13 @@ function getResultValues(result, index) {
 function drawRules(page, fonts, y, numEvaluators) {
   const rules = [
     'Regras:',
-    '1. O candidato que nao atingir a frequencia minima de 80% das aulas sera automaticamente REPROVADO.',
-    '2. A chamada sera por ordem alfabetica.',
-    '3. O parceiro sera escolhido atraves de SORTEIO.',
-    '4. O professor podera solicitar ao avaliado movimentos, conducao ou repeticoes quando necessario.',
-    '5. O professor que nao desejar avaliar determinado item podera marcar X no quadro referente ao item.',
+    '1. O candidato que não atingir a frequência mínima de 80% das aulas será automaticamente REPROVADO.',
+    '2. A chamada será por ordem alfabética.',
+    '3. O parceiro será escolhido por SORTEIO.',
+    '4. O professor poderá solicitar movimentos, condução ou repetições quando necessário.',
+    '5. O professor que não desejar avaliar determinado item poderá marcar X no quadro referente ao item.',
     '6. Professores atribuem notas INTEIRAS entre 1 e 10 pontos.',
-    `7. Sera APROVADO quem atingir 70% da media dos pontos totais E maioria simples dos professores (${Math.floor(numEvaluators / 2) + 1} de ${numEvaluators || 0}).`,
+    `7. Será APROVADO quem atingir 70% da média dos pontos totais E maioria simples dos professores (${Math.floor(numEvaluators / 2) + 1} de ${numEvaluators || 0}).`,
     '8. Pontos totais = 20 + 80 + 150 = 250. APROVADO = 175 pontos (70% de 250).',
   ];
 
@@ -414,6 +458,23 @@ function valueOrDash(value) {
   return String(value);
 }
 
+function asciiFilename(value, fallback = 'arquivo') {
+  const normalized = String(value || fallback)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w.-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 120);
+
+  return normalized || fallback;
+}
+
+function buildAttachmentDisposition(filename) {
+  const safeAscii = asciiFilename(filename, 'download.pdf');
+  const utf8Name = encodeURIComponent(filename).replace(/[()]/g, escape);
+  return `attachment; filename="${safeAscii}"; filename*=UTF-8''${utf8Name}`;
+}
+
 function sumWidths(startIndex, endIndexExclusive) {
   return COLUMNS
     .slice(startIndex, endIndexExclusive)
@@ -422,8 +483,14 @@ function sumWidths(startIndex, endIndexExclusive) {
 
 module.exports = {
   buildResultsPdf,
+  buildAttachmentDisposition,
+  asciiFilename,
   _private: {
     getDynamicTitle,
+    sanitize,
+    buildAttachmentDisposition,
+    asciiFilename,
+    COLUMNS,
     RANK_HIERARCHY,
   },
 };

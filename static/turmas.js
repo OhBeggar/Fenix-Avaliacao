@@ -3,6 +3,7 @@
 
     const evaluatorName = window.TURMAS_CONFIG?.evaluatorName || '';
     let activeEvaluationTurmas = window.TURMAS_CONFIG?.activeEvaluationTurmas || [];
+    const csrfToken = window.TURMAS_CONFIG?.csrfToken || '';
     const roomModal = document.getElementById('roomModal');
     const evaluationModal = document.getElementById('evaluationModal');
     const roomPasswordInput = document.getElementById('roomPasswordInput');
@@ -149,7 +150,7 @@
         try {
             const response = await fetch('/turmas/access', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
                 body: JSON.stringify({
                     evaluatorName,
                     turmaId: selectedTurmaId,
@@ -186,7 +187,7 @@
         try {
             const response = await fetch('/turmas/evaluate-access', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
                 body: JSON.stringify({
                     evaluatorName,
                     turmaId: selectedTurmaId,

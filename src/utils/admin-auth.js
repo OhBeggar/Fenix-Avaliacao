@@ -1,6 +1,39 @@
+const crypto = require('crypto');
 const config = require('../config');
 
 const ADMIN_COOKIE_NAME = config.adminCookieName;
+const ADMIN_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 8;
+
+function getSigningSecret() {
+    return config.adminCookieValue || config.adminPassword || 'avali-admin-cookie-secret';
+}
+
+function signValue(value) {
+    return crypto.createHmac('sha256', getSigningSecret()).update(value).digest('base64url');
+}
+
+function signAdminPayload(payload) {
+    const raw = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    return `${raw}.${signValue(raw)}`;
+}
+
+function readAdminPayload(token) {
+    if (!token || !token.includes('.')) return null;
+
+    const [raw, signature] = token.split('.');
+    const expected = signValue(raw);
+    if (!signature || Buffer.byteLength(signature) !== Buffer.byteLength(expected)) return null;
+    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+
+    try {
+        const payload = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+        if (!payload || payload.type !== 'admin') return null;
+        if (!payload.exp || Date.now() > Number(payload.exp)) return null;
+        return payload;
+    } catch {
+        return null;
+    }
+}
 
 function parseCookies(req) {
     const rawCookie = req.headers.cookie || '';
@@ -29,7 +62,7 @@ function isAdminAuthenticated(req) {
     }
 
     const cookies = parseCookies(req);
-    return cookies[ADMIN_COOKIE_NAME] === config.adminCookieValue;
+    return Boolean(readAdminPayload(cookies[ADMIN_COOKIE_NAME]));
 }
 
 function getSecureAttribute(secure = false) {
@@ -37,10 +70,16 @@ function getSecureAttribute(secure = false) {
 }
 
 function setAdminCookie(res, secure = false) {
-    const maxAge = 1000 * 60 * 60 * 8;
+    const maxAgeMs = ADMIN_COOKIE_MAX_AGE_SECONDS * 1000;
+    const token = signAdminPayload({
+        type: 'admin',
+        iat: Date.now(),
+        exp: Date.now() + maxAgeMs,
+    });
+
     res.setHeader(
         'Set-Cookie',
-        `${ADMIN_COOKIE_NAME}=${encodeURIComponent(config.adminCookieValue)}; HttpOnly; Path=/; Max-Age=${maxAge / 1000}; SameSite=Lax${getSecureAttribute(secure)}`
+        `${ADMIN_COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=${ADMIN_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${getSecureAttribute(secure)}`
     );
 }
 
@@ -56,4 +95,5 @@ module.exports = {
     isAdminAuthenticated,
     setAdminCookie,
     clearAdminCookie,
+    signAdminPayload,
 };
