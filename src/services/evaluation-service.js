@@ -761,6 +761,7 @@ function calculateCandidateResult(candidate, evaluatorIds) {
     approved: approvedCount,
     reproved: reprovedCount,
     status,
+    current_rank: candidate.status,
     final_status: status === 'Aprovado' ? getNextStatus(candidate.status) : candidate.status,
   };
 }
@@ -826,6 +827,7 @@ function buildReprovedResult(candidate, numEvaluators, reason = 'Reprovado', pre
     approved: 0,
     reproved: numEvaluators,
     status: reason,
+    current_rank: candidate.status,
     final_status: candidate.status,
   };
 }

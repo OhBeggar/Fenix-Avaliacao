@@ -117,6 +117,7 @@ test('approved candidate is promoted after official close', () => {
 
     const snapshot = service.getEvaluationHistoryReport(eventId).results.find(result => result.name === candidate.name);
     assert.equal(snapshot.status, 'Aprovado');
+    assert.equal(snapshot.current_rank, 'Bolsista');
     assert.equal(snapshot.final_status, 'Auxiliar');
 });
 
@@ -129,6 +130,12 @@ test('reproved candidate keeps current rank after official close', () => {
 
     const refreshed = service.getCandidatesByTurma(turma.id).find(c => c.id === candidate.id);
     assert.equal(refreshed.status, 'Bolsista');
+
+    const snapshot = service.getEvaluationHistory().find(h => h.turma_id === turma.id);
+    const report = service.getEvaluationHistoryReport(snapshot.id);
+    const result = report.results.find(row => row.name === candidate.name);
+    assert.equal(result.current_rank, 'Bolsista');
+    assert.equal(result.final_status, 'Bolsista');
 });
 
 test('presence insufficient candidate keeps current rank after official close', () => {
@@ -140,4 +147,10 @@ test('presence insufficient candidate keeps current rank after official close', 
 
     const refreshed = service.getCandidatesByTurma(turma.id).find(c => c.id === candidate.id);
     assert.equal(refreshed.status, 'Bolsista');
+
+    const snapshot = service.getEvaluationHistory().find(h => h.turma_id === turma.id);
+    const report = service.getEvaluationHistoryReport(snapshot.id);
+    const result = report.results.find(row => row.name === candidate.name);
+    assert.equal(result.status, 'Presença insuficiente');
+    assert.equal(result.current_rank, 'Bolsista');
 });

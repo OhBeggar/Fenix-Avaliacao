@@ -30,6 +30,13 @@ npm test
 npm run check
 ```
 
+## Rotas Principais
+
+- `/`: landing page pública.
+- `/avaliacao`: login dos professores para acessar turmas e avaliações.
+- `/results`: painel público de resultados ao vivo.
+- `/admin`: painel administrativo protegido.
+
 ## Regras de Avaliação
 
 - Frequência mínima: candidato com menos de `80%` de presença fica automaticamente reprovado.

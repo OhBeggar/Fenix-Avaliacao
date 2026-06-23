@@ -26,7 +26,9 @@
         </header>
 
         <div class="turmas-topbar">
-            <a href="/" class="ghost-link nav-action back">Voltar</a>
+            <a href="/avaliacao" class="ghost-link nav-action back">
+                <span>Voltar</span>
+            </a>
             <button
                 type="button"
                 id="globalEvaluationButton"
@@ -198,13 +200,19 @@
     <script src="/toast.js?v=2"></script>
     <script src="/turmas.js"></script>
 
-    <!-- PROTEÇÃO: Impede abertura de nova aba -->
+    <!-- Proteção: impede abertura de nova aba por padrão, mas respeita `target="_blank"` -->
     <script>
     (function() {
         document.querySelectorAll('a[href^="/"], form[action^="/"]').forEach(function(el) {
+            // Preserve explicit new-tab intents and developer overrides
+            const t = el.getAttribute('target');
+            if ((t && t.toLowerCase() === '_blank') || el.hasAttribute('data-preserve-target')) {
+                return;
+            }
             el.removeAttribute('target');
         });
     })();
     </script>
+    <script src="/back.js"></script>
 </body>
 </html>

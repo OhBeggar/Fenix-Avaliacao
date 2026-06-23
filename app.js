@@ -133,7 +133,7 @@ function getTeacherSession(req, expectedName = null) {
 function requireTeacherSession(req, res, expectedName = null) {
   const teacher = getTeacherSession(req, expectedName);
   if (!teacher) {
-    res.redirect(`/?message=${encodeURIComponent('Faça login para acessar suas turmas.')}`);
+    res.redirect(`/avaliacao?message=${encodeURIComponent('Faça login para acessar suas turmas.')}`);
     return null;
   }
   return teacher;
@@ -167,8 +167,13 @@ function getAttendanceRecordsFromBody(body = {}) {
 
 // === ROTAS PÚBLICAS ===
 
-// Home - Login
+// Landing pública
 app.get('/', (req, res) => {
+  res.render('landing');
+});
+
+// Home - Login da avaliação
+app.get('/avaliacao', (req, res) => {
   res.render('home', { message: req.query.message || null });
 });
 

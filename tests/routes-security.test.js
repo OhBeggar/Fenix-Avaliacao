@@ -128,6 +128,23 @@ test('results page remains public', async () => {
     }
 });
 
+test('landing is public and evaluation login moved to /avaliacao', async () => {
+    const server = http.createServer(app).listen(0);
+
+    try {
+        const landing = await getText(server, '/');
+        assert.equal(landing.res.statusCode, 200);
+        assert.match(landing.text, /Acessar avalia/);
+        assert.match(landing.text, /href="\/avaliacao"/);
+
+        const login = await getText(server, '/avaliacao');
+        assert.equal(login.res.statusCode, 200);
+        assert.match(login.text, /Entrar na Avalia/);
+    } finally {
+        server.close();
+    }
+});
+
 test('PDF export requires admin authentication', async () => {
     const server = http.createServer(app).listen(0);
 
@@ -159,7 +176,7 @@ test('teacher turma list requires signed teacher session', async () => {
     try {
         const direct = await request(server, '/turmas/Professor%20Seguro');
         assert.equal(direct.statusCode, 302);
-        assert.match(direct.headers.location, /^\/\?message=/);
+        assert.match(direct.headers.location, /^\/avaliacao\?message=/);
 
         const cookie = await loginTeacher(server, 'Professor Seguro', 'senha');
         const allowed = await getText(server, '/turmas/Professor%20Seguro', { Cookie: cookie });
@@ -179,7 +196,7 @@ test('teacher session cannot be reused for another teacher URL', async () => {
         const cookie = await loginTeacher(server, 'Professor A Seguro', 'senha-a');
         const forged = await request(server, '/turmas/Professor%20B%20Seguro', { Cookie: cookie });
         assert.equal(forged.statusCode, 302);
-        assert.match(forged.headers.location, /^\/\?message=/);
+        assert.match(forged.headers.location, /^\/avaliacao\?message=/);
     } finally {
         server.close();
     }
