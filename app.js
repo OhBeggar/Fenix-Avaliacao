@@ -147,6 +147,14 @@ function setAccessCookie(req, res, name, payload) {
   });
 }
 
+function clearAccessCookie(req, res, name) {
+  res.clearCookie(name, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isSecureRequest(req),
+  });
+}
+
 function hasAccess(req, cookieName, expected) {
   const payload = readAccessPayload(req.cookies[cookieName]);
   if (!payload) return false;
@@ -193,6 +201,14 @@ function turmaCookieName(turmaId) {
 
 function evaluationCookieName(turmaId) {
   return `evaluation_access_${turmaId}`;
+}
+
+function clearTeacherAccessCookies(req, res) {
+  clearAccessCookie(req, res, TEACHER_COOKIE_NAME);
+  evaluationService.getTurmas().forEach((turma) => {
+    clearAccessCookie(req, res, turmaCookieName(turma.id));
+    clearAccessCookie(req, res, evaluationCookieName(turma.id));
+  });
 }
 
 function hasEvaluationAccess(req, turmaId, evaluatorName) {
@@ -293,7 +309,12 @@ app.post('/api/check-teacher', (req, res) => {
   if (!name || typeof name !== 'string') {
     return res.json({ exists: false });
   }
-  res.json({ exists: name.trim().length >= 2 });
+  res.json({ exists: Boolean(evaluationService.getTeacherByName(name)) });
+});
+
+app.post('/teacher/logout', requireCsrf, (req, res) => {
+  clearTeacherAccessCookies(req, res);
+  res.redirect('/avaliacao');
 });
 
 // Página de Seleção de Turmas
@@ -465,6 +486,7 @@ app.get('/evaluate/:name', (req, res) => {
   }
 
   const attendanceSummary = evaluationService.getAttendanceSummary(turmaId);
+  const fixedScores = evaluationService.getFixedScoresForTurma(turmaId);
   const candidates = evaluationService.getCandidatesByTurma(turmaId).map(candidate => ({
     ...candidate,
     presence: attendanceSummary[candidate.id]?.label || candidate.presence,
@@ -485,6 +507,7 @@ app.get('/evaluate/:name', (req, res) => {
     turmaId,
     candidates,
     currentScores,
+    fixedScores,
     activeEvaluatorStatus,
     commonCriteria,
     maleCriteria,
@@ -540,15 +563,12 @@ app.get('/api/evaluators/status', (req, res) => {
 });
 
 // Resultados em Tempo Real (SEM botão de PDF)
-app.get('/results', (req, res) => {
+app.get('/results', adminAuthMiddleware, (req, res) => {
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
   const { hasLiveSession } = getLiveSessionState(turmaId);
 
   if (!turmaId || !hasLiveSession) {
-    if (isAdminAuthenticated(req)) {
-      return res.redirect('/results/history');
-    }
-    return res.redirect('/admin/login');
+    return res.redirect('/results/history');
   }
 
   const report = evaluationService.getResultsReport(turmaId);
@@ -834,6 +854,7 @@ app.get('/admin/turma/:id', adminAuthMiddleware, (req, res) => {
   const candidates = evaluationService.getCandidatesByTurma(turmaId);
   const meetings = evaluationService.getClassMeetings(turmaId);
   const attendanceSummary = evaluationService.getAttendanceSummary(turmaId);
+  const fixedScores = evaluationService.getFixedScoresForTurma(turmaId);
   const meetingAttendanceMaps = Object.fromEntries(
     meetings.map(meeting => [meeting.id, evaluationService.getAttendanceMapForMeeting(meeting.id)])
   );
@@ -843,9 +864,26 @@ app.get('/admin/turma/:id', adminAuthMiddleware, (req, res) => {
     candidates,
     meetings,
     attendanceSummary,
+    fixedScores,
     meetingAttendanceMaps,
-    message: null,
+    message: req.query.message ? {
+      type: req.query.type === 'success' ? 'success' : 'error',
+      text: req.query.message,
+    } : null,
   });
+});
+
+app.post('/admin/turma/:id/fixed-scores', adminAuthMiddleware, requireCsrf, (req, res) => {
+  const turmaId = parseInt(req.params.id, 10);
+  try {
+    const turma = evaluationService.getTurmaById(turmaId);
+    if (!turma) return res.status(404).send('Turma não encontrada');
+
+    evaluationService.saveFixedScoresForTurma(turmaId, req.body);
+    res.redirect(`/admin/turma/${turmaId}?type=success&message=${encodeURIComponent('Notas fixas salvas com sucesso.')}`);
+  } catch (error) {
+    res.redirect(`/admin/turma/${turmaId}?type=error&message=${encodeURIComponent(error.message || 'Erro ao salvar notas fixas.')}`);
+  }
 });
 
 app.post('/admin/turma/:id/meetings', adminAuthMiddleware, requireCsrf, (req, res) => {

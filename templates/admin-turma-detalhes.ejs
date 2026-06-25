@@ -7,28 +7,39 @@
     <link rel="stylesheet" href="/adm.css">
     <link rel="stylesheet" href="/theme.css">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body class="admin-body">
-    <main class="admin-shell">
-        <header class="admin-header">
-            <div style="display:flex; gap:16px; align-items:center;">
-                <img src="/images/icons8-fenix-cute-color-70.png" alt="Icon" style="height: 40px; width: auto;">
+    <%
+        const totalCandidates = candidates.length;
+        const percentages = candidates
+            .map(c => attendanceSummary[c.id] && typeof attendanceSummary[c.id].percentage === 'number' ? attendanceSummary[c.id].percentage : null)
+            .filter(v => v !== null);
+        const averagePresence = percentages.length ? Math.round(percentages.reduce((sum, value) => sum + value, 0) / percentages.length) : 0;
+        const riskCount = candidates.filter(c => {
+            const summary = attendanceSummary[c.id];
+            return summary && typeof summary.percentage === 'number' && summary.percentage < 80;
+        }).length;
+    %>
+
+    <main class="admin-shell turma-detail-shell">
+        <header class="admin-header detail-header">
+            <div class="header-brand">
+                <img src="/images/icons8-fenix-cute-color-70.png" alt="Fênix Dança">
                 <div>
-                    <span class="eyebrow">Painel Administrativo</span>
+                    <p class="breadcrumb">Dashboard / Turmas / <%= turma.name %></p>
                     <h1><%= turma.name %></h1>
-                    <p style="color: var(--muted); margin: 8px 0 0;">Responsável: <%= turma.teacher_name %></p>
+                    <p class="panel-copy">Responsável: <%= turma.teacher_name || 'Não definido' %></p>
                 </div>
             </div>
-            <div style="display: flex; align-items:center; gap: 12px;">
-                <a href="/admin" class="ghost-link nav-action back">Voltar</a>
-            </div>
+            <a href="/admin" class="ghost-link nav-action back">Voltar</a>
         </header>
 
         <% if (typeof message !== 'undefined' && message) { %>
-            <!-- Elemento oculto para passar dados do EJS para o JS sem quebrar o linter -->
-            <div id="toast-data" 
-                 data-message="<%= message.text %>" 
-                 data-type="<%= message.type === 'success' ? 'success' : 'error' %>" 
+            <div id="toast-data"
+                 data-message="<%= message.text %>"
+                 data-type="<%= message.type === 'success' ? 'success' : 'error' %>"
                  style="display:none"></div>
             <script>
                 document.addEventListener('DOMContentLoaded', () => {
@@ -40,26 +51,68 @@
             </script>
         <% } %>
 
-        <!-- Lista de Alunos -->
-        <section class="panel">
-            <h2>👨‍🎓 Alunos da Turma</h2>
+        <section class="turma-hero">
+            <div>
+                <p class="eyebrow">Central da turma</p>
+                <h2><%= turma.name %></h2>
+                <p>Controle alunos, presença consolidada e notas fixas usadas no resultado final.</p>
+            </div>
+            <div class="hero-metrics">
+                <article>
+                    <strong><%= totalCandidates %></strong>
+                    <span>Alunos</span>
+                </article>
+                <article>
+                    <strong><%= averagePresence %>%</strong>
+                    <span>Presença média</span>
+                </article>
+                <article>
+                    <strong><%= riskCount %></strong>
+                    <span>Em atenção</span>
+                </article>
+            </div>
+        </section>
+
+        <section class="panel admin-module">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Alunos</p>
+                    <h2>Alunos da turma</h2>
+                    <p class="panel-copy">Use a busca para localizar rapidamente um aluno nesta turma.</p>
+                </div>
+                <label class="module-search">
+                    <span>⌕</span>
+                    <input id="studentSearch" type="search" placeholder="Buscar aluno...">
+                </label>
+            </div>
 
             <% if (candidates.length === 0) { %>
-                <div class="empty-state" style="text-align: center; padding: 60px 20px; color: var(--muted); background: var(--panel); border-radius: 12px; border: 2px dashed var(--line);">
-                    <p style="font-size: 1.1rem; margin: 0;">Nenhum aluno cadastrado nesta turma ainda.</p>
-                    <p style="margin: 8px 0 0;">Adicione alunos através do formulário na página principal de administração.</p>
+                <div class="empty-state">
+                    <p>Nenhum aluno cadastrado nesta turma ainda.</p>
+                    <p>Adicione alunos através do painel principal de administração.</p>
                 </div>
             <% } else { %>
-                <div class="presence-grid">
-                    <% candidates.forEach(c => { const summary = attendanceSummary[c.id]; %>
-                        <article class="presence-card">
-                            <div>
-                                <strong><%= c.name %></strong>
-                                <span><%= c.gender === 'male' ? 'Cavalheiro' : 'Dama' %> | <%= c.status %></span>
+                <div class="presence-grid searchable-group">
+                    <% candidates.forEach(c => {
+                        const summary = attendanceSummary[c.id];
+                        const percentage = summary && typeof summary.percentage === 'number' ? summary.percentage : null;
+                        const statusClass = percentage === null ? 'pending' : (percentage >= 80 ? 'ok' : 'risk');
+                        const statusLabel = percentage === null ? 'Sem dados' : (percentage >= 80 ? 'Em dia' : 'Atenção');
+                    %>
+                        <article class="presence-card student-card searchable-card" data-search="<%= `${c.name} ${c.gender} ${c.status}`.toLowerCase() %>">
+                            <div class="student-card-head">
+                                <span class="avatar-chip"><%= c.name.charAt(0).toUpperCase() %></span>
+                                <div>
+                                    <strong><%= c.name %></strong>
+                                    <span><%= c.gender === 'male' ? 'Cavalheiro' : 'Dama' %> · <%= c.status %></span>
+                                </div>
                             </div>
-                            <div class="presence-score <%= summary && summary.percentage >= 80 ? 'ok' : 'risk' %>">
-                                <%= summary ? summary.label : c.presence %>
+
+                            <div class="presence-score <%= statusClass %>">
+                                <span><%= statusLabel %></span>
+                                <strong><%= summary ? summary.label : c.presence %></strong>
                             </div>
+
                             <small>
                                 <% if (summary && summary.source === 'attendance') { %>
                                     <%= summary.present %> presença(s), <%= summary.absent || 0 %> falta(s)
@@ -67,19 +120,73 @@
                                     Fallback manual
                                 <% } %>
                             </small>
-                            <form action="/admin/candidate/delete" method="POST" 
-                                  onsubmit="return confirm('Tem certeza que deseja remover <%= c.name %> desta turma?');">
+
+                            <form action="/admin/candidate/delete" method="POST" onsubmit="return confirm('Tem certeza que deseja remover <%= c.name %> desta turma?');">
                                 <input type="hidden" name="candidateId" value="<%= c.id %>">
                                 <input type="hidden" name="turmaId" value="<%= turma.id %>">
-                                <button type="submit" class="danger" style="padding: 8px 16px; font-size: 0.9rem; width: 100%;">
-                                    Remover
-                                </button>
+                                <button type="submit" class="danger ghost-danger full-width">Remover aluno</button>
                             </form>
                         </article>
                     <% }) %>
                 </div>
             <% } %>
         </section>
+
+        <% if (candidates.length > 0) { %>
+            <section class="panel admin-module">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Notas fixas</p>
+                        <h2>Critérios administrativos da turma</h2>
+                        <p class="panel-copy">Estas notas entram no cálculo final e não podem ser alteradas pelos avaliadores.</p>
+                    </div>
+                </div>
+
+                <form action="/admin/turma/<%= turma.id %>/fixed-scores" method="POST">
+                    <div class="admin-table-wrap scores-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Aluno</th>
+                                    <th>Presença e comportamento nos auxílios</th>
+                                    <th>Comprometimento e participação em eventos</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% candidates.forEach(c => { %>
+                                    <tr>
+                                        <td><strong><%= c.name %></strong></td>
+                                        <td>
+                                            <input
+                                                type="text"
+                                                inputmode="numeric"
+                                                maxlength="2"
+                                                name="fixed_<%= c.id %>_presenca_auxilios"
+                                                value="<%= (fixedScores[c.id] && fixedScores[c.id].presenca_auxilios) || '' %>"
+                                                placeholder="-"
+                                            >
+                                        </td>
+                                        <td>
+                                            <input
+                                                type="text"
+                                                inputmode="numeric"
+                                                maxlength="2"
+                                                name="fixed_<%= c.id %>_comprometimento_eventos"
+                                                value="<%= (fixedScores[c.id] && fixedScores[c.id].comprometimento_eventos) || '' %>"
+                                                placeholder="-"
+                                            >
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="module-footer">
+                        <button type="submit">Salvar notas fixas</button>
+                    </div>
+                </form>
+            </section>
+        <% } %>
     </main>
 
     <script src="/transitions.js"></script>
@@ -93,17 +200,19 @@
             input.value = <%- JSON.stringify(csrfToken) %>;
             form.prepend(input);
         });
-    </script>
-    <script>
-        document.querySelectorAll('.attendance-entry').forEach((entry) => {
-            entry.addEventListener('toggle', () => {
-                if (!entry.open) return;
-                document.querySelectorAll('.attendance-entry[open]').forEach((openEntry) => {
-                    if (openEntry !== entry) {
-                        openEntry.open = false;
-                    }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const search = document.getElementById('studentSearch');
+            const cards = document.querySelectorAll('.searchable-card');
+            if (search && cards.length) {
+                search.addEventListener('input', () => {
+                    const term = search.value.trim().toLowerCase();
+                    cards.forEach(card => {
+                        const value = card.dataset.search || card.textContent.toLowerCase();
+                        card.hidden = term && !value.includes(term);
+                    });
                 });
-            });
+            }
         });
     </script>
     <script src="/back.js"></script>

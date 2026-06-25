@@ -5,6 +5,7 @@
 node_modules/
 __pycache__/
 .playwright-mcp/
+.agents
 
 evaluations.db
 evaluations.db-*

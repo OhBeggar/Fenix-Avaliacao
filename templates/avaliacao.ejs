@@ -21,6 +21,10 @@
             </div>
             <div style="display:flex; align-items:center; gap:12px;">
                 <a href="/turmas/<%= encodeURIComponent(evaluatorName) %>" class="ghost-link nav-action back">Voltar à turma</a>
+                <form action="/teacher/logout" method="POST" style="margin:0;">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="ghost-link" style="padding:8px 16px;">Trocar professor</button>
+                </form>
             </div>
         </header>
 
@@ -66,24 +70,8 @@
                                 <td><%= i + 1 %></td>
                                 <td class="candidate-name"><%= cand.name %></td>
                                 <td><%= cand.presence %></td>
-                                <td>
-                                    <input
-                                        type="text"
-                                        inputmode="numeric"
-                                        maxlength="2"
-                                        name="<%= cand.id %>_presenca_auxilios"
-                                        value="<%= (currentScores[cand.id] && currentScores[cand.id].presenca_auxilios) || '' %>"
-                                    >
-                                </td>
-                                <td>
-                                    <input
-                                        type="text"
-                                        inputmode="numeric"
-                                        maxlength="2"
-                                        name="<%= cand.id %>_comprometimento_eventos"
-                                        value="<%= (currentScores[cand.id] && currentScores[cand.id].comprometimento_eventos) || '' %>"
-                                    >
-                                </td>
+                                <td><%= (fixedScores[cand.id] && fixedScores[cand.id].presenca_auxilios) || '-' %></td>
+                                <td><%= (fixedScores[cand.id] && fixedScores[cand.id].comprometimento_eventos) || '-' %></td>
                                 <td>
                                     <% if (cand.gender === 'male') { %>
                                         <input

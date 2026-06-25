@@ -8,61 +8,133 @@
     <link rel="stylesheet" href="/theme.css">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
-<body class="admin-body">
-    <main class="admin-shell">
-        <!-- HEADER -->
-        <header class="admin-header">
-            <div style="display:flex; align-items:center; gap:12px;">
-                <a href="/" class="ghost-link nav-action back">Voltar</a>
-            </div>
+<body class="admin-body admin-dashboard-body">
+    <%
+        const totalTurmas = turmas.length;
+        const totalTeachers = teachers.length;
+        const totalCandidates = allCandidates.length;
+        const totalActiveSessions = activeSessions.length;
+        const totalHistory = typeof history !== 'undefined' && history ? history.length : 0;
+        const evaluatorsOnline = activeStatus && typeof activeStatus.activeCount !== 'undefined' ? activeStatus.activeCount : 0;
+        const latestActiveSession = activeSessions && activeSessions.length ? activeSessions[0] : null;
+    %>
 
-            <div style="text-align:center;">
-                <span class="eyebrow">Painel Administrativo</span>
-                <h1 style="margin:4px 0 0; font-size:1.5rem;">Secretaria Fênix</h1>
-            </div>
+    <div class="admin-app">
+        <aside class="admin-sidebar" aria-label="Navegação administrativa">
+            <a href="#dashboard" class="brand-lockup">
+                <img src="/images/icons8-fenix-cute-color-96.png" alt="Fênix Dança">
+                <span>
+                    <strong>Fênix Dança</strong>
+                    <small>Secretaria</small>
+                </span>
+            </a>
 
-            <div style="display:flex; align-items:center; gap:12px;">
-                <form action="/admin/logout" method="POST" style="margin:0;">
-                    <button type="submit" class="danger nav-action exit" style="padding:8px 18px; font-size:0.88rem;">Sair</button>
-                </form>
-            </div>
-        </header>
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="is-active"><span>⌂</span>Dashboard</a>
+                <a href="#audicao"><span>◆</span>Audição</a>
+                <a href="#alunos"><span>◉</span>Alunos</a>
+                <a href="#professores"><span>◇</span>Professores</a>
+                <a href="#turmas"><span>▣</span>Turmas</a>
+                <a href="#semestre"><span>▤</span>Semestre</a>
+                <a href="#historico"><span>◌</span>Histórico</a>
+            </nav>
 
-        <% if (typeof message !== 'undefined' && message) { %>
-            <div id="toast-data" 
-                 data-message="<%= message.text %>" 
-                 data-type="<%= message.type === 'success' ? 'success' : 'error' %>" 
-                 style="display:none"></div>
-            <script>
-                document.addEventListener('DOMContentLoaded', () => {
-                    const dataEl = document.getElementById('toast-data');
-                    if (window.showToast && dataEl) {
-                        showToast(dataEl.dataset.message, dataEl.dataset.type);
-                    }
-                });
-            </script>
-        <% } %>
-
-        <!-- SEÇÃO 1: SESSÃO DE AUDIÇÃO -->
-        <details class="panel admin-accordion" open>
-            <summary class="accordion-summary">
+            <div class="sidebar-status">
+                <span class="status-dot <%= totalActiveSessions ? 'online' : '' %>"></span>
                 <div>
-                    <h2>🔑 Sessão de Audição</h2>
-                    <p class="panel-copy">
-                        Selecione a turma e gere o código de acesso. Compartilhe o código com os professores.
-                    </p>
+                    <strong><%= totalActiveSessions ? 'Audição ao vivo' : 'Sem sessão ativa' %></strong>
+                    <small><%= totalActiveSessions %> sessão(ões) em andamento</small>
                 </div>
-                <span class="accordion-indicator"></span>
-            </summary>
-            <div class="accordion-content">
+            </div>
+        </aside>
 
-                <!-- Gerar Código -->
-                <form action="/admin/generate-code" method="POST" class="session-form" style="margin-bottom: 20px;">
-                    <div>
-                        <label style="flex:1; min-width:240px;">
-                            Turma da Sessão
+        <main class="admin-main" id="dashboard">
+            <header class="admin-topbar">
+                <div>
+                    <p class="breadcrumb">Dashboard / Secretaria Administrativa</p>
+                    <h1>Painel Administrativo</h1>
+                </div>
+
+                <label class="global-search" aria-label="Busca administrativa">
+                    <span>⌕</span>
+                    <input id="adminSearch" type="search" placeholder="Buscar aluno, turma ou professor...">
+                </label>
+
+                <div class="topbar-actions">
+                    <a href="/" class="ghost-link nav-action back">Voltar</a>
+                    <form action="/admin/logout" method="POST">
+                        <button type="submit" class="danger nav-action exit">Sair</button>
+                    </form>
+                </div>
+            </header>
+
+            <% if (typeof message !== 'undefined' && message) { %>
+                <div id="toast-data"
+                     data-message="<%= message.text %>"
+                     data-type="<%= message.type === 'success' ? 'success' : 'error' %>"
+                     style="display:none"></div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', () => {
+                        const dataEl = document.getElementById('toast-data');
+                        if (window.showToast && dataEl) {
+                            showToast(dataEl.dataset.message, dataEl.dataset.type);
+                        }
+                    });
+                </script>
+            <% } %>
+
+            <section class="kpi-grid" aria-label="Resumo do sistema">
+                <article class="kpi-card">
+                    <span class="kpi-icon">▣</span>
+                    <strong><%= totalTurmas %></strong>
+                    <small>Turmas</small>
+                </article>
+                <article class="kpi-card">
+                    <span class="kpi-icon">◉</span>
+                    <strong><%= totalCandidates %></strong>
+                    <small>Alunos</small>
+                </article>
+                <article class="kpi-card">
+                    <span class="kpi-icon">◇</span>
+                    <strong><%= totalTeachers %></strong>
+                    <small>Professores</small>
+                </article>
+                <article class="kpi-card live">
+                    <span class="kpi-icon">●</span>
+                    <strong><%= totalActiveSessions %></strong>
+                    <small>Sessões ativas</small>
+                </article>
+            </section>
+
+            <section class="dashboard-grid">
+                <article class="live-session-card" id="audicao">
+                    <div class="section-heading light">
+                        <span class="live-pulse"></span>
+                        <div>
+                            <p class="eyebrow">Audição</p>
+                            <h2><%= latestActiveSession ? 'Audição em andamento' : 'Nenhuma audição ativa' %></h2>
+                        </div>
+                    </div>
+
+                    <% if (latestActiveSession) { %>
+                        <div class="pin-hero">
+                            <span>PIN</span>
+                            <strong id="activePin"><%= latestActiveSession.code || sessionCode %></strong>
+                            <small><%= latestActiveSession.turma_name || currentTurmaName %></small>
+                        </div>
+                        <div class="hero-actions">
+                            <button type="button" class="btn-light" data-copy-pin="<%= latestActiveSession.code || sessionCode %>">Copiar PIN</button>
+                            <a href="/results?turmaId=<%= latestActiveSession.turma_id || currentTurmaId %>" class="btn-light">Ver ao vivo</a>
+                        </div>
+                    <% } else { %>
+                        <p class="light-copy">Gere um PIN para liberar a avaliação da turma aos professores.</p>
+                    <% } %>
+
+                    <form action="/admin/generate-code" method="POST" class="session-form compact-form">
+                        <label>
+                            Turma da sessão
                             <select name="turmaId" required>
                                 <option value="">Selecione uma turma...</option>
                                 <% turmas.forEach(t => { %>
@@ -70,91 +142,53 @@
                                 <% }) %>
                             </select>
                         </label>
-                        <button type="submit" style="margin-bottom:2px;">Gerar Código PIN</button>
-                    </div>
-                </form>
-
-                <!-- PIN Display -->
-                <% if (typeof sessionCode !== 'undefined' && sessionCode) { %>
-                    <div class="pin-display">
-                        <span class="pin-label">Código de Acesso Ativo</span>
-                        <span class="pin-code"><%= sessionCode %></span>
-                        <span class="pin-turma">Turma: <strong><%= currentTurmaName %></strong></span>
-                    </div>
-
-                    <!-- Encerrar Sessão -->
-                    <form action="/admin/end-session" method="POST" style="margin: 16px 0 0;">
-                        <button type="submit" class="danger" style="font-size:0.88rem; padding:8px 16px;">
-                            Encerrar Sessão Atual
-                        </button>
+                        <button type="submit">Gerar PIN</button>
                     </form>
-                <% } %>
 
-            </div>
-        </details>
+                    <% if (latestActiveSession) { %>
+                        <form action="/admin/end-session" method="POST" class="end-session-form">
+                            <button type="submit" class="danger">Encerrar sessão atual</button>
+                        </form>
+                    <% } %>
+                </article>
 
-        <!-- SEÇÃO 2: FECHAR SEMESTRE -->
-        <details class="panel admin-accordion">
-            <summary class="accordion-summary">
-                <div>
-                    <h2>📦 Fechar Semestre</h2>
-                    <p class="panel-copy">
-                        Selecione uma ou mais turmas para fechar o período. Isso arquiva o resultado atual e reinicia chamadas e percentuais.
-                    </p>
-                </div>
-                <span class="accordion-indicator"></span>
-            </summary>
-            <div class="accordion-content">
-                <form action="/admin/close-semester" method="POST" 
-                      onsubmit="return confirm('Fechar o semestre gravará o histórico e reiniciará chamadas para as turmas selecionadas. Continuar?');">
-                    <div class="selection-list">
-                        <% turmas.forEach(t => { %>
-                            <label class="selection-option">
-                                <input type="checkbox" name="turmaIds" value="<%= t.id %>" class="selection-checkbox">
-                                <span class="checkbox-visual" aria-hidden="true"></span>
-                                <div class="selection-copy">
-                                    <strong><%= t.name %></strong>
-                                    <span>Prof: <%= t.teacher_name %></span>
-                                </div>
-                            </label>
+                <article class="panel quick-panel">
+                    <div class="section-heading">
+                        <div>
+                            <p class="eyebrow">Atalho</p>
+                            <h2>Ações rápidas</h2>
+                        </div>
+                    </div>
+                    <div class="quick-actions">
+                        <a href="#turmas" class="quick-action">Nova turma</a>
+                        <a href="#professores" class="quick-action">Novo professor</a>
+                        <a href="#alunos" class="quick-action">Novo aluno</a>
+                        <a href="#audicao" class="quick-action">Gerar PIN</a>
+                        <a href="#semestre" class="quick-action danger-soft">Fechar semestre</a>
+                    </div>
+                    <div class="activity-feed">
+                        <h3>Estado atual</h3>
+                        <p><strong><%= evaluatorsOnline %></strong> avaliador(es) online agora.</p>
+                        <p><strong><%= totalHistory %></strong> histórico(s) oficial(is) arquivado(s).</p>
+                        <% activeSessions.forEach(session => { %>
+                            <a href="/results?turmaId=<%= session.turma_id %>">Painel ao vivo: <%= session.turma_name %></a>
                         <% }) %>
                     </div>
-                    <div style="display:flex; justify-content:flex-end;">
-                        <button type="submit" id="fecharSemestreBtn" class="danger" style="display:none;">Fechar Semestre Selecionado</button>
+                </article>
+            </section>
+
+            <section class="panel admin-module" id="alunos">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Alunos</p>
+                        <h2>Gerenciar alunos por turma</h2>
+                        <p class="panel-copy"><%= totalCandidates %> aluno(s) cadastrados em <%= totalTurmas %> turma(s).</p>
                     </div>
-                </form>
-            </div>
-            <script>
-                document.addEventListener('DOMContentLoaded', () => {
-                    const checkboxes = document.querySelectorAll('.selection-checkbox');
-                    const btn = document.getElementById('fecharSemestreBtn');
-                    if (checkboxes.length && btn) {
-                        const toggleBtn = () => {
-                            const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
-                            btn.style.display = anyChecked ? 'block' : 'none';
-                        };
-                        checkboxes.forEach(cb => cb.addEventListener('change', toggleBtn));
-                        toggleBtn();
-                    }
-                });
-            </script>
-        </details>
-
-        <!-- SEÇÃO 3: GERENCIAR ALUNOS -->
-        <details class="panel admin-accordion">
-            <summary class="accordion-summary">
-                <div>
-                    <h2>👨‍🎓 Gerenciar Alunos por Turma</h2>
-                    <p class="panel-copy"><%= allCandidates.length %> aluno(s) cadastrados em <%= turmas.length %> turma(s).</p>
                 </div>
-                <span class="accordion-indicator"></span>
-            </summary>
-            <div class="accordion-content">
 
-                <!-- Adicionar Aluno -->
-                <form action="/admin/candidate/add" method="POST" class="candidate-form" style="margin-bottom: 28px;">
+                <form action="/admin/candidate/add" method="POST" class="candidate-form form-card">
                     <label>
-                        Nome Completo
+                        Nome completo
                         <input type="text" name="name" required placeholder="Nome do aluno">
                     </label>
                     <label>
@@ -165,7 +199,7 @@
                         </select>
                     </label>
                     <label>
-                        Status Inicial
+                        Status inicial
                         <input type="text" name="status" value="Bolsista" placeholder="Bolsista">
                     </label>
                     <label>
@@ -177,111 +211,92 @@
                             <% }) %>
                         </select>
                     </label>
-                    <button type="submit" style="margin-bottom:2px;">Adicionar Aluno</button>
+                    <button type="submit">Adicionar aluno</button>
                 </form>
 
                 <% if (turmas.length === 0) { %>
                     <div class="empty-state">
                         <p>Nenhuma turma cadastrada ainda.</p>
-                        <p>Crie uma turma primeiro na seção "Gerenciar Turmas".</p>
+                        <p>Crie uma turma primeiro na seção Turmas.</p>
                     </div>
                 <% } else { %>
-                    <div class="turmas-grid">
-                        <% turmas.forEach(t => { 
+                    <div class="turmas-grid searchable-group">
+                        <% turmas.forEach(t => {
                             const alunosCount = allCandidates.filter(c => c.turma_id === t.id).length;
                         %>
-                            <div class="turma-card" onclick="window.location.href='/admin/turma/<%= t.id %>'">
+                            <article class="turma-card searchable-card" data-search="<%= `${t.name} ${t.teacher_name || ''}`.toLowerCase() %>" onclick="window.location.href='/admin/turma/<%= t.id %>'">
+                                <div class="card-topline">
+                                    <span>Turma</span>
+                                    <strong><%= alunosCount %> aluno<%= alunosCount !== 1 ? 's' : '' %></strong>
+                                </div>
                                 <h3><%= t.name %></h3>
                                 <p>Responsável: <%= t.teacher_name || 'Não definido' %></p>
-                                <div style="display:flex; gap:10px; align-items:center; margin-top:auto;">
-                                    <span style="background:var(--primary-light); color:var(--primary); padding:5px 12px; border-radius:999px; font-size:0.8rem; font-weight:700;">
-                                        <%= alunosCount %> aluno<%= alunosCount !== 1 ? 's' : '' %>
-                                    </span>
-                                    <span style="color:var(--primary); font-size:0.82rem; font-weight:600;">
-                                        Ver alunos →
-                                    </span>
-                                </div>
-                            </div>
+                                <span class="card-link">Ver alunos</span>
+                            </article>
                         <% }) %>
                     </div>
                 <% } %>
-            </div>
-        </details>
+            </section>
 
-        <!-- SEÇÃO 4: PROFESSORES -->
-        <details class="panel admin-accordion">
-            <summary class="accordion-summary">
-                <div>
-                    <h2>👨‍🏫 Gerenciar Professores</h2>
-                    <p class="panel-copy"><%= teachers.length %> professor(es) cadastrado(s).</p>
+            <section class="panel admin-module" id="professores">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Equipe</p>
+                        <h2>Gerenciar professores</h2>
+                        <p class="panel-copy"><%= totalTeachers %> professor(es) cadastrado(s).</p>
+                    </div>
                 </div>
-                <span class="accordion-indicator"></span>
-            </summary>
-            <div class="accordion-content">
 
-                <form action="/admin/teacher/add" method="POST" class="candidate-form" style="margin-bottom: 20px;">
+                <form action="/admin/teacher/add" method="POST" class="candidate-form form-card">
                     <label>
-                        Nome Completo
+                        Nome completo
                         <input type="text" name="name" required placeholder="Nome do professor">
                     </label>
                     <label>
-                        Senha Inicial
+                        Senha inicial
                         <input type="password" name="password" required placeholder="Defina uma senha" autocomplete="new-password">
                     </label>
-                    <button type="submit" style="margin-bottom:2px;">Adicionar Professor</button>
+                    <button type="submit">Adicionar professor</button>
                 </form>
 
-                <div class="admin-table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th style="text-align:right;">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% teachers.forEach(t => { %>
-                                <tr>
-                                    <td><strong><%= t.name %></strong></td>
-                                    <td style="text-align:right;">
-                                        <form action="/admin/teacher/reset-password" method="POST" style="display:inline-flex; gap:8px; align-items:center; margin-right:12px;">
-                                            <input type="hidden" name="teacherId" value="<%= t.id %>">
-                                            <input type="password" name="newPassword" placeholder="Nova senha" style="width:140px; padding:8px 12px; font-size:0.85rem;" required autocomplete="new-password">
-                                            <button type="submit" style="padding:8px 14px; font-size:0.85rem;">Redefinir</button>
-                                        </form>
-
-                                        <form action="/admin/teacher/delete" method="POST" style="display:inline;" 
-                                              onsubmit="return confirm('Tem certeza que deseja remover o professor <%= t.name %>?');">
-                                            <input type="hidden" name="teacherId" value="<%= t.id %>">
-                                            <button type="submit" class="danger" style="padding:8px 14px; font-size:0.85rem;">Remover</button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            <% }) %>
-                        </tbody>
-                    </table>
+                <div class="person-grid searchable-group">
+                    <% teachers.forEach(t => { %>
+                        <article class="person-card searchable-card" data-search="<%= t.name.toLowerCase() %>">
+                            <div>
+                                <span class="avatar-chip"><%= t.name.charAt(0).toUpperCase() %></span>
+                                <h3><%= t.name %></h3>
+                                <p>Professor avaliador</p>
+                            </div>
+                            <form action="/admin/teacher/reset-password" method="POST" class="mini-form">
+                                <input type="hidden" name="teacherId" value="<%= t.id %>">
+                                <input type="password" name="newPassword" placeholder="Nova senha" required autocomplete="new-password">
+                                <button type="submit">Redefinir</button>
+                            </form>
+                            <form action="/admin/teacher/delete" method="POST" onsubmit="return confirm('Tem certeza que deseja remover o professor <%= t.name %>?');">
+                                <input type="hidden" name="teacherId" value="<%= t.id %>">
+                                <button type="submit" class="danger ghost-danger">Remover</button>
+                            </form>
+                        </article>
+                    <% }) %>
                 </div>
-            </div>
-        </details>
+            </section>
 
-        <!-- SEÇÃO 5: TURMAS -->
-        <details class="panel admin-accordion">
-            <summary class="accordion-summary">
-                <div>
-                    <h2>🏫 Gerenciar Turmas</h2>
-                    <p class="panel-copy"><%= turmas.length %> turma(s) cadastrada(s).</p>
+            <section class="panel admin-module" id="turmas">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Turmas</p>
+                        <h2>Gerenciar turmas</h2>
+                        <p class="panel-copy"><%= totalTurmas %> turma(s) cadastrada(s).</p>
+                    </div>
                 </div>
-                <span class="accordion-indicator"></span>
-            </summary>
-            <div class="accordion-content">
 
-                <form action="/admin/turma/add" method="POST" class="candidate-form" style="margin-bottom: 20px;">
+                <form action="/admin/turma/add" method="POST" class="candidate-form form-card">
                     <label>
-                        Nome da Turma
+                        Nome da turma
                         <input type="text" name="name" required placeholder="Ex: João Antônio 2024.1">
                     </label>
                     <label>
-                        Professor Responsável
+                        Professor responsável
                         <select name="teacherId" required>
                             <option value="">Selecione...</option>
                             <% teachers.forEach(t => { %>
@@ -290,103 +305,112 @@
                         </select>
                     </label>
                     <label>
-                        Senha da Turma
+                        Senha da turma
                         <input type="password" name="accessPassword" required placeholder="Senha compartilhada" autocomplete="new-password">
                     </label>
-                    <button type="submit" style="margin-bottom:2px;">Criar Turma</button>
+                    <button type="submit">Criar turma</button>
                 </form>
 
-                <div class="admin-table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Turma</th>
-                                <th>Responsável</th>
-                                <th>Senha</th>
-                                <th style="text-align:right;">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% turmas.forEach(t => { %>
-                                <tr>
-                                    <td><strong><%= t.name %></strong></td>
-                                    <td><%= t.teacher_name %></td>
-                                    <td>
-                                        <span class="tag" style="background:<%= t.has_access_password ? 'var(--success-light)' : 'var(--warning-light)' %>; 
-                                                                       color:<%= t.has_access_password ? 'var(--success)' : 'var(--warning)' %>;
-                                                                       border-color:<%= t.has_access_password ? '#a7f3d0' : '#fde68a' %>;">
-                                            <%= t.has_access_password ? 'Configurada' : 'Pendente' %>
-                                        </span>
-                                    </td>
-                                    <td style="text-align:right;">
-                                        <button onclick="document.getElementById('assign-<%= t.id %>').showModal()" 
-                                                class="ghost-link" style="padding:6px 12px; font-size:0.82rem; margin-right:6px;">Vincular Alunos</button>
-                                        <button onclick="document.getElementById('password-<%= t.id %>').showModal()" 
-                                                class="ghost-link" style="padding:6px 12px; font-size:0.82rem; margin-right:6px;">Trocar Senha</button>
+                <div class="management-grid searchable-group">
+                    <% turmas.forEach(t => {
+                        const alunosCount = allCandidates.filter(c => c.turma_id === t.id).length;
+                    %>
+                        <article class="management-card searchable-card" data-search="<%= `${t.name} ${t.teacher_name || ''}`.toLowerCase() %>">
+                            <div class="card-topline">
+                                <span><%= t.has_access_password ? 'Senha configurada' : 'Senha pendente' %></span>
+                                <strong><%= alunosCount %> aluno<%= alunosCount !== 1 ? 's' : '' %></strong>
+                            </div>
+                            <h3><%= t.name %></h3>
+                            <p>Responsável: <%= t.teacher_name || 'Não definido' %></p>
+                            <div class="card-actions">
+                                <a href="/admin/turma/<%= t.id %>" class="ghost-link">Alunos</a>
+                                <button type="button" onclick="document.getElementById('assign-<%= t.id %>').showModal()" class="ghost-link">Vincular</button>
+                                <button type="button" onclick="document.getElementById('password-<%= t.id %>').showModal()" class="ghost-link">Senha</button>
+                            </div>
+                            <form action="/admin/turma/delete" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir a turma <%= t.name %>? Todos os alunos serão desvinculados.');">
+                                <input type="hidden" name="turmaId" value="<%= t.id %>">
+                                <button type="submit" class="danger ghost-danger full-width">Excluir turma</button>
+                            </form>
+                        </article>
 
-                                        <form action="/admin/turma/delete" method="POST" style="display:inline;"
-                                              onsubmit="return confirm('Tem certeza que deseja excluir a turma <%= t.name %>? Todos os alunos serão desvinculados.');">
-                                            <input type="hidden" name="turmaId" value="<%= t.id %>">
-                                            <button type="submit" class="danger" style="padding:6px 12px; font-size:0.82rem;">Excluir</button>
-                                        </form>
+                        <dialog id="password-<%= t.id %>">
+                            <h3>Trocar senha da turma <%= t.name %></h3>
+                            <form action="/admin/turma/password" method="POST">
+                                <input type="hidden" name="turmaId" value="<%= t.id %>">
+                                <label>
+                                    Nova senha da turma
+                                    <input type="password" name="accessPassword" required placeholder="Nova senha compartilhada" autocomplete="new-password">
+                                </label>
+                                <div class="modal-actions">
+                                    <button type="button" onclick="this.closest('dialog').close()" class="ghost-link">Cancelar</button>
+                                    <button type="submit">Salvar senha</button>
+                                </div>
+                            </form>
+                        </dialog>
 
-                                        <!-- Modal Trocar Senha -->
-                                        <dialog id="password-<%= t.id %>">
-                                            <h3>Trocar senha da turma <%= t.name %></h3>
-                                            <form action="/admin/turma/password" method="POST">
-                                                <input type="hidden" name="turmaId" value="<%= t.id %>">
-                                                <label>
-                                                    Nova senha da turma
-                                                    <input type="password" name="accessPassword" required placeholder="Nova senha compartilhada" autocomplete="new-password">
-                                                </label>
-                                                <div class="modal-actions">
-                                                    <button type="button" onclick="this.closest('dialog').close()" class="ghost-link">Cancelar</button>
-                                                    <button type="submit">Salvar senha</button>
-                                                </div>
-                                            </form>
-                                        </dialog>
-
-                                        <!-- Modal Vincular Alunos -->
-                                        <dialog id="assign-<%= t.id %>">
-                                            <h3>Vincular Alunos à <%= t.name %></h3>
-                                            <form action="/admin/turma/assign" method="POST">
-                                                <input type="hidden" name="turmaId" value="<%= t.id %>">
-                                                <div class="assign-list">
-                                                    <% allCandidates.forEach(c => { %>
-                                                        <label class="assign-option">
-                                                            <input type="checkbox" name="candidates" value="<%= c.id %>" <%= c.turma_id == t.id ? 'checked' : '' %> 
-                                                                   class="assign-checkbox">
-                                                            <span class="checkbox-visual" aria-hidden="true"></span>
-                                                            <span><%= c.name %></span>
-                                                        </label>
-                                                    <% }) %>
-                                                </div>
-                                                <div class="modal-actions">
-                                                    <button type="button" onclick="this.closest('dialog').close()" class="ghost-link">Cancelar</button>
-                                                    <button type="submit">Salvar</button>
-                                                </div>
-                                            </form>
-                                        </dialog>
-                                    </td>
-                                </tr>
-                            <% }) %>
-                        </tbody>
-                    </table>
+                        <dialog id="assign-<%= t.id %>">
+                            <h3>Vincular alunos à <%= t.name %></h3>
+                            <form action="/admin/turma/assign" method="POST">
+                                <input type="hidden" name="turmaId" value="<%= t.id %>">
+                                <div class="assign-list">
+                                    <% allCandidates.forEach(c => { %>
+                                        <label class="assign-option">
+                                            <input type="checkbox" name="candidates" value="<%= c.id %>" <%= c.turma_id == t.id ? 'checked' : '' %> class="assign-checkbox">
+                                            <span class="checkbox-visual" aria-hidden="true"></span>
+                                            <span><%= c.name %></span>
+                                        </label>
+                                    <% }) %>
+                                </div>
+                                <div class="modal-actions">
+                                    <button type="button" onclick="this.closest('dialog').close()" class="ghost-link">Cancelar</button>
+                                    <button type="submit">Salvar</button>
+                                </div>
+                            </form>
+                        </dialog>
+                    <% }) %>
                 </div>
-            </div>
-        </details>
+            </section>
 
-        <!-- SEÇÃO 6: HISTÓRICO -->
-        <details class="panel admin-accordion">
-            <summary class="accordion-summary">
-                <div>
-                    <h2>📜 Histórico Oficial de Avaliações</h2>
-                    <p class="panel-copy">Avaliações fechadas ficam congeladas aqui, mesmo que notas, presenças ou professores mudem depois.</p>
+            <section class="panel admin-module" id="semestre">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Fechamento</p>
+                        <h2>Fechar semestre</h2>
+                        <p class="panel-copy">Selecione uma ou mais turmas para arquivar o resultado atual e reiniciar chamadas e percentuais.</p>
+                    </div>
                 </div>
-                <a href="/results/history" class="ghost-link" style="padding:8px 16px; font-size:0.85rem;">Ver Histórico</a>
-            </summary>
-        </details>
-    </main>
+
+                <form action="/admin/close-semester" method="POST" onsubmit="return confirm('Fechar o semestre gravará o histórico e reiniciará chamadas para as turmas selecionadas. Continuar?');">
+                    <div class="selection-list semester-list">
+                        <% turmas.forEach(t => { %>
+                            <label class="selection-option">
+                                <input type="checkbox" name="turmaIds" value="<%= t.id %>" class="selection-checkbox">
+                                <span class="checkbox-visual" aria-hidden="true"></span>
+                                <div class="selection-copy">
+                                    <strong><%= t.name %></strong>
+                                    <span>Prof: <%= t.teacher_name || 'Não definido' %></span>
+                                </div>
+                            </label>
+                        <% }) %>
+                    </div>
+                    <div class="module-footer">
+                        <button type="submit" id="fecharSemestreBtn" class="danger" style="display:none;">Fechar semestre selecionado</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel admin-module history-module" id="historico">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Arquivo</p>
+                        <h2>Histórico oficial de avaliações</h2>
+                        <p class="panel-copy">Avaliações fechadas ficam congeladas aqui, mesmo que notas, presenças ou professores mudem depois.</p>
+                    </div>
+                    <a href="/results/history" class="ghost-link">Ver histórico</a>
+                </div>
+            </section>
+        </main>
+    </div>
 
     <script src="/transitions.js?v=2"></script>
     <script src="/toast.js?v=2"></script>
@@ -399,11 +423,44 @@
             input.value = <%- JSON.stringify(csrfToken) %>;
             form.prepend(input);
         });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkboxes = document.querySelectorAll('.selection-checkbox');
+            const btn = document.getElementById('fecharSemestreBtn');
+            if (checkboxes.length && btn) {
+                const toggleBtn = () => {
+                    const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+                    btn.style.display = anyChecked ? 'inline-flex' : 'none';
+                };
+                checkboxes.forEach(cb => cb.addEventListener('change', toggleBtn));
+                toggleBtn();
+            }
+
+            const search = document.getElementById('adminSearch');
+            const cards = document.querySelectorAll('.searchable-card');
+            if (search && cards.length) {
+                search.addEventListener('input', () => {
+                    const term = search.value.trim().toLowerCase();
+                    cards.forEach(card => {
+                        const value = card.dataset.search || card.textContent.toLowerCase();
+                        card.hidden = term && !value.includes(term);
+                    });
+                });
+            }
+
+            document.querySelectorAll('[data-copy-pin]').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const pin = button.dataset.copyPin;
+                    try {
+                        await navigator.clipboard.writeText(pin);
+                        if (window.showToast) showToast('PIN copiado.', 'success');
+                    } catch (error) {
+                        if (window.showToast) showToast('Não foi possível copiar o PIN.', 'error');
+                    }
+                });
+            });
+        });
     </script>
-</body>
-</html>
-
     <script src="/back.js"></script>
-
 </body>
 </html>

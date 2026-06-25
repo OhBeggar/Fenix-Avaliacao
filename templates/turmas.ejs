@@ -29,6 +29,10 @@
             <a href="/avaliacao" class="ghost-link nav-action back">
                 <span>Voltar</span>
             </a>
+            <form action="/teacher/logout" method="POST" style="margin:0;">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="ghost-link" style="padding:8px 16px;">Trocar professor</button>
+            </form>
             <button
                 type="button"
                 id="globalEvaluationButton"

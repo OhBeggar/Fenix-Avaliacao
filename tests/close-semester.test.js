@@ -43,6 +43,10 @@ function saveScoresForCandidate(candidate, score) {
         formBody[`${candidate.id}_${criterion}`] = String(score);
     });
     service.saveScores(evaluator.id, formBody);
+    service.saveFixedScoresForTurma(candidate.turma_id, {
+        [`fixed_${candidate.id}_presenca_auxilios`]: String(score),
+        [`fixed_${candidate.id}_comprometimento_eventos`]: String(score),
+    });
 
     return evaluator;
 }
@@ -65,6 +69,10 @@ test('closeSemesterForTurmas closes a turma with active session and evaluator', 
         formBody[`${candidate.id}_${criterion}`] = '5';
     });
     service.saveScores(evaluator.id, formBody);
+    service.saveFixedScoresForTurma(turma.id, {
+        [`fixed_${candidate.id}_presenca_auxilios`]: '5',
+        [`fixed_${candidate.id}_comprometimento_eventos`]: '5',
+    });
 
     // Ensure there were scores before closing
     const preScores = service.getEvaluatorScores(evaluator.id);

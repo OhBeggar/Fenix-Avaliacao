@@ -1,6 +1,6 @@
 // back.js
 // Centraliza comportamento dos botões "Voltar" (classe `nav-action back`).
-// Ao clicar, tenta usar history.back(); se não houver histórico, usa `href` ou `data-back-fallback`.
+// Ao clicar, navega para o destino explícito do link em vez de percorrer o histórico.
 (function(){
     'use strict';
 
@@ -20,29 +20,12 @@
 
         e.preventDefault();
 
-        const fallback = el.dataset && el.dataset.backFallback ? el.dataset.backFallback : (el.getAttribute('href') || '/');
+        const destination = el.dataset && el.dataset.backFallback ? el.dataset.backFallback : (el.getAttribute('href') || '/');
 
         try {
-            if (window.history && window.history.length > 1) {
-                window.history.back();
-                return;
-            }
-
-            if (document.referrer) {
-                try {
-                    const ref = new URL(document.referrer, location.href);
-                    if (ref.origin === location.origin) {
-                        window.location.href = document.referrer;
-                        return;
-                    }
-                } catch (err) {
-                    // fallthrough to fallback
-                }
-            }
-
-            window.location.href = fallback;
+            window.location.href = destination;
         } catch (err) {
-            window.location.href = fallback;
+            window.location.href = destination;
         }
     }, false);
 })();
