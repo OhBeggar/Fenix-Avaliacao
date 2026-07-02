@@ -75,7 +75,7 @@ test.after(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
-test('admin attendance route persists bracketed form fields', async () => {
+test('rota de admin salva total de aulas e presença de cada aluno', async () => {
     service.addTeacher('Professor QA', 'senha');
     const teacher = service.getTeacherList().find((row) => row.name === 'Professor QA');
     service.createTurma('Turma QA', teacher.id, 'turma-senha');
@@ -83,14 +83,13 @@ test('admin attendance route persists bracketed form fields', async () => {
 
     service.createCandidate({ name: 'Aluno Presente', gender: 'male', presence: '0%', status: 'Bolsista', turma_id: turma.id });
     service.createCandidate({ name: 'Aluno Ausente', gender: 'female', presence: '0%', status: 'Bolsista', turma_id: turma.id });
-    service.createCandidate({ name: 'Aluno Pendente', gender: 'male', presence: '0%', status: 'Bolsista', turma_id: turma.id });
 
     const candidates = service.getCandidatesByTurma(turma.id);
-    const meetingId = service.createClassMeeting(turma.id, { title: 'Chamada rota' });
     const cookie = adminCookie();
     const form = new URLSearchParams();
-    form.set(`attendance[${candidates[0].id}]`, 'present');
-    form.set(`attendance[${candidates[1].id}]`, 'absent');
+    form.set('total_aulas', '10');
+    form.set(`aulas_${candidates[0].id}`, '9');
+    form.set(`aulas_${candidates[1].id}`, '2');
 
     const server = http.createServer(app).listen(0);
 
@@ -98,19 +97,13 @@ test('admin attendance route persists bracketed form fields', async () => {
         const adminPage = await getText(server, `/admin/turma/${turma.id}`, cookie);
         form.set('_csrf', extractCsrfToken(adminPage.text));
 
-        const res = await postForm(server, `/admin/turma/${turma.id}/attendance/${meetingId}`, form, cookie);
+        const res = await postForm(server, `/admin/turma/${turma.id}/aulas`, form, cookie);
         assert.equal(res.statusCode, 302);
-        assert.equal(res.headers.location, `/admin/turma/${turma.id}`);
-
-        assert.deepEqual(service.getAttendanceMapForMeeting(meetingId), {
-            [candidates[0].id]: 'present',
-            [candidates[1].id]: 'absent',
-        });
+        assert.ok(res.headers.location.startsWith(`/admin/turma/${turma.id}`));
 
         const summary = service.getAttendanceSummary(turma.id);
-        assert.equal(summary[candidates[0].id].label, '100%');
-        assert.equal(summary[candidates[1].id].label, '0%');
-        assert.equal(summary[candidates[2].id].total, 0);
+        assert.equal(summary[candidates[0].id].label, '90%');
+        assert.equal(summary[candidates[1].id].label, '20%');
     } finally {
         server.close();
     }

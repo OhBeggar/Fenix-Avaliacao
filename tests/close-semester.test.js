@@ -84,9 +84,9 @@ test('closeSemesterForTurmas closes a turma with active session and evaluator', 
     assert.equal(result.successes.length, 1);
     assert.equal(result.errors.length, 0);
 
-    // Check that meetings and attendance are cleared (no meetings)
-    const meetings = service.getClassMeetings(turma.id);
-    assert.equal(meetings.length, 0);
+    // Check that total de aulas e presença dos alunos foram zerados
+    const refreshedTurma = service.getTurmas().find(t => t.id === turma.id);
+    assert.equal(refreshedTurma.total_aulas, 0);
 
     // Candidate presence should be reset to '0%'
     const refreshed = service.getCandidatesByTurma(turma.id).find(c => c.id === candidate.id);

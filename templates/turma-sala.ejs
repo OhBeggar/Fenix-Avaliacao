@@ -27,7 +27,7 @@
                 <a href="/turmas/<%= encodeURIComponent(evaluatorName) %>" class="ghost-link nav-action back">Voltar</a>
                 <form action="/teacher/logout" method="POST" style="margin:0;">
                     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                    <button type="submit" class="ghost-link" style="padding:8px 16px;">Trocar professor</button>
+                    <button type="submit" class="ghost-link" style="padding:8px 16px;">Sair</button>
                 </form>
             </div>
         </header>
@@ -42,141 +42,73 @@
             <div class="message error"><%= message %></div>
         <% } %>
 
-        <details class="panel admin-accordion">
+        <details class="panel admin-accordion" open>
             <summary class="accordion-summary">
                 <div>
                     <h2>Presença da Turma</h2>
-                    <p class="panel-copy">A presença oficial agora vem das chamadas registradas. O valor antigo só entra como fallback.</p>
+                    <p class="panel-copy">Informe o total de aulas do período e quantas aulas cada aluno compareceu. Mínimo de 80% de presença para seguir para a audição.</p>
                 </div>
                 <span class="accordion-indicator">Expandir</span>
             </summary>
             <div class="accordion-content">
 
             <% if (canManageAttendance) { %>
-                <form action="/turmas/<%= encodeURIComponent(evaluatorName) %>/<%= turma.id %>/meetings" method="POST" class="candidate-form" style="margin-top:16px;">
-                    <label>
-                        Nome da chamada
-                        <input type="text" name="title" value="Aula" required>
+                <form action="/turmas/<%= encodeURIComponent(evaluatorName) %>/<%= turma.id %>/aulas" method="POST" style="margin-top:16px;">
+                    <label style="max-width:220px; display:block; margin-bottom:16px;">
+                        Total de aulas no período
+                        <input type="text" inputmode="numeric" maxlength="4" name="total_aulas" value="<%= turma.total_aulas || 0 %>">
                     </label>
-                    <label>
-                        Data
-                        <input type="date" name="meetingDate" value="<%= new Date().toISOString().slice(0, 10) %>" required>
-                    </label>
-                    <button type="submit">Criar chamada</button>
-                </form>
-            <% } %>
 
-            <div class="presence-grid">
-                <% candidates.forEach(c => { const summary = attendanceSummary[c.id]; %>
-                    <article class="presence-card">
-                        <div>
-                            <strong><%= c.name %></strong>
-                            <span><%= c.status %></span>
-                        </div>
-                        <div class="presence-score <%= summary && summary.percentage >= 80 ? 'ok' : 'risk' %>">
-                            <%= summary ? summary.label : c.presence %>
-                        </div>
-                        <small>
-                            <% if (summary && summary.source === 'attendance') { %>
-                                <%= summary.present %> presença(s), <%= summary.absent || 0 %> falta(s)
-                            <% } else { %>
-                                Fallback manual
-                            <% } %>
-                        </small>
-                    </article>
-                <% }) %>
-            </div>
-            </div>
-        </details>
-
-        <details class="panel admin-accordion" open>
-            <summary class="accordion-summary">
-                <div>
-                    <h2>Histórico de Chamadas</h2>
-                    <p class="panel-copy"><%= meetings.length %> chamada(s). Alunos sem marcação ficam pendentes e não entram no percentual.</p>
-                </div>
-                <span class="accordion-indicator">Expandir</span>
-            </summary>
-            <div class="accordion-content">
-
-            <% if (meetings.length === 0) { %>
-                <p class="panel-copy">Nenhuma chamada criada ainda.</p>
-            <% } %>
-
-            <% meetings.forEach((meeting, index) => { 
-                const attendanceMap = meetingAttendanceMaps[meeting.id] || {};
-                const meetingStats = candidates.reduce((acc, c) => {
-                    const status = attendanceMap[c.id] || 'pending';
-                    acc[status] = (acc[status] || 0) + 1;
-                    return acc;
-                }, { present: 0, absent: 0, pending: 0 });
-            %>
-            <details class="attendance-entry">
-                <summary>
-                    <div>
-                        <strong><%= meeting.title %></strong>
-                        <span><%= meeting.meeting_date %></span>
-                    </div>
-                    <div class="attendance-stats">
-                        <span class="status-chip present"><%= meetingStats.present %> presente(s)</span>
-                        <span class="status-chip absent"><%= meetingStats.absent %> falta(s)</span>
-                        <span class="status-chip pending"><%= meetingStats.pending %> pendente(s)</span>
-                    </div>
-                </summary>
-
-                <% if (canManageAttendance) { %>
-                    <form action="/turmas/<%= encodeURIComponent(evaluatorName) %>/<%= turma.id %>/attendance/<%= meeting.id %>" method="POST">
-                        <div class="attendance-table-wrap">
-                            <table class="attendance-table">
-                                <thead>
+                    <div class="attendance-table-wrap">
+                        <table class="attendance-table">
+                            <thead>
+                                <tr>
+                                    <th>Aluno</th>
+                                    <th>Aulas presentes</th>
+                                    <th>Percentual</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% candidates.forEach(c => {
+                                    const summary = attendanceSummary[c.id];
+                                    const percentage = summary && typeof summary.percentage === 'number' ? summary.percentage : null;
+                                    const statusClass = percentage === null ? 'pending' : (percentage >= 80 ? 'present' : 'absent');
+                                %>
                                     <tr>
-                                        <th>Aluno</th>
-                                        <th>Status atual</th>
-                                        <th>Presença acumulada</th>
-                                        <th>Marcação</th>
+                                        <td><strong><%= c.name %></strong></td>
+                                        <td>
+                                            <input type="text" inputmode="numeric" maxlength="4" name="aulas_<%= c.id %>" value="<%= c.aulas_presentes || 0 %>">
+                                        </td>
+                                        <td><span class="status-chip <%= statusClass %>"><%= summary ? summary.label : '0%' %></span></td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    <% candidates.forEach(c => {
-                                        const saved = attendanceMap[c.id];
-                                        const summary = attendanceSummary[c.id];
-                                    %>
-                                        <tr class="<%= saved ? '' : 'attendance-pending-row' %>">
-                                            <td><strong><%= c.name %></strong></td>
-                                            <td>
-                                                <% if (saved === 'present') { %>
-                                                    <span class="status-chip present">Presente</span>
-                                                <% } else if (saved === 'absent') { %>
-                                                    <span class="status-chip absent">Falta</span>
-                                                <% } else { %>
-                                                    <span class="status-chip pending">Pendente</span>
-                                                <% } %>
-                                            </td>
-                                            <td><%= summary ? summary.label : c.presence %></td>
-                                            <td>
-                                                <div class="attendance-options compact">
-                                                    <label class="attendance-option present">
-                                                        <input type="radio" name="attendance[<%= c.id %>]" value="present" <%= saved === 'present' ? 'checked' : '' %>>
-                                                        Presente
-                                                    </label>
-                                                    <label class="attendance-option absent">
-                                                        <input type="radio" name="attendance[<%= c.id %>]" value="absent" <%= saved === 'absent' ? 'checked' : '' %>>
-                                                        Falta
-                                                    </label>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    <% }) %>
-                                </tbody>
-                            </table>
-                        </div>
-                        <button type="submit" style="margin-top:16px;">Salvar chamada</button>
-                    </form>
-                <% } else { %>
-                    <p class="panel-copy">Somente o professor responsável pode lançar presença nesta turma.</p>
-                <% } %>
-            </details>
-            <% }) %>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" style="margin-top:16px;">Salvar presença</button>
+                </form>
+            <% } else { %>
+                <div class="presence-grid">
+                    <% candidates.forEach(c => { const summary = attendanceSummary[c.id]; %>
+                        <article class="presence-card">
+                            <div>
+                                <strong><%= c.name %></strong>
+                                <span><%= c.status %></span>
+                            </div>
+                            <div class="presence-score <%= summary && summary.percentage >= 80 ? 'ok' : 'risk' %>">
+                                <%= summary ? summary.label : c.presence %>
+                            </div>
+                            <small>
+                                <% if (summary && summary.source === 'attendance') { %>
+                                    <%= summary.present %> de <%= summary.total %> aula(s)
+                                <% } else { %>
+                                    Fallback manual
+                                <% } %>
+                            </small>
+                        </article>
+                    <% }) %>
+                </div>
+            <% } %>
             </div>
         </details>
     </main>
@@ -227,18 +159,6 @@
         })();
     </script>
 
-    <script>
-        document.querySelectorAll('.attendance-entry').forEach((entry) => {
-            entry.addEventListener('toggle', () => {
-                if (!entry.open) return;
-                document.querySelectorAll('.attendance-entry[open]').forEach((openEntry) => {
-                    if (openEntry !== entry) {
-                        openEntry.open = false;
-                    }
-                });
-            });
-        });
-    </script>
     <script src="/transitions.js"></script>
     <script src="/toast.js"></script>
     <script>

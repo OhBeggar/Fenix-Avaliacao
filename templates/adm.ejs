@@ -32,13 +32,13 @@
             </a>
 
             <nav class="sidebar-nav">
-                <a href="#dashboard" class="is-active"><span>⌂</span>Dashboard</a>
-                <a href="#audicao"><span>◆</span>Audição</a>
-                <a href="#alunos"><span>◉</span>Alunos</a>
-                <a href="#professores"><span>◇</span>Professores</a>
+                <a href="#dashboard" class="is-active"><span>🏠</span>Home</a>
+                <a href="#audicao"><span>💃</span>Audição</a>
+                <a href="#alunos"><span>🧑🏻</span>Alunos</a>
+                <a href="#professores"><span>🧑🏻‍🏫</span>Professores</a>
                 <a href="#turmas"><span>▣</span>Turmas</a>
-                <a href="#semestre"><span>▤</span>Semestre</a>
-                <a href="#historico"><span>◌</span>Histórico</a>
+                <a href="#semestre"><span>📅</span>Semestre</a>
+                <a href="#historico"><span>🧾</span>Histórico</a>
             </nav>
 
             <div class="sidebar-status">
@@ -53,8 +53,8 @@
         <main class="admin-main" id="dashboard">
             <header class="admin-topbar">
                 <div>
-                    <p class="breadcrumb">Dashboard / Secretaria Administrativa</p>
-                    <h1>Painel Administrativo</h1>
+                    <p class="breadcrumb">Secretaria Administrativa</p>
+                    <h1>Painel Geral</h1>
                 </div>
 
                 <label class="global-search" aria-label="Busca administrativa">
@@ -92,17 +92,17 @@
                     <small>Turmas</small>
                 </article>
                 <article class="kpi-card">
-                    <span class="kpi-icon">◉</span>
+                    <span class="kpi-icon">🧑🏻</span>
                     <strong><%= totalCandidates %></strong>
                     <small>Alunos</small>
                 </article>
                 <article class="kpi-card">
-                    <span class="kpi-icon">◇</span>
+                    <span class="kpi-icon">🧑🏻‍🏫</span>
                     <strong><%= totalTeachers %></strong>
                     <small>Professores</small>
                 </article>
                 <article class="kpi-card live">
-                    <span class="kpi-icon">●</span>
+                    <span class="kpi-icon">⚠️</span>
                     <strong><%= totalActiveSessions %></strong>
                     <small>Sessões ativas</small>
                 </article>
@@ -128,6 +128,7 @@
                             <button type="button" class="btn-light" data-copy-pin="<%= latestActiveSession.code || sessionCode %>">Copiar PIN</button>
                             <a href="/results?turmaId=<%= latestActiveSession.turma_id || currentTurmaId %>" class="btn-light">Ver ao vivo</a>
                         </div>
+                        <p class="close-semester-hint">Terminou a audição desta turma? Clique em <strong>“Fechar semestre”</strong> nas Ações rápidas para arquivar os resultados e reiniciar chamadas e percentuais.</p>
                     <% } else { %>
                         <p class="light-copy">Gere um PIN para liberar a avaliação da turma aos professores.</p>
                     <% } %>
@@ -164,7 +165,16 @@
                         <a href="#professores" class="quick-action">Novo professor</a>
                         <a href="#alunos" class="quick-action">Novo aluno</a>
                         <a href="#audicao" class="quick-action">Gerar PIN</a>
-                        <a href="#semestre" class="quick-action danger-soft">Fechar semestre</a>
+                        <% if (totalActiveSessions > 0) { %>
+                            <form action="/admin/close-semester" method="POST" class="quick-action-form" onsubmit="return confirm('Fechar o semestre vai arquivar o resultado atual e reiniciar chamadas e percentuais das turmas com audição ativa. Continuar?');">
+                                <% activeSessions.forEach(session => { %>
+                                    <input type="hidden" name="turmaIds" value="<%= session.turma_id %>">
+                                <% }) %>
+                                <button type="submit" class="quick-action danger-soft">Fechar semestre</button>
+                            </form>
+                        <% } else { %>
+                            <button type="button" class="quick-action danger-soft is-disabled" disabled title="Disponível apenas quando houver uma audição ativa">Fechar semestre</button>
+                        <% } %>
                     </div>
                     <div class="activity-feed">
                         <h3>Estado atual</h3>
@@ -376,27 +386,29 @@
                     <div>
                         <p class="eyebrow">Fechamento</p>
                         <h2>Fechar semestre</h2>
-                        <p class="panel-copy">Selecione uma ou mais turmas para arquivar o resultado atual e reiniciar chamadas e percentuais.</p>
+                        <p class="panel-copy">O fechamento agora é feito pelo atalho <strong>“Fechar semestre”</strong> nas Ações rápidas, disponível somente enquanto houver ao menos uma audição ativa.</p>
                     </div>
                 </div>
 
-                <form action="/admin/close-semester" method="POST" onsubmit="return confirm('Fechar o semestre gravará o histórico e reiniciará chamadas para as turmas selecionadas. Continuar?');">
+                <% if (activeSessions.length > 0) { %>
                     <div class="selection-list semester-list">
-                        <% turmas.forEach(t => { %>
-                            <label class="selection-option">
-                                <input type="checkbox" name="turmaIds" value="<%= t.id %>" class="selection-checkbox">
-                                <span class="checkbox-visual" aria-hidden="true"></span>
+                        <% activeSessions.forEach(session => { %>
+                            <div class="selection-option" style="cursor:default;">
+                                <span class="status-dot online"></span>
                                 <div class="selection-copy">
-                                    <strong><%= t.name %></strong>
-                                    <span>Prof: <%= t.teacher_name || 'Não definido' %></span>
+                                    <strong><%= session.turma_name %></strong>
+                                    <span>PIN <%= session.code %> ativo</span>
                                 </div>
-                            </label>
+                            </div>
                         <% }) %>
                     </div>
-                    <div class="module-footer">
-                        <button type="submit" id="fecharSemestreBtn" class="danger" style="display:none;">Fechar semestre selecionado</button>
+                    <p class="panel-copy">Clicar em “Fechar semestre” nas Ações rápidas vai arquivar essas turmas e reiniciar chamadas e percentuais.</p>
+                <% } else { %>
+                    <div class="empty-state">
+                        <p>Nenhuma audição ativa no momento.</p>
+                        <p>Gere um PIN em <a href="#audicao">Audição</a> para liberar o fechamento de semestre.</p>
                     </div>
-                </form>
+                <% } %>
             </section>
 
             <section class="panel admin-module history-module" id="historico">
@@ -425,17 +437,6 @@
         });
 
         document.addEventListener('DOMContentLoaded', () => {
-            const checkboxes = document.querySelectorAll('.selection-checkbox');
-            const btn = document.getElementById('fecharSemestreBtn');
-            if (checkboxes.length && btn) {
-                const toggleBtn = () => {
-                    const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
-                    btn.style.display = anyChecked ? 'inline-flex' : 'none';
-                };
-                checkboxes.forEach(cb => cb.addEventListener('change', toggleBtn));
-                toggleBtn();
-            }
-
             const search = document.getElementById('adminSearch');
             const cards = document.querySelectorAll('.searchable-card');
             if (search && cards.length) {

@@ -261,20 +261,6 @@ function getLiveSessionState(turmaId = null) {
   };
 }
 
-function getAttendanceRecordsFromBody(body = {}) {
-  if (body.attendance && typeof body.attendance === 'object') {
-    return body.attendance;
-  }
-
-  return Object.entries(body).reduce((records, [key, value]) => {
-    const match = /^attendance\[(\d+)\]$/.exec(key);
-    if (match) {
-      records[match[1]] = value;
-    }
-    return records;
-  }, {});
-}
-
 // === ROTAS PÚBLICAS ===
 
 // Landing pública
@@ -383,10 +369,6 @@ app.get('/turmas/:name/:turmaId', (req, res) => {
 
   const candidates = evaluationService.getCandidatesByTurma(turmaId);
   const attendanceSummary = evaluationService.getAttendanceSummary(turmaId);
-  const meetings = evaluationService.getClassMeetings(turmaId);
-  const meetingAttendanceMaps = Object.fromEntries(
-    meetings.map(meeting => [meeting.id, evaluationService.getAttendanceMapForMeeting(meeting.id)])
-  );
   const activeSession = evaluationService.getActiveSessionForTurma(turmaId);
 
   res.render('turma-sala', {
@@ -394,39 +376,13 @@ app.get('/turmas/:name/:turmaId', (req, res) => {
     turma,
     candidates,
     attendanceSummary,
-    meetings,
-    meetingAttendanceMaps,
     activeSession,
     canManageAttendance: turma.teacher_name === evaluatorName,
     message: req.query.message || null,
   });
 });
 
-app.post('/turmas/:name/:turmaId/meetings', requireCsrf, (req, res) => {
-  const evaluatorName = decodeURIComponent(req.params.name);
-  const turmaId = parseInt(req.params.turmaId, 10);
-  const turma = evaluationService.getTurmaById(turmaId);
-  const teacher = requireTeacherSession(req, res, evaluatorName);
-  if (!teacher) return;
-
-  if (!hasAccess(req, turmaCookieName(turmaId), { type: 'turma', evaluatorName, turmaId })) {
-    return res.status(403).send('Acesso à turma não liberado.');
-  }
-
-  if (!turma || turma.teacher_name !== evaluatorName) {
-    return res.status(403).send('Somente o professor responsável pode criar chamadas.');
-  }
-
-  evaluationService.createClassMeeting(turmaId, {
-    title: req.body.title,
-    meetingDate: req.body.meetingDate,
-    createdBy: evaluatorName,
-  });
-
-  res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}/${turmaId}`);
-});
-
-app.post('/turmas/:name/:turmaId/attendance/:meetingId', requireCsrf, (req, res) => {
+app.post('/turmas/:name/:turmaId/aulas', requireCsrf, (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = parseInt(req.params.turmaId, 10);
   const turma = evaluationService.getTurmaById(turmaId);
@@ -442,7 +398,7 @@ app.post('/turmas/:name/:turmaId/attendance/:meetingId', requireCsrf, (req, res)
   }
 
   try {
-    evaluationService.markAttendance(req.params.meetingId, getAttendanceRecordsFromBody(req.body), evaluatorName, turmaId);
+    evaluationService.setAttendanceForTurma(turmaId, req.body);
     res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}/${turmaId}`);
   } catch (error) {
     res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}/${turmaId}?message=${encodeURIComponent(error.message)}`);
@@ -852,20 +808,14 @@ app.get('/admin/turma/:id', adminAuthMiddleware, (req, res) => {
   }
   
   const candidates = evaluationService.getCandidatesByTurma(turmaId);
-  const meetings = evaluationService.getClassMeetings(turmaId);
   const attendanceSummary = evaluationService.getAttendanceSummary(turmaId);
   const fixedScores = evaluationService.getFixedScoresForTurma(turmaId);
-  const meetingAttendanceMaps = Object.fromEntries(
-    meetings.map(meeting => [meeting.id, evaluationService.getAttendanceMapForMeeting(meeting.id)])
-  );
   
   res.render('admin-turma-detalhes', {
     turma,
     candidates,
-    meetings,
     attendanceSummary,
     fixedScores,
-    meetingAttendanceMaps,
     message: req.query.message ? {
       type: req.query.type === 'success' ? 'success' : 'error',
       text: req.query.message,
@@ -886,22 +836,14 @@ app.post('/admin/turma/:id/fixed-scores', adminAuthMiddleware, requireCsrf, (req
   }
 });
 
-app.post('/admin/turma/:id/meetings', adminAuthMiddleware, requireCsrf, (req, res) => {
-  evaluationService.createClassMeeting(req.params.id, {
-    title: req.body.title,
-    meetingDate: req.body.meetingDate,
-    createdBy: 'admin',
-  });
-  res.redirect(`/admin/turma/${req.params.id}`);
-});
-
-app.post('/admin/turma/:id/attendance/:meetingId', adminAuthMiddleware, requireCsrf, (req, res) => {
+app.post('/admin/turma/:id/aulas', adminAuthMiddleware, requireCsrf, (req, res) => {
+  const turmaId = req.params.id;
   try {
-    evaluationService.markAttendance(req.params.meetingId, getAttendanceRecordsFromBody(req.body), 'admin', req.params.id);
+    evaluationService.setAttendanceForTurma(turmaId, req.body);
+    res.redirect(`/admin/turma/${turmaId}?type=success&message=${encodeURIComponent('Presença atualizada com sucesso.')}`);
   } catch (error) {
-    console.error('Erro ao salvar presença:', error);
+    res.redirect(`/admin/turma/${turmaId}?type=error&message=${encodeURIComponent(error.message || 'Erro ao salvar presença.')}`);
   }
-  res.redirect(`/admin/turma/${req.params.id}`);
 });
 
 // Excluir aluno (atualizado para redirecionar de volta para a turma)

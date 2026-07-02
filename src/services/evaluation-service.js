@@ -21,9 +21,6 @@ const crypto = require('crypto');
 
 const SCORE_PATTERN = /^\d+$/;
 const PASSWORD_ALGORITHM = 'scrypt';
-const ATTENDANCE_PRESENT_STATUSES = new Set(['present']);
-const ATTENDANCE_COUNTED_STATUSES = new Set(['present', 'absent']);
-const ATTENDANCE_ALLOWED_STATUSES = new Set(['present', 'absent']);
 const FIXED_SCORE_CRITERIA = ['presenca_auxilios', 'comprometimento_eventos'];
 const FIXED_SCORE_CRITERIA_SET = new Set(FIXED_SCORE_CRITERIA);
 
@@ -89,26 +86,10 @@ function initDb() {
     FOREIGN KEY (evaluator_id) REFERENCES evaluators(id)
   )`);
 
-  db.exec(`CREATE TABLE IF NOT EXISTS class_meetings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    turma_id INTEGER NOT NULL,
-    title TEXT,
-    meeting_date TEXT NOT NULL,
-    created_by TEXT,
-    created_at TEXT,
-    FOREIGN KEY (turma_id) REFERENCES turmas(id)
-  )`);
-
-  db.exec(`CREATE TABLE IF NOT EXISTS attendance_records (
-    meeting_id INTEGER NOT NULL,
-    candidate_id INTEGER NOT NULL,
-    status TEXT NOT NULL,
-    marked_by TEXT,
-    marked_at TEXT,
-    PRIMARY KEY(meeting_id, candidate_id),
-    FOREIGN KEY (meeting_id) REFERENCES class_meetings(id),
-    FOREIGN KEY (candidate_id) REFERENCES candidates(id)
-  )`);
+  // Sistema antigo de chamadas (class_meetings/attendance_records) foi substituído
+  // pelo modelo simplificado de "total de aulas x aulas presentes". Remove tabelas antigas.
+  db.exec('DROP TABLE IF EXISTS attendance_records');
+  db.exec('DROP TABLE IF EXISTS class_meetings');
 
   db.exec(`CREATE TABLE IF NOT EXISTS evaluation_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -157,13 +138,14 @@ function initDb() {
   try {
     db.exec("ALTER TABLE sessions ADD COLUMN expires_at TEXT");
   } catch (e) {}
+  try {
+    db.exec("ALTER TABLE turmas ADD COLUMN total_aulas INTEGER DEFAULT 0");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE candidates ADD COLUMN aulas_presentes INTEGER DEFAULT 0");
+  } catch (e) {}
 
-  migrateJustifiedAttendance();
   seedCandidates();
-}
-
-function migrateJustifiedAttendance() {
-  db.prepare("UPDATE attendance_records SET status = 'absent' WHERE status = 'justified'").run();
 }
 
 // --- Seed Inicial ---
@@ -272,12 +254,12 @@ function createTurma(name, teacherId, accessPassword = '') {
 }
 
 function getTurmas() {
-  return db.prepare(`SELECT t.id, t.name, t.teacher_id, t.access_password_hash IS NOT NULL AS has_access_password, e.name as teacher_name
+  return db.prepare(`SELECT t.id, t.name, t.teacher_id, t.total_aulas, t.access_password_hash IS NOT NULL AS has_access_password, e.name as teacher_name
     FROM turmas t LEFT JOIN evaluators e ON t.teacher_id = e.id ORDER BY t.name`).all();
 }
 
 function getTurmaById(turmaId) {
-  return db.prepare(`SELECT t.id, t.name, t.teacher_id, t.access_password_hash, e.name as teacher_name
+  return db.prepare(`SELECT t.id, t.name, t.teacher_id, t.total_aulas, t.access_password_hash, e.name as teacher_name
     FROM turmas t LEFT JOIN evaluators e ON t.teacher_id = e.id WHERE t.id = ?`).get(turmaId);
 }
 
@@ -295,9 +277,9 @@ function verifyTurmaPassword(turmaId, password) {
 function getCandidatesByTurma(turmaId) {
   // Se turmaId for 0 ou null, retorna todos (para admin)
   if (!turmaId || turmaId === 'all') {
-    return db.prepare('SELECT id, name, gender, presence, status, turma_id FROM candidates ORDER BY id').all();
+    return db.prepare('SELECT id, name, gender, presence, status, turma_id, aulas_presentes FROM candidates ORDER BY id').all();
   }
-  return db.prepare('SELECT id, name, gender, presence, status, turma_id FROM candidates WHERE turma_id = ? ORDER BY id').all(turmaId);
+  return db.prepare('SELECT id, name, gender, presence, status, turma_id, aulas_presentes FROM candidates WHERE turma_id = ? ORDER BY id').all(turmaId);
 }
 
 function assignCandidateToTurma(candidateId, turmaId) {
@@ -566,7 +548,6 @@ function deleteCandidate(candidateId) {
   runInTransaction(() => {
     db.prepare('DELETE FROM candidates WHERE id = ?').run(id);
     db.prepare('DELETE FROM scores WHERE candidate_id = ?').run(id);
-    db.prepare('DELETE FROM attendance_records WHERE candidate_id = ?').run(id);
   });
 }
 
@@ -576,58 +557,38 @@ function deleteTurma(turmaId) {
     // Remove todos os alunos vinculados a esta turma
     db.prepare('UPDATE candidates SET turma_id = NULL WHERE turma_id = ?').run(id);
     db.prepare('DELETE FROM sessions WHERE turma_id = ?').run(id);
-    db.prepare('DELETE FROM attendance_records WHERE meeting_id IN (SELECT id FROM class_meetings WHERE turma_id = ?)').run(id);
-    db.prepare('DELETE FROM class_meetings WHERE turma_id = ?').run(id);
     // Remove a turma
     db.prepare('DELETE FROM turmas WHERE id = ?').run(id);
   });
 }
 
-// --- Presença / Chamadas ---
+// --- Presença / Aulas ---
 
-function createClassMeeting(turmaId, payload = {}) {
-  const title = String(payload.title || 'Aula').trim();
-  const meetingDate = String(payload.meetingDate || getLocalDateString()).trim();
-  const createdBy = String(payload.createdBy || '').trim();
-  const insert = db.prepare('INSERT INTO class_meetings (turma_id, title, meeting_date, created_by, created_at) VALUES (?, ?, ?, ?, ?)')
-    .run(turmaId, title, meetingDate, createdBy, getNowIsoString());
-  return insert.lastInsertRowid;
-}
-
-function getClassMeetings(turmaId) {
-  return db.prepare('SELECT * FROM class_meetings WHERE turma_id = ? ORDER BY meeting_date DESC, id DESC').all(turmaId);
-}
-
-function getAttendanceMapForMeeting(meetingId) {
-  const rows = db.prepare('SELECT candidate_id, status FROM attendance_records WHERE meeting_id = ?').all(meetingId);
-  return rows.reduce((map, row) => {
-    map[row.candidate_id] = row.status;
-    return map;
-  }, {});
-}
-
-function markAttendance(meetingId, records, markedBy = '', expectedTurmaId = null) {
-  const meeting = db.prepare('SELECT id, turma_id FROM class_meetings WHERE id = ?').get(meetingId);
-  if (!meeting) {
-    throw new Error('Chamada não encontrada.');
-  }
-  if (expectedTurmaId && String(meeting.turma_id) !== String(expectedTurmaId)) {
-    throw new Error('Chamada não pertence a esta turma.');
-  }
-
-  const validCandidateIds = new Set(
-    db.prepare('SELECT id FROM candidates WHERE turma_id = ?').all(meeting.turma_id).map(row => String(row.id))
-  );
-
-  const upsert = db.prepare(`INSERT OR REPLACE INTO attendance_records
-    (meeting_id, candidate_id, status, marked_by, marked_at) VALUES (?, ?, ?, ?, ?)`);
+/**
+ * Salva, em uma única operação, o total de aulas do período de uma turma
+ * e a quantidade de aulas que cada aluno compareceu.
+ * formBody esperado: { total_aulas: '100', aulas_<candidateId>: '80', ... }
+ */
+function setAttendanceForTurma(turmaId, formBody = {}) {
+  const id = Number.parseInt(turmaId, 10);
+  const total = Math.max(0, Number.parseInt(formBody.total_aulas, 10) || 0);
+  const candidates = getCandidatesByTurma(id);
 
   runInTransaction(() => {
-    Object.entries(records || {}).forEach(([candidateId, rawStatus]) => {
-      if (!validCandidateIds.has(String(candidateId))) return;
-      if (!ATTENDANCE_ALLOWED_STATUSES.has(rawStatus)) return;
-      const status = rawStatus;
-      upsert.run(meetingId, Number.parseInt(candidateId, 10), status, markedBy, getNowIsoString());
+    db.prepare('UPDATE turmas SET total_aulas = ? WHERE id = ?').run(total, id);
+
+    const update = db.prepare('UPDATE candidates SET aulas_presentes = ? WHERE id = ?');
+    candidates.forEach((candidate) => {
+      const key = `aulas_${candidate.id}`;
+      if (!Object.prototype.hasOwnProperty.call(formBody, key)) return;
+
+      const raw = String(formBody[key] ?? '').trim();
+      let value = raw === '' ? 0 : Number.parseInt(raw, 10);
+      if (Number.isNaN(value) || value < 0) {
+        throw new Error(`Quantidade de aulas presentes inválida para ${candidate.name}.`);
+      }
+      if (value > total) value = total;
+      update.run(value, candidate.id);
     });
   });
 }
@@ -683,53 +644,47 @@ function saveFixedScoresForTurma(turmaId, formBody = {}) {
 
 function getAttendanceSummary(turmaId) {
   const candidates = getCandidatesByTurma(turmaId);
+  const turmaCache = new Map();
+
   return candidates.reduce((map, candidate) => {
-    map[candidate.id] = calculateCandidatePresence(candidate);
+    if (!candidate.turma_id) {
+      map[candidate.id] = calculateCandidatePresence(candidate, 0);
+      return map;
+    }
+
+    if (!turmaCache.has(candidate.turma_id)) {
+      turmaCache.set(candidate.turma_id, getTurmaById(candidate.turma_id));
+    }
+    const turma = turmaCache.get(candidate.turma_id);
+    map[candidate.id] = calculateCandidatePresence(candidate, turma ? turma.total_aulas : 0);
     return map;
   }, {});
 }
 
-function calculateCandidatePresence(candidate) {
-  const rows = db.prepare(`SELECT ar.status
-    FROM attendance_records ar
-    JOIN class_meetings cm ON cm.id = ar.meeting_id
-    WHERE cm.turma_id = ? AND ar.candidate_id = ?`).all(candidate.turma_id, candidate.id);
+function calculateCandidatePresence(candidate, totalAulas = 0) {
+  const total = Number(totalAulas) || 0;
 
-  const counted = rows.filter(row => ATTENDANCE_COUNTED_STATUSES.has(row.status));
-  if (rows.length === 0) {
+  if (!candidate.turma_id || total <= 0) {
     const fallback = parsePresence(candidate.presence);
     return {
       percentage: fallback,
       label: candidate.presence || `${fallback}%`,
-      present: fallback > 0 ? null : 0,
+      present: 0,
       absent: 0,
       total: 0,
       source: 'manual',
     };
   }
 
-  if (counted.length === 0) {
-    const fallback = parsePresence(candidate.presence);
-    return {
-      percentage: fallback,
-      label: candidate.presence || `${fallback}%`,
-      present: fallback > 0 ? null : 0,
-      absent: 0,
-      total: 0,
-      pending: rows.length,
-      source: 'manual',
-    };
-  }
-
-  const present = counted.filter(row => ATTENDANCE_PRESENT_STATUSES.has(row.status)).length;
-  const absent = counted.length - present;
-  const percentage = roundOneDecimal((present / counted.length) * 100);
+  const present = Math.min(Number(candidate.aulas_presentes) || 0, total);
+  const absent = total - present;
+  const percentage = roundOneDecimal((present / total) * 100);
   return {
     percentage,
     label: `${percentage}%`,
     present,
     absent,
-    total: counted.length,
+    total,
     source: 'attendance',
   };
 }
@@ -811,9 +766,8 @@ function promoteApprovedCandidates(results, idByName) {
  */
 function calculateCandidateResult(candidate, evaluatorIds, fixedScores = {}) {
   const numEvaluators = evaluatorIds.length;
-  const presenceSummary = candidate.turma_id
-    ? calculateCandidatePresence(candidate)
-    : { percentage: parsePresence(candidate.presence), label: candidate.presence || '0%', source: 'manual' };
+  const turma = candidate.turma_id ? getTurmaById(candidate.turma_id) : null;
+  const presenceSummary = calculateCandidatePresence(candidate, turma ? turma.total_aulas : 0);
   const presenceValue = presenceSummary.percentage;
 
   // Reprovação automática por presença
@@ -1039,15 +993,15 @@ function closeSemesterForTurmas(turmaIds = [], closedBy = 'admin', options = { p
       //    Os registros históricos (evaluation_events / evaluation_snapshots) já foram gravados.
       //    Ajustamos também o campo `presence` dos candidatos para '0%'.
       runInTransaction(() => {
-        // Remove presenças e reuniões relacionados a esta turma
-        db.prepare('DELETE FROM attendance_records WHERE meeting_id IN (SELECT id FROM class_meetings WHERE turma_id = ?)').run(tid);
-        db.prepare('DELETE FROM class_meetings WHERE turma_id = ?').run(tid);
+        // Zera total de aulas e presença dos alunos desta turma
+        db.prepare('UPDATE turmas SET total_aulas = 0 WHERE id = ?').run(tid);
+        db.prepare('UPDATE candidates SET aulas_presentes = 0 WHERE turma_id = ?').run(tid);
 
         // Remove notas (scores) dos candidatos desta turma para reinício
         db.prepare('DELETE FROM scores WHERE candidate_id IN (SELECT id FROM candidates WHERE turma_id = ?)').run(tid);
         db.prepare('DELETE FROM candidate_fixed_scores WHERE candidate_id IN (SELECT id FROM candidates WHERE turma_id = ?)').run(tid);
 
-        // Zera presença manual dos candidatos desta turma para reinício
+        // Zera presença manual (fallback) dos candidatos desta turma para reinício
         db.prepare("UPDATE candidates SET presence = '0%' WHERE turma_id = ?").run(tid);
       });
 
@@ -1180,12 +1134,8 @@ module.exports = {
   getActiveSessionForTurma,
   
   // Presença
-  createClassMeeting,
-  getClassMeetings,
-  getAttendanceMapForMeeting,
-  markAttendance,
+  setAttendanceForTurma,
   getAttendanceSummary,
-  migrateJustifiedAttendance,
   
   // Avaliação
   initDb,

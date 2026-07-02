@@ -136,6 +136,69 @@
             <section class="panel admin-module">
                 <div class="section-heading">
                     <div>
+                        <p class="eyebrow">Presença</p>
+                        <h2>Aulas e frequência</h2>
+                        <p class="panel-copy">Informe o total de aulas do período e quantas aulas cada aluno compareceu. O sistema calcula o percentual automaticamente (mínimo de 80% para seguir para a audição).</p>
+                    </div>
+                </div>
+
+                <form action="/admin/turma/<%= turma.id %>/aulas" method="POST">
+                    <label style="max-width:220px; display:block; margin-bottom:16px;">
+                        Total de aulas no período
+                        <input
+                            type="text"
+                            inputmode="numeric"
+                            maxlength="4"
+                            name="total_aulas"
+                            value="<%= turma.total_aulas || 0 %>"
+                        >
+                    </label>
+
+                    <div class="admin-table-wrap scores-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Aluno</th>
+                                    <th>Aulas presentes</th>
+                                    <th>Percentual</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% candidates.forEach(c => {
+                                    const summary = attendanceSummary[c.id];
+                                    const percentage = summary && typeof summary.percentage === 'number' ? summary.percentage : null;
+                                    const statusClass = percentage === null ? 'pending' : (percentage >= 80 ? 'present' : 'absent');
+                                %>
+                                    <tr>
+                                        <td><strong><%= c.name %></strong></td>
+                                        <td>
+                                            <input
+                                                type="text"
+                                                inputmode="numeric"
+                                                maxlength="4"
+                                                name="aulas_<%= c.id %>"
+                                                value="<%= c.aulas_presentes || 0 %>"
+                                            >
+                                        </td>
+                                        <td>
+                                            <span class="status-chip <%= statusClass %>"><%= summary ? summary.label : '0%' %></span>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="module-footer">
+                        <button type="submit">Salvar presença</button>
+                    </div>
+                </form>
+            </section>
+        <% } %>
+
+        <% if (candidates.length > 0) { %>
+            <section class="panel admin-module">
+                <div class="section-heading">
+                    <div>
                         <p class="eyebrow">Notas fixas</p>
                         <h2>Critérios administrativos da turma</h2>
                         <p class="panel-copy">Estas notas entram no cálculo final e não podem ser alteradas pelos avaliadores.</p>

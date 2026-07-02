@@ -519,9 +519,11 @@ button.danger:hover {
 }
 
 .btn-light {
-    color: var(--brand-red);
-    background: rgba(255, 255, 255, 0.92);
+    color: var(--brand-red-deep);
+    background: var(--brand-gold-light);
     border: 1px solid rgba(255, 255, 255, 0.42);
+    border-radius: 24px;
+    padding: 10px 24px;
 }
 
 .candidate-form,
@@ -552,6 +554,16 @@ button.danger:hover {
 
 .end-session-form {
     margin: 12px 0 0;
+}
+
+.stack-form {
+    display: flex; /* Faz os itens do formulário se organizarem em coluna */
+    flex-direction: column; /* Empilha os itens verticalmente */
+    gap: 15px; /* Adiciona um espaçamento de 15px entre os itens do formulário */
+}
+
+.login-card label {
+    margin-bottom: 0; /* Remove qualquer margem inferior padrão que o label possa ter */
 }
 
 /* ===== PANELS / DASHBOARD ===== */
@@ -642,7 +654,7 @@ button.danger:hover {
     overflow: hidden;
     color: #fff;
     background:
-        linear-gradient(135deg, rgba(139, 13, 22, 0.96), rgba(31, 10, 13, 0.98)),
+        linear-gradient(135deg, rgba(119, 78, 81, 0.96), rgba(31, 10, 13, 0.98)),
         radial-gradient(circle at 84% 16%, rgba(189, 148, 96, 0.55), transparent 18rem);
     border: 1px solid rgba(232, 214, 184, 0.28);
     border-radius: var(--radius-xl);
@@ -728,6 +740,48 @@ button.danger:hover {
 .quick-action.danger-soft {
     color: var(--brand-red);
     background: var(--danger-light);
+}
+
+.quick-action-form {
+    margin: 0;
+}
+
+/* Botão "Fechar semestre" reaproveita o visual de .quick-action, mas precisa
+   vencer a regra genérica de button:not(.danger):not(.ghost-link) em especificidade. */
+.quick-panel .quick-actions button.quick-action {
+    width: 100%;
+    color: var(--brand-red);
+    background: var(--danger-light);
+    border: 1px solid var(--border-soft);
+    box-shadow: none;
+}
+
+.quick-panel .quick-actions button.quick-action:hover:not(:disabled) {
+    border-color: var(--brand-gold);
+}
+
+.quick-panel .quick-actions button.quick-action.is-disabled,
+.quick-panel .quick-actions button.quick-action:disabled {
+    color: var(--muted);
+    background: #F3ECDF;
+    cursor: not-allowed;
+    opacity: 0.75;
+    transform: none;
+}
+
+.close-semester-hint {
+    margin: 6px 0 0;
+    padding: 12px 14px;
+    color: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px dashed rgba(255, 255, 255, 0.4);
+    border-radius: var(--radius-sm);
+    font-size: 0.86rem;
+    font-weight: 650;
+}
+
+.close-semester-hint strong {
+    color: #FFDBA8;
 }
 
 .activity-feed {

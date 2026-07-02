@@ -31,26 +31,9 @@ function createTurmaWithCandidate(candidatePresence = '0%') {
     return { turma, candidate };
 }
 
-test('migrateJustifiedAttendance converts legacy justified records to absent', () => {
-    const { turma, candidate } = createTurmaWithCandidate();
-    const meetingId = service.createClassMeeting(turma.id, { title: 'Aula teste' });
-
-    db.prepare(`INSERT INTO attendance_records
-        (meeting_id, candidate_id, status, marked_by, marked_at)
-        VALUES (?, ?, 'justified', 'test', ?)`)
-        .run(meetingId, candidate.id, new Date().toISOString());
-
-    service.migrateJustifiedAttendance();
-
-    assert.deepEqual(service.getAttendanceMapForMeeting(meetingId), {
-        [candidate.id]: 'absent',
-    });
-});
-
-test('new class meetings do not affect presence until attendance is saved', () => {
+test('turma sem total de aulas cai no fallback de presença manual', () => {
     const { turma, candidate } = createTurmaWithCandidate('75%');
 
-    service.createClassMeeting(turma.id, { title: 'Aula pendente' });
     const summary = service.getAttendanceSummary(turma.id)[candidate.id];
 
     assert.equal(summary.source, 'manual');
@@ -58,29 +41,62 @@ test('new class meetings do not affect presence until attendance is saved', () =
     assert.equal(summary.total, 0);
 });
 
-test('presence is calculated only from saved present and absent records', () => {
+test('setAttendanceForTurma calcula o percentual a partir de total x presentes', () => {
     const { turma, candidate } = createTurmaWithCandidate();
-    const firstMeetingId = service.createClassMeeting(turma.id, { title: 'Aula 1' });
-    const secondMeetingId = service.createClassMeeting(turma.id, { title: 'Aula 2' });
 
-    service.markAttendance(firstMeetingId, { [candidate.id]: 'present' }, 'test', turma.id);
-    service.markAttendance(secondMeetingId, { [candidate.id]: 'absent' }, 'test', turma.id);
+    service.setAttendanceForTurma(turma.id, {
+        total_aulas: '100',
+        [`aulas_${candidate.id}`]: '80',
+    });
 
     const summary = service.getAttendanceSummary(turma.id)[candidate.id];
 
     assert.equal(summary.source, 'attendance');
-    assert.equal(summary.present, 1);
-    assert.equal(summary.absent, 1);
-    assert.equal(summary.total, 2);
-    assert.equal(summary.percentage, 50);
-    assert.equal(summary.label, '50%');
+    assert.equal(summary.present, 80);
+    assert.equal(summary.absent, 20);
+    assert.equal(summary.total, 100);
+    assert.equal(summary.percentage, 80);
+    assert.equal(summary.label, '80%');
 });
 
-test('markAttendance ignores unsupported statuses', () => {
+test('setAttendanceForTurma trava aulas presentes no total de aulas', () => {
     const { turma, candidate } = createTurmaWithCandidate();
-    const meetingId = service.createClassMeeting(turma.id, { title: 'Aula sem justificativa' });
 
-    service.markAttendance(meetingId, { [candidate.id]: 'justified' }, 'test', turma.id);
+    service.setAttendanceForTurma(turma.id, {
+        total_aulas: '10',
+        [`aulas_${candidate.id}`]: '999',
+    });
 
-    assert.deepEqual(service.getAttendanceMapForMeeting(meetingId), {});
+    const summary = service.getAttendanceSummary(turma.id)[candidate.id];
+    assert.equal(summary.present, 10);
+    assert.equal(summary.percentage, 100);
+});
+
+test('setAttendanceForTurma rejeita valores negativos/inválidos', () => {
+    const { turma, candidate } = createTurmaWithCandidate();
+
+    assert.throws(() => {
+        service.setAttendanceForTurma(turma.id, {
+            total_aulas: '100',
+            [`aulas_${candidate.id}`]: '-5',
+        });
+    });
+});
+
+test('isPresenceEligible reflete o mesmo corte de 80% usado no resultado final', () => {
+    const { turma, candidate } = createTurmaWithCandidate();
+
+    service.setAttendanceForTurma(turma.id, {
+        total_aulas: '100',
+        [`aulas_${candidate.id}`]: '79',
+    });
+    let summary = service.getAttendanceSummary(turma.id)[candidate.id];
+    assert.equal(summary.percentage < 80, true);
+
+    service.setAttendanceForTurma(turma.id, {
+        total_aulas: '100',
+        [`aulas_${candidate.id}`]: '80',
+    });
+    summary = service.getAttendanceSummary(turma.id)[candidate.id];
+    assert.equal(summary.percentage >= 80, true);
 });
