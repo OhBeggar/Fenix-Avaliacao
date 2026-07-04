@@ -873,8 +873,21 @@ app.get('/results/history', adminAuthMiddleware, (req, res) => {
   const history = evaluationService.getEvaluationHistory();
   res.render('historico', {
     history,
-    message: null,
+    message: req.query.message ? {
+      type: req.query.type === 'success' ? 'success' : 'error',
+      text: req.query.message,
+    } : null,
   });
+});
+
+// Excluir um evento do histórico oficial
+app.post('/admin/history/delete', adminAuthMiddleware, requireCsrf, (req, res) => {
+  try {
+    evaluationService.deleteEvaluationHistoryEvent(req.body.eventId);
+    res.redirect(`/results/history?type=success&message=${encodeURIComponent('Histórico removido com sucesso.')}`);
+  } catch (error) {
+    res.redirect(`/results/history?type=error&message=${encodeURIComponent(error.message || 'Erro ao remover histórico.')}`);
+  }
 });
 
 app.get('/results/history/:eventId', adminAuthMiddleware, (req, res) => {

@@ -50,6 +50,7 @@
             gap: 16px;
         }
         .historico-card {
+            position: relative;
             background: var(--panel);
             border: 1px solid var(--line);
             border-radius: 16px;
@@ -97,6 +98,33 @@
             border: none;
             cursor: pointer;
         }
+        .delete-history-form {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            margin: 0;
+        }
+        .delete-history-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            color: var(--danger, #8B0D16);
+            background: #fff;
+            border: 1.5px solid var(--danger, #8B0D16);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 800;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .delete-history-btn:hover {
+            color: #fff;
+            background: var(--danger, #8B0D16);
+        }
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -126,10 +154,30 @@
             </a>
         </div>
 
+        <% if (typeof message !== 'undefined' && message) { %>
+            <div id="toast-data"
+                 data-message="<%= message.text %>"
+                 data-type="<%= message.type === 'success' ? 'success' : 'error' %>"
+                 style="display:none"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const dataEl = document.getElementById('toast-data');
+                    if (window.showToast && dataEl) {
+                        showToast(dataEl.dataset.message, dataEl.dataset.type);
+                    }
+                });
+            </script>
+        <% } %>
+
         <% if (history && history.length > 0) { %>
             <div class="historico-grid">
                 <% history.forEach(event => { %>
                     <div class="historico-card">
+                        <form action="/admin/history/delete" method="POST" class="delete-history-form" onsubmit="return confirm('Excluir permanentemente o histórico \'<%= event.title %>\'? Esta ação não pode ser desfeita.');">
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                            <input type="hidden" name="eventId" value="<%= event.id %>">
+                            <button type="submit" class="delete-history-btn" title="Excluir este histórico" aria-label="Excluir histórico">×</button>
+                        </form>
                         <h3><%= event.title %></h3>
                         <p><strong>Turma:</strong> <%= event.turma_name || 'N/A' %></p>
                         <p><strong>Fechada em:</strong> <%= new Date(event.closed_at).toLocaleDateString('pt-BR') %></p>
@@ -152,6 +200,7 @@
             </div>
         <% } %>
     </div>
+    <script src="/toast.js"></script>
     <script src="/back.js"></script>
 </body>
 </html>

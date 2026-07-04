@@ -236,6 +236,11 @@ function resetTeacherPassword(teacherId, newPassword) {
 function deleteTeacher(teacherId) {
   const id = Number.parseInt(teacherId, 10);
   runInTransaction(() => {
+    // Desvincula turmas que tinham este professor como responsável
+    // (turmas.teacher_id tem FOREIGN KEY em evaluators)
+    db.prepare('UPDATE turmas SET teacher_id = NULL WHERE teacher_id = ?').run(id);
+    // Remove presença de sessão deste avaliador (evaluator_session_presence tem FOREIGN KEY em evaluators)
+    db.prepare('DELETE FROM evaluator_session_presence WHERE evaluator_id = ?').run(id);
     // Remove as notas deste avaliador
     db.prepare('DELETE FROM scores WHERE evaluator_id = ?').run(id);
     // Remove o professor
@@ -546,8 +551,12 @@ function updateCandidate(payload) {
 function deleteCandidate(candidateId) {
   const id = Number.parseInt(candidateId, 10);
   runInTransaction(() => {
-    db.prepare('DELETE FROM candidates WHERE id = ?').run(id);
+    // Remove notas fixas do candidato (candidate_fixed_scores tem FOREIGN KEY em candidate_id)
+    db.prepare('DELETE FROM candidate_fixed_scores WHERE candidate_id = ?').run(id);
+    // Remove as notas do candidato
     db.prepare('DELETE FROM scores WHERE candidate_id = ?').run(id);
+    // Remove o candidato
+    db.prepare('DELETE FROM candidates WHERE id = ?').run(id);
   });
 }
 
@@ -556,6 +565,14 @@ function deleteTurma(turmaId) {
   runInTransaction(() => {
     // Remove todos os alunos vinculados a esta turma
     db.prepare('UPDATE candidates SET turma_id = NULL WHERE turma_id = ?').run(id);
+    // Remove registros de presença de avaliadores ligados às sessões desta turma
+    // (evaluator_session_presence tem FOREIGN KEY em turma_id)
+    db.prepare('DELETE FROM evaluator_session_presence WHERE turma_id = ?').run(id);
+    // Preserva o histórico oficial, apenas desvinculando da turma e da sessão que serão removidas
+    // (o título do evento já guarda o nome da turma no momento do fechamento,
+    // e evaluation_events tem FOREIGN KEY tanto em turma_id quanto em session_id)
+    db.prepare('UPDATE evaluation_events SET turma_id = NULL, session_id = NULL WHERE turma_id = ?').run(id);
+    // Remove as sessões desta turma (também tem FOREIGN KEY em turma_id)
     db.prepare('DELETE FROM sessions WHERE turma_id = ?').run(id);
     // Remove a turma
     db.prepare('DELETE FROM turmas WHERE id = ?').run(id);
@@ -963,6 +980,16 @@ function getEvaluationHistoryReport(eventId) {
   };
 }
 
+function deleteEvaluationHistoryEvent(eventId) {
+  const id = Number.parseInt(eventId, 10);
+  runInTransaction(() => {
+    // Remove os snapshots de notas deste evento (evaluation_snapshots tem FOREIGN KEY em event_id)
+    db.prepare('DELETE FROM evaluation_snapshots WHERE event_id = ?').run(id);
+    // Remove o evento do histórico
+    db.prepare('DELETE FROM evaluation_events WHERE id = ?').run(id);
+  });
+}
+
 /**
  * Fecha o semestre (ou reinicia dados) para turmas especificadas.
  * @param {Array<number>} turmaIds
@@ -1153,6 +1180,7 @@ module.exports = {
   reopenSemesterForTurma,
   getEvaluationHistory,
   getEvaluationHistoryReport,
+  deleteEvaluationHistoryEvent,
   getActiveSessions,
   getActiveSessionCodeForTurma,
 
