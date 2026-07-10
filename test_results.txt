@@ -1,0 +1,299 @@
+
+> avali@1.0.0 test
+> node --test
+
+Ô£ô Vari├íveis de ambiente carregadas do .env
+Ô£ö rota de admin salva total de aulas e presen├ºa de cada aluno (221.7775ms)
+Ô£ö turma sem total de aulas cai no fallback de presen├ºa manual (27.4104ms)
+Ô£ö setAttendanceForTurma calcula o percentual a partir de total x presentes (34.1457ms)
+Ô£ö setAttendanceForTurma trava aulas presentes no total de aulas (40.3346ms)
+Ô£ö setAttendanceForTurma rejeita valores negativos/inv├ílidos (23.892ms)
+Ô£ö isPresenceEligible reflete o mesmo corte de 80% usado no resultado final (46.6199ms)
+Ô£ö closeSemesterForTurmas closes a turma with active session and evaluator (86.5206ms)
+Ô£ö closeSemesterForTurmas returns error when there is no active session (28.49ms)
+Ô£ö approved candidate is promoted after official close (82.7189ms)
+Ô£ö reproved candidate keeps current rank after official close (56.5767ms)
+Ô£ö presence insufficient candidate keeps current rank after official close (89.1268ms)
+Ô£ö PDF title uses turma and rank progression (0.8898ms)
+Ô£ö PDF title uses predominant initial rank for mixed turma (0.1555ms)
+Ô£ö PDF title keeps first valid rank when mixed turma has a tie (0.1139ms)
+Ô£ö PDF title uses historical event turma name (0.1099ms)
+Ô£ö PDF title falls back to final_status for old history snapshots (0.1247ms)
+Ô£ö PDF title uses generic consolidated title without turma (0.1182ms)
+Ô£ö PDF title falls back safely when no rank is available (0.1211ms)
+Ô£ö PDF title keeps backwards compatibility for array-only calls as generic (0.1089ms)
+Ô£ö PDF text sanitizer preserves Portuguese accents and removes unsupported symbols (0.2337ms)
+Ô£ö PDF column labels keep Portuguese accents (0.2406ms)
+Ô£ö PDF attachment disposition includes ASCII fallback and UTF-8 filename (0.3601ms)
+Ô£ö reopenSemesterForTurma creates a new active session if history exists (90.2089ms)
+Ô£ö reopenSemesterForTurma fails when no historical event exists (23.4869ms)
+Ô£ô Vari├íveis de ambiente carregadas do .env
+Ô£ö results require an explicit active turma session (188.1681ms)
+Ô£ö landing is public and evaluation login moved to /avaliacao (7.0499ms)
+Ô£ö PDF export requires admin authentication (4.9927ms)
+Ô£ö historical results require admin authentication (4.1245ms)
+Ô£ö teacher turma list requires signed teacher session (124.8815ms)
+Ô£ö teacher session cannot be reused for another teacher URL (127.2368ms)
+Ô£ö turma access ignores forged evaluatorName and uses teacher session (155.3909ms)
+Ô£ö teacher check API does not enumerate registered teachers (206.6128ms)
+Ô£û teacher logout clears teacher session (117.1008ms)
+Ô£ö back navigation script uses explicit href instead of history back (1.0677ms)
+Ô£ö session SSE payload never exposes active PIN code (37.0374ms)
+Ô£ö evaluation PIN does not require turma room access (278.4372ms)
+Ô£ö evaluator heartbeat requires evaluation cookie and stops after session closes (214.6071ms)
+Ô£ö tampered admin cookie is rejected (2.8338ms)
+Ô£ö sensitive authenticated POSTs require CSRF (332.9908ms)
+Ô£ö evaluation POST ignores candidate scores outside the authorized turma (418.9885ms)
+Ô£ö parsePresence handles percentage strings and special cases (0.726ms)
+Ô£ö isPresenceEligible enforces the 80 percent rule (0.1502ms)
+Ô£ö calculateTotalPoints matches the weighting model (0.1688ms)
+Ô£ö calculateFinalNote ignores missing technical scores as zero (0.1234ms)
+Ô£ö determineResultStatus requires final note and majority approval (0.2531ms)
+Ôä╣ tests 45
+Ôä╣ suites 0
+Ôä╣ pass 44
+Ôä╣ fail 1
+Ôä╣ cancelled 0
+Ôä╣ skipped 0
+Ôä╣ todo 0
+Ôä╣ duration_ms 3003.9736
+
+Ô£û failing tests:
+
+test at tests\routes-security.test.js:306:1
+Ô£û teacher logout clears teacher session (117.1008ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Trocar professor/. Input:
+  
+  '<!DOCTYPE html>\n' +
+    '<html lang="pt-BR">\n' +
+    '<head>\n' +
+    '    <meta charset="UTF-8">\n' +
+    '    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+    '    <title>Selecionar Turma | Avalia├º├úo</title>\n' +
+    '    <link rel="stylesheet" href="/home.css">\n' +
+    '    <link rel="stylesheet" href="/turmas.css">\n' +
+    '    <link rel="stylesheet" href="/theme.css">\n' +
+    '    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">\n' +
+    '    <link rel="preconnect" href="https://fonts.googleapis.com">\n' +
+    '    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">\n' +
+    '</head>\n' +
+    '<body>\n' +
+    '    \n' +
+    '    <div class="turmas-container">\n' +
+    '        <header class="turmas-header">\n' +
+    '            <div style="display:flex; gap:12px; align-items:center; justify-content:center; margin-bottom: 8px;">\n' +
+    '                <img src="/images/icons8-fenix-cute-color-70.png" alt="Icon" style="height: 40px; width: auto;">\n' +
+    '                <div>\n' +
+    '                    <span class="eyebrow">Bem-vindo, Professor Troca</span>\n' +
+    '                    <h1>Selecione a Turma</h1>\n' +
+    '                </div>\n' +
+    '            </div>\n' +
+    '            <p class="intro">Entre na avalia├º├úo com o PIN do admin ou acesse a sala interna com a senha da turma.</p>\n' +
+    '        </header>\n' +
+    '\n' +
+    '        <div class="turmas-topbar">\n' +
+    '            <a href="/avaliacao" class="ghost-link nav-action back">\n' +
+    '                <span>Voltar</span>\n' +
+    '            </a>\n' +
+    '            <form action="/teacher/logout" method="POST" style="margin:0;">\n' +
+    '                <input type="hidden" name="_csrf" value="eyJ0eXBlIjoiY3NyZiIsImlhdCI6MTc4MzEzNzc3ODMzMCwiZXhwIjoxNzgzMTY2NTc4MzMwfQ.Ajqox1cykO68u7rMMAL9u58kNwBJL5OZeL3EmuD94vs">\n' +
+    '                <button type="submit" class="ghost-link" style="padding:8px 16px;">Sair</button>\n' +
+    '            </form>\n' +
+    '            <button\n' +
+    '                type="button"\n' +
+    '                id="globalEvaluationButton"\n' +
+    '                class="global-evaluation-button is-idle"\n' +
+    '                disabled>\n' +
+    '                <span>Aguardando avalia├º├úo</span>\n' +
+    '                \n' +
+    '            </button>\n' +
+    '        </div>\n' +
+    '\n' +
+    '        \n' +
+    '\n' +
+    '        \n' +
+    '            <div class="turmas-grid">\n' +
+    '                \n' +
+    '                    <div\n' +
+    '                        class="turma-card"\n' +
+    '                        role="button"\n' +
+    '                        tabindex="0"\n' +
+    '                        data-action="room"\n' +
+    '                        data-turma-id="2"\n' +
+    '                        data-turma-name="Turma Anti Spoof">\n' +
+    '                        <div>\n' +
+    '                            <h3>Turma Anti Spoof</h3>\n' +
+    '                            <p>Respons├ível: Professor Dono</p>\n' +
+    '                        </div>\n' +
+    '                        <div class="turma-card-footer">\n' +
+    '                            <span class="turma-badge ">\n' +
+    '                                Dispon├¡vel\n' +
+    '                            </span>\n' +
+    '                        </div>\n' +
+    '                    </div>\n' +
+    '                \n' +
+    '                    <div\n' +
+    '                        class="turma-card"\n' +
+    '                        role="button"\n' +
+    '                        tabindex="0"\n' +
+    '                        data-action="room"\n' +
+    '                        data-turma-id="1"\n' +
+    '                        data-turma-name="Turma Resultado Seguro">\n' +
+    '                        <div>\n' +
+    '                            <h3>Turma Resultado Seguro</h3>\n' +
+    '                            <p>Respons├ível: Professor Resultado Seguro</p>\n' +
+    '                        </div>\n' +
+    '                        <div class="turma-card-footer">\n' +
+    '                            <span class="turma-badge ">\n' +
+    '                                Dispon├¡vel\n' +
+    '                            </span>\n' +
+    '                        </div>\n' +
+    '                    </div>\n' +
+    '                \n' +
+    '            </div>\n' +
+    '        \n' +
+    '    </div>\n' +
+    '\n' +
+    '    <!-- Modal de Senha da Turma -->\n' +
+    '    <div class="modal-backdrop" id="roomModal">\n' +
+    '        <div class="modal-card">\n' +
+    '            <h3>Senha da Turma</h3>\n' +
+    '            <p id="roomModalTurmaName">Turma: ...</p>\n' +
+    '            <input type="password" id="roomPasswordInput" class="pin-input" autocomplete="current-password" placeholder="Senha da turma">\n' +
+    '            <div class="modal-actions">\n' +
+    '                <button class="btn-cancel" id="btnRoomCancel">Cancelar</button>\n' +
+    '                <button id="btnRoomConfirm">Entrar na turma</button>\n' +
+    '            </div>\n' +
+    '        </div>\n' +
+    '    </div>\n' +
+    '\n' +
+    '    <!-- Modal de PIN da Avalia├º├úo -->\n' +
+    '    <div class="modal-backdrop" id="evaluationModal">\n' +
+    '        <div class="modal-card">\n' +
+    '            <h3>Entrar na Avalia├º├úo</h3>\n' +
+    '            <p id="evaluationModalTurmaName">Selecione a turma liberada pelo admin e informe o PIN.</p>\n' +
+    '            <div class="evaluation-turma-list" id="evaluationTurmaList"></div>\n' +
+    '            <input type="text" id="evaluationPinInput" class="pin-input" maxlength="4" pattern="\\d{4}" inputmode="numeric" placeholder="0000">\n' +
+    '            <div class="modal-actions">\n' +
+    '                <button class="btn-cancel" id="btnEvaluationCancel">Cancelar</button>\n' +
+    '                <button id="btnEvaluationConfirm">Confirmar PIN</button>\n' +
+    '            </div>\n' +
+    '        </div>\n' +
+    '    </div>\n' +
+    '\n' +
+    '    <script id="turmas-config" type="application/json">\n' +
+    '        {\n' +
+    '            "evaluatorName": "Professor Troca",\n' +
+    '            "activeEvaluationTurmas": [],\n' +
+    '            "csrfToken": "eyJ0eXBlIjoiY3NyZiIsImlhdCI6MTc4MzEzNzc3ODMzMCwiZXhwIjoxNzgzMTY2NTc4MzMwfQ.Ajqox1cykO68u7rMMAL9u58kNwBJL5OZeL3EmuD94vs"\n' +
+    '        }\n' +
+    '    </script>\n' +
+    '    <script>\n' +
+    '        (function(){\n' +
+    "            const cfg = JSON.parse(document.getElementById('turmas-config').textContent || '{}');\n" +
+    '            const evaluatorName = cfg.evaluatorName;\n' +
+    '            const activeSet = new Set((cfg.activeEvaluationTurmas || []).map(t => Number(t.id)));\n' +
+    '\n' +
+    "            const globalBtn = document.getElementById('globalEvaluationButton');\n" +
+    '            function updateGlobalButton() {\n' +
+    '                const count = activeSet.size;\n' +
+    "                globalBtn.classList.toggle('is-idle', count === 0);\n" +
+    '                globalBtn.disabled = count === 0;\n' +
+    "                globalBtn.querySelector('span').textContent = count === 0 ? 'Aguardando avalia├º├úo' : 'Entrar na avalia├º├úo';\n" +
+    "                const strong = globalBtn.querySelector('strong');\n" +
+    '                if (count > 0) {\n' +
+    '                    if (!strong) {\n' +
+    "                        const s = document.createElement('strong');\n" +
+    '                        s.textContent = String(count);\n' +
+    '                        globalBtn.appendChild(s);\n' +
+    '                    } else {\n' +
+    '                        strong.textContent = String(count);\n' +
+    '                    }\n' +
+    '                } else {\n' +
+    '                    if (strong) strong.remove();\n' +
+    '                }\n' +
+    '            }\n' +
+    '\n' +
+    '            function markTurmaActive(turmaId) {\n' +
+    '                const card = document.querySelector(`.turma-card[data-turma-id="${turmaId}"]`);\n' +
+    '                if (!card) return;\n' +
+    "                const badge = card.querySelector('.turma-badge');\n" +
+    '                if (badge) {\n' +
+    "                    badge.classList.add('is-active');\n" +
+    "                    badge.textContent = 'Avalia├º├úo liberada';\n" +
+    '                }\n' +
+    '            }\n' +
+    '            function markTurmaIdle(turmaId) {\n' +
+    '                const card = document.querySelector(`.turma-card[data-turma-id="${turmaId}"]`);\n' +
+    '                if (!card) return;\n' +
+    "                const badge = card.querySelector('.turma-badge');\n" +
+    '                if (badge) {\n' +
+    "                    badge.classList.remove('is-active');\n" +
+    "                    badge.textContent = 'Dispon├¡vel';\n" +
+    '                }\n' +
+    '            }\n' +
+    '\n' +
+    '            updateGlobalButton();\n' +
+    '\n' +
+    '            if (window.EventSource) {\n' +
+    '                try {\n' +
+    "                    const es = new EventSource('/events');\n" +
+    '                    es.onmessage = (e) => {\n' +
+    '                        try {\n' +
+    '                            const payload = JSON.parse(e.data);\n' +
+    '                            if (!payload) return;\n' +
+    "                            if (payload.event === 'session_started' && payload.turmaId) {\n" +
+    '                                activeSet.add(Number(payload.turmaId));\n' +
+    '                                markTurmaActive(Number(payload.turmaId));\n' +
+    '                                updateGlobalButton();\n' +
+    '                                // dispatch custom event so other scripts can react\n' +
+    "                                window.dispatchEvent(new CustomEvent('sse:session_started', { detail: payload }));\n" +
+    '                            }\n' +
+    "                            if (payload.event === 'session_closed' && payload.turmaId) {\n" +
+    '                                activeSet.delete(Number(payload.turmaId));\n' +
+    '                                markTurmaIdle(Number(payload.turmaId));\n' +
+    '                                updateGlobalButton();\n' +
+    "                                window.dispatchEvent(new CustomEvent('sse:session_closed', { detail: payload }));\n" +
+    '                            }\n' +
+    "                            if (payload.event === 'session_ended') {\n" +
+    '                                // limpa todas as sess├Áes ativas\n' +
+    '                                Array.from(activeSet).forEach(tid => {\n' +
+    '                                    markTurmaIdle(Number(tid));\n' +
+    '                                });\n' +
+    '                                activeSet.clear();\n' +
+    '                                updateGlobalButton();\n' +
+    "                                window.dispatchEvent(new CustomEvent('sse:session_ended'));\n" +
+    '                            }\n' +
+    "                        } catch (err) { console.error('SSE parse', err); }\n" +
+    '                    };\n' +
+    '                    es.onerror = (err) => {\n' +
+    "                        // console.warn('EventSource error', err);\n" +
+    '                    };\n' +
+    "                } catch (e) { console.error('EventSource init failed', e); }\n" +
+    '            }\n' +
+    '        })();\n' +
+    '    </script>\n' +
+    '    <script>\n' +
+    '        // Passa dados do servidor para o JS de forma segura para o linter\n' +
+    "        window.TURMAS_CONFIG = JSON.parse(document.getElementById('turmas-config').textContent);\n" +
+    '    </script>\n' +
+    '    <script src="/transitions.js?v=2"></script>\n' +
+    '    <script src="/toast.js?v=2"></script>\n' +
+    '    <script src="/turmas.js"></script>\n' +
+    '\n' +
+    '    <!-- Prote├º├úo: impede abertura de nova aba por padr├úo, mas respeita `target="_blank"` -->\n' +
+    '    <script>\n' +
+    '    (function() {\n' +
+    '     '... 476 more characters
+  
+      at TestContext.<anonymous> (E:\0IA\avali\tests\routes-security.test.js:314:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<!DOCTYPE html>\n<html lang="pt-BR">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <title>Selecionar Turma | Avalia├º├úo</title>\n    <link rel="stylesheet" href="/home.css">\n    <link rel="stylesheet" href="/turmas.css">\n    <link rel="stylesheet" href="/theme.css">\n    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">\n    <link rel="preconnect" href="https://fonts.googleapis.com">\n    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">\n</head>\n<body>\n    \n    <div class="turmas-container">\n        <header class="turmas-header">\n            <div style="display:flex; gap:12px; align-items:center; justify-content:center; margin-bottom: 8px;">\n                <img src="/images/icons8-fenix-cute-color-70.png" alt="Icon" style="height: 40px; width: auto;">\n                <div>\n                    <span class="eyebrow">Bem-vindo, Professor Troca</span>\n                    <h1>Selecione a Turma</h1>\n                </div>\n            </div>\n            <p class="intro">Entre na avalia├º├úo com o PIN do admin ou acesse a sala interna com a senha da turma.</p>\n        </header>\n\n        <div class="turmas-topbar">\n            <a href="/avaliacao" class="ghost-link nav-action back">\n                <span>Voltar</span>\n            </a>\n            <form action="/teacher/logout" method="POST" style="margin:0;">\n                <input type="hidden" name="_csrf" value="eyJ0eXBlIjoiY3NyZiIsImlhdCI6MTc4MzEzNzc3ODMzMCwiZXhwIjoxNzgzMTY2NTc4MzMwfQ.Ajqox1cykO68u7rMMAL9u58kNwBJL5OZeL3EmuD94vs">\n                <button type="submit" class="ghost-link" style="padding:8px 16px;">Sair</button>\n            </form>\n            <button\n                type="button"\n                id="globalEvaluationButton"\n                class="global-evaluation-button is-idle"\n                disabled>\n                <span>Aguardando avalia├º├úo</span>\n                \n            </button>\n        </div>\n\n        \n\n        \n            <div class="turmas-grid">\n                \n                    <div\n                        class="turma-card"\n                        role="button"\n                        tabindex="0"\n                        data-action="room"\n                        data-turma-id="2"\n                        data-turma-name="Turma Anti Spoof">\n                        <div>\n                            <h3>Turma Anti Spoof</h3>\n                            <p>Respons├ível: Professor Dono</p>\n                        </div>\n                        <div class="turma-card-footer">\n                            <span class="turma-badge ">\n                                Dispon├¡vel\n                            </span>\n                        </div>\n                    </div>\n                \n                    <div\n                        class="turma-card"\n                        role="button"\n                        tabindex="0"\n                        data-action="room"\n                        data-turma-id="1"\n                        data-turma-name="Turma Resultado Seguro">\n                        <div>\n                            <h3>Turma Resultado Seguro</h3>\n                            <p>Respons├ível: Professor Resultado Seguro</p>\n                        </div>\n                        <div class="turma-card-footer">\n                            <span class="turma-badge ">\n                                Dispon├¡vel\n                            </span>\n                        </div>\n                    </div>\n                \n            </div>\n        \n    </div>\n\n    <!-- Modal de Senha da Turma -->\n    <div class="modal-backdrop" id="roomModal">\n        <div class="modal-card">\n            <h3>Senha da Turma</h3>\n            <p id="roomModalTurmaName">Turma: ...</p>\n            <input type="password" id="roomPasswordInput" class="pin-input" autocomplete="current-password" placeholder="Senha da turma">\n            <div class="modal-actions">\n                <button class="btn-cancel" id="btnRoomCancel">Cancelar</button>\n                <button id="btnRoomConfirm">Entrar na turma</button>\n            </div>\n        </div>\n    </div>\n\n    <!-- Modal de PIN da Avalia├º├úo -->\n    <div class="modal-backdrop" id="evaluationModal">\n        <div class="modal-card">\n            <h3>Entrar na Avalia├º├úo</h3>\n            <p id="evaluationModalTurmaName">Selecione a turma liberada pelo admin e informe o PIN.</p>\n            <div class="evaluation-turma-list" id="evaluationTurmaList"></div>\n            <input type="text" id="evaluationPinInput" class="pin-input" maxlength="4" pattern="\\d{4}" inputmode="numeric" placeholder="0000">\n            <div class="modal-actions">\n                <button class="btn-cancel" id="btnEvaluationCancel">Cancelar</button>\n                <button id="btnEvaluationConfirm">Confirmar PIN</button>\n            </div>\n        </div>\n    </div>\n\n    <script id="turmas-config" type="application/json">\n        {\n            "evaluatorName": "Professor Troca",\n            "activeEvaluationTurmas": [],\n            "csrfToken": "eyJ0eXBlIjoiY3NyZiIsImlhdCI6MTc4MzEzNzc3ODMzMCwiZXhwIjoxNzgzMTY2NTc4MzMwfQ.Ajqox1cykO68u7rMMAL9u58kNwBJL5OZeL3EmuD94vs"\n        }\n    </script>\n    <script>\n        (function(){\n            const cfg = JSON.parse(document.getElementById(\'turmas-config\').textContent || \'{}\');\n            const evaluatorName = cfg.evaluatorName;\n            const activeSet = new Set((cfg.activeEvaluationTurmas || []).map(t => Number(t.id)));\n\n            const globalBtn = document.getElementById(\'globalEvaluationButton\');\n            function updateGlobalButton() {\n                const count = activeSet.size;\n                globalBtn.classList.toggle(\'is-idle\', count === 0);\n                globalBtn.disabled = count === 0;\n                globalBtn.querySelector(\'span\').textContent = count === 0 ? \'Aguardando avalia├º├úo\' : \'Entrar na avalia├º├úo\';\n                const strong = globalBtn.querySelector(\'strong\');\n                if (count > 0) {\n                    if (!strong) {\n                        const s = document.createElement(\'strong\');\n                        s.textContent = String(count);\n                        globalBtn.appendChild(s);\n                    } else {\n                        strong.textContent = String(count);\n                    }\n                } else {\n                    if (strong) strong.remove();\n                }\n            }\n\n            function markTurmaActive(turmaId) {\n                const card = document.querySelector(`.turma-card[data-turma-id="${turmaId}"]`);\n                if (!card) return;\n                const badge = card.querySelector(\'.turma-badge\');\n                if (badge) {\n                    badge.classList.add(\'is-active\');\n                    badge.textContent = \'Avalia├º├úo liberada\';\n                }\n            }\n            function markTurmaIdle(turmaId) {\n                const card = document.querySelector(`.turma-card[data-turma-id="${turmaId}"]`);\n                if (!card) return;\n                const badge = card.querySelector(\'.turma-badge\');\n                if (badge) {\n                    badge.classList.remove(\'is-active\');\n                    badge.textContent = \'Dispon├¡vel\';\n                }\n            }\n\n            updateGlobalButton();\n\n            if (window.EventSource) {\n                try {\n                    const es = new EventSource(\'/events\');\n                    es.onmessage = (e) => {\n                        try {\n                            const payload = JSON.parse(e.data);\n                            if (!payload) return;\n                            if (payload.event === \'session_started\' && payload.turmaId) {\n                                activeSet.add(Number(payload.turmaId));\n                                markTurmaActive(Number(payload.turmaId));\n                                updateGlobalButton();\n                                // dispatch custom event so other scripts can react\n                                window.dispatchEvent(new CustomEvent(\'sse:session_started\', { detail: payload }));\n                            }\n                            if (payload.event === \'session_closed\' && payload.turmaId) {\n                                activeSet.delete(Number(payload.turmaId));\n                                markTurmaIdle(Number(payload.turmaId));\n                                updateGlobalButton();\n                                window.dispatchEvent(new CustomEvent(\'sse:session_closed\', { detail: payload }));\n                            }\n                            if (payload.event === \'session_ended\') {\n                                // limpa todas as sess├Áes ativas\n                                Array.from(activeSet).forEach(tid => {\n                                    markTurmaIdle(Number(tid));\n                                });\n                                activeSet.clear();\n                                updateGlobalButton();\n                                window.dispatchEvent(new CustomEvent(\'sse:session_ended\'));\n                            }\n                        } catch (err) { console.error(\'SSE parse\', err); }\n                    };\n                    es.onerror = (err) => {\n                        // console.warn(\'EventSource error\', err);\n                    };\n                } catch (e) { console.error(\'EventSource init failed\', e); }\n            }\n        })();\n    </script>\n    <script>\n        // Passa dados do servidor para o JS de forma segura para o linter\n        window.TURMAS_CONFIG = JSON.parse(document.getElementById(\'turmas-config\').textContent);\n    </script>\n    <script src="/transitions.js?v=2"></script>\n    <script src="/toast.js?v=2"></script>\n    <script src="/turmas.js"></script>\n\n    <!-- Prote├º├úo: impede abertura de nova aba por padr├úo, mas respeita `target="_blank"` -->\n    <script>\n    (function() {\n     '... 476 more characters,
+    expected: /Trocar professor/,
+    operator: 'match',
+    diff: 'simple'
+  }

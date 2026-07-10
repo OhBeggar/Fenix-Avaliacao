@@ -36,7 +36,7 @@
                 <a href="#audicao"><span>💃</span>Audição</a>
                 <a href="#alunos"><span>🧑🏻</span>Alunos</a>
                 <a href="#professores"><span>🧑🏻‍🏫</span>Professores</a>
-                <a href="#turmas"><span>▣</span>Turmas</a>
+                <a href="#turmas"><span>👥</span>Turmas</a>
                 <a href="#semestre"><span>📅</span>Semestre</a>
                 <a href="#historico"><span>🧾</span>Histórico</a>
             </nav>
@@ -87,7 +87,7 @@
 
             <section class="kpi-grid" aria-label="Resumo do sistema">
                 <article class="kpi-card">
-                    <span class="kpi-icon">▣</span>
+                    <span class="kpi-icon">👥</span>
                     <strong><%= totalTurmas %></strong>
                     <small>Turmas</small>
                 </article>
@@ -317,6 +317,10 @@
                     <label>
                         Senha da turma
                         <input type="password" name="accessPassword" required placeholder="Senha compartilhada" autocomplete="new-password">
+                    </label>
+                    <label>
+                        Ritmos Avaliados
+                        <input type="text" name="ritmosAvaliados" placeholder="Ex: 1.Forró - 2.Bolero - 3.Zouk">
                     </label>
                     <button type="submit">Criar turma</button>
                 </form>

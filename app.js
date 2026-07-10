@@ -10,7 +10,7 @@ const cookieParser = require('cookie-parser');
 const evaluationService = require('./src/services/evaluation-service');
 const { commonCriteria, maleCriteria, femaleCriteria } = require('./src/constants');
 const { isAdminAuthenticated, setAdminCookie, clearAdminCookie } = require('./src/utils/admin-auth');
-const { buildResultsPdf, buildAttachmentDisposition } = require('./src/services/pdf-service');
+const { buildResultsPdf, buildAttachmentDisposition, getDynamicTitle } = require('./src/services/pdf-service');
 const config = require('./src/config');
 
 function validateSecurityConfig() {
@@ -442,7 +442,6 @@ app.get('/evaluate/:name', (req, res) => {
   }
 
   const attendanceSummary = evaluationService.getAttendanceSummary(turmaId);
-  const fixedScores = evaluationService.getFixedScoresForTurma(turmaId);
   const candidates = evaluationService.getCandidatesByTurma(turmaId).map(candidate => ({
     ...candidate,
     presence: attendanceSummary[candidate.id]?.label || candidate.presence,
@@ -458,12 +457,14 @@ app.get('/evaluate/:name', (req, res) => {
   const activeEvaluatorStatus = evaluationService.getActiveEvaluatorStatus(turmaId);
   const { commonCriteria, maleCriteria, femaleCriteria } = require('./src/constants');
 
+  const turma = evaluationService.getTurmaById(turmaId);
+
   res.render('avaliacao', {
     evaluatorName,
     turmaId,
+    turma,
     candidates,
     currentScores,
-    fixedScores,
     activeEvaluatorStatus,
     commonCriteria,
     maleCriteria,
@@ -545,6 +546,7 @@ app.get('/results', adminAuthMiddleware, (req, res) => {
     liveEvaluatorStatus,
     sessionClosed: !hasLiveSession,
     canExportPdf: false, // Remove o PDF da página de resultados
+    dynamicTitle: getDynamicTitle(report),
   });
 });
 
@@ -749,8 +751,8 @@ app.post('/admin/teacher/delete', adminAuthMiddleware, requireCsrf, (req, res) =
 
 // Criar Turma
 app.post('/admin/turma/add', adminAuthMiddleware, requireCsrf, (req, res) => {
-  const { name, teacherId, accessPassword } = req.body;
-  evaluationService.createTurma(name, teacherId, accessPassword);
+  const { name, teacherId, accessPassword, ritmosAvaliados } = req.body;
+  evaluationService.createTurma(name, teacherId, accessPassword, ritmosAvaliados);
 
   res.render('adm', getAdminLocals({ type: 'success', text: 'Turma criada com sucesso.' }));
 });
@@ -759,6 +761,12 @@ app.post('/admin/turma/password', adminAuthMiddleware, requireCsrf, (req, res) =
   const { turmaId, accessPassword } = req.body;
   evaluationService.setTurmaPassword(turmaId, accessPassword);
   res.render('adm', getAdminLocals({ type: 'success', text: 'Senha da turma atualizada.' }));
+});
+
+app.post('/admin/turma/ritmos', adminAuthMiddleware, requireCsrf, (req, res) => {
+  const { turmaId, ritmosAvaliados } = req.body;
+  evaluationService.updateTurmaRitmos(turmaId, ritmosAvaliados);
+  res.redirect(`/admin/turma/${turmaId}?success=1`);
 });
 
 // Adicionar Aluno (Admin)
@@ -809,31 +817,16 @@ app.get('/admin/turma/:id', adminAuthMiddleware, (req, res) => {
   
   const candidates = evaluationService.getCandidatesByTurma(turmaId);
   const attendanceSummary = evaluationService.getAttendanceSummary(turmaId);
-  const fixedScores = evaluationService.getFixedScoresForTurma(turmaId);
   
   res.render('admin-turma-detalhes', {
     turma,
     candidates,
     attendanceSummary,
-    fixedScores,
     message: req.query.message ? {
       type: req.query.type === 'success' ? 'success' : 'error',
       text: req.query.message,
     } : null,
   });
-});
-
-app.post('/admin/turma/:id/fixed-scores', adminAuthMiddleware, requireCsrf, (req, res) => {
-  const turmaId = parseInt(req.params.id, 10);
-  try {
-    const turma = evaluationService.getTurmaById(turmaId);
-    if (!turma) return res.status(404).send('Turma não encontrada');
-
-    evaluationService.saveFixedScoresForTurma(turmaId, req.body);
-    res.redirect(`/admin/turma/${turmaId}?type=success&message=${encodeURIComponent('Notas fixas salvas com sucesso.')}`);
-  } catch (error) {
-    res.redirect(`/admin/turma/${turmaId}?type=error&message=${encodeURIComponent(error.message || 'Erro ao salvar notas fixas.')}`);
-  }
 });
 
 app.post('/admin/turma/:id/aulas', adminAuthMiddleware, requireCsrf, (req, res) => {
@@ -900,6 +893,7 @@ app.get('/results/history/:eventId', adminAuthMiddleware, (req, res) => {
     selectedTurmaId: report.event.turma_id || '',
     historicalEvent: report.event,
     canExportPdf: true,
+    dynamicTitle: getDynamicTitle(report),
   });
 });
 

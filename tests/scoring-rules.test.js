@@ -34,7 +34,7 @@ test('calculateTotalPoints matches the weighting model', () => {
         musicalidade: 10,
     };
 
-    assert.equal(calculateTotalPoints(scoreMap, 'deslocamento_cavalheiro'), 250);
+    assert.equal(calculateTotalPoints(scoreMap, 'deslocamento_cavalheiro'), 230);
     assert.equal(calculateFinalNote(scoreMap, 'deslocamento_cavalheiro'), 10);
 });
 
@@ -52,8 +52,8 @@ test('calculateFinalNote ignores missing technical scores as zero', () => {
         musicalidade: '-',
     };
 
-    assert.equal(calculateTotalPoints(scoreMap, 'floreio_dama'), 63);
-    assert.equal(calculateFinalNote(scoreMap, 'floreio_dama'), 2.5);
+    assert.equal(calculateTotalPoints(scoreMap, 'floreio_dama'), 27);
+    assert.equal(calculateFinalNote(scoreMap, 'floreio_dama'), 1.2);
 });
 
 test('determineResultStatus requires final note and majority approval', () => {

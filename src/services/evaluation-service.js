@@ -21,8 +21,6 @@ const crypto = require('crypto');
 
 const SCORE_PATTERN = /^\d+$/;
 const PASSWORD_ALGORITHM = 'scrypt';
-const FIXED_SCORE_CRITERIA = ['presenca_auxilios', 'comprometimento_eventos'];
-const FIXED_SCORE_CRITERIA_SET = new Set(FIXED_SCORE_CRITERIA);
 
 // --- Inicialização do Banco de Dados ---
 
@@ -128,6 +126,9 @@ function initDb() {
   } catch (e) {}
   try {
     db.exec("ALTER TABLE turmas ADD COLUMN access_password_hash TEXT");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE turmas ADD COLUMN ritmos_avaliados TEXT");
   } catch (e) {}
   try {
     db.exec("ALTER TABLE sessions ADD COLUMN session_date TEXT");
@@ -250,22 +251,30 @@ function deleteTeacher(teacherId) {
 
 // --- Gerenciamento de Turmas ---
 
-function createTurma(name, teacherId, accessPassword = '') {
-  db.prepare('INSERT INTO turmas (name, teacher_id, access_password_hash) VALUES (?, ?, ?)').run(
+function createTurma(name, teacherId, accessPassword = '', ritmosAvaliados = '') {
+  db.prepare('INSERT INTO turmas (name, teacher_id, access_password_hash, ritmos_avaliados) VALUES (?, ?, ?, ?)').run(
     String(name || '').trim(),
     teacherId,
-    accessPassword ? hashPassword(accessPassword) : null
+    accessPassword ? hashPassword(accessPassword) : null,
+    String(ritmosAvaliados || '').trim()
   );
 }
 
 function getTurmas() {
-  return db.prepare(`SELECT t.id, t.name, t.teacher_id, t.total_aulas, t.access_password_hash IS NOT NULL AS has_access_password, e.name as teacher_name
+  return db.prepare(`SELECT t.id, t.name, t.teacher_id, t.total_aulas, t.access_password_hash IS NOT NULL AS has_access_password, t.ritmos_avaliados, e.name as teacher_name
     FROM turmas t LEFT JOIN evaluators e ON t.teacher_id = e.id ORDER BY t.name`).all();
 }
 
 function getTurmaById(turmaId) {
-  return db.prepare(`SELECT t.id, t.name, t.teacher_id, t.total_aulas, t.access_password_hash, e.name as teacher_name
+  return db.prepare(`SELECT t.id, t.name, t.teacher_id, t.total_aulas, t.access_password_hash, t.ritmos_avaliados, e.name as teacher_name
     FROM turmas t LEFT JOIN evaluators e ON t.teacher_id = e.id WHERE t.id = ?`).get(turmaId);
+}
+
+function updateTurmaRitmos(turmaId, ritmosAvaliados) {
+  db.prepare('UPDATE turmas SET ritmos_avaliados = ? WHERE id = ?').run(
+    String(ritmosAvaliados || '').trim(), 
+    turmaId
+  );
 }
 
 function setTurmaPassword(turmaId, password) {
@@ -282,9 +291,9 @@ function verifyTurmaPassword(turmaId, password) {
 function getCandidatesByTurma(turmaId) {
   // Se turmaId for 0 ou null, retorna todos (para admin)
   if (!turmaId || turmaId === 'all') {
-    return db.prepare('SELECT id, name, gender, presence, status, turma_id, aulas_presentes FROM candidates ORDER BY id').all();
+    return db.prepare('SELECT id, name, gender, presence, status, turma_id, aulas_presentes FROM candidates ORDER BY name').all();
   }
-  return db.prepare('SELECT id, name, gender, presence, status, turma_id, aulas_presentes FROM candidates WHERE turma_id = ? ORDER BY id').all(turmaId);
+  return db.prepare('SELECT id, name, gender, presence, status, turma_id, aulas_presentes FROM candidates WHERE turma_id = ? ORDER BY name').all(turmaId);
 }
 
 function assignCandidateToTurma(candidateId, turmaId) {
@@ -450,8 +459,8 @@ function getActiveEvaluatorStatus(turmaId = null) {
 
 function saveScores(evaluatorId, formBody, turmaId = null) {
   const candidates = turmaId
-    ? db.prepare('SELECT id, gender FROM candidates WHERE turma_id = ? ORDER BY id').all(turmaId)
-    : db.prepare('SELECT id, gender FROM candidates ORDER BY id').all();
+    ? db.prepare('SELECT id, gender FROM candidates WHERE turma_id = ? ORDER BY name').all(turmaId)
+    : db.prepare('SELECT id, gender FROM candidates ORDER BY name').all();
   
   const upsert = db.prepare(
     'INSERT OR REPLACE INTO scores (evaluator_id, candidate_id, criterion, score) VALUES (?, ?, ?, ?)'
@@ -466,7 +475,6 @@ function saveScores(evaluatorId, formBody, turmaId = null) {
         if (formBody[key] === undefined) return;
 
         const score = String(formBody[key]).trim().toUpperCase();
-        if (FIXED_SCORE_CRITERIA_SET.has(criterion)) return;
         if (score === 'X' || isValidScore(score)) {
           upsert.run(evaluatorId, candidate.id, criterion, score);
         }
@@ -476,12 +484,6 @@ function saveScores(evaluatorId, formBody, turmaId = null) {
 }
 
 function isValidScore(score) {
-  if (!SCORE_PATTERN.test(String(score))) return false;
-  const value = Number.parseInt(score, 10);
-  return value >= 1 && value <= 10;
-}
-
-function isValidFixedScore(score) {
   if (!SCORE_PATTERN.test(String(score))) return false;
   const value = Number.parseInt(score, 10);
   return value >= 1 && value <= 10;
@@ -610,55 +612,6 @@ function setAttendanceForTurma(turmaId, formBody = {}) {
   });
 }
 
-function getFixedScoresByCandidateIds(candidateIds = []) {
-  if (!candidateIds.length) return {};
-  const placeholders = candidateIds.map(() => '?').join(', ');
-  const rows = db.prepare(`SELECT candidate_id, criterion, score
-    FROM candidate_fixed_scores
-    WHERE candidate_id IN (${placeholders})`).all(...candidateIds);
-
-  return rows.reduce((map, row) => {
-    if (!map[row.candidate_id]) map[row.candidate_id] = {};
-    map[row.candidate_id][row.criterion] = row.score;
-    return map;
-  }, {});
-}
-
-function getFixedScoresForTurma(turmaId) {
-  const candidates = getCandidatesByTurma(turmaId);
-  return getFixedScoresByCandidateIds(candidates.map(candidate => candidate.id));
-}
-
-function saveFixedScoresForTurma(turmaId, formBody = {}) {
-  const candidates = getCandidatesByTurma(turmaId);
-  const validCandidateIds = new Set(candidates.map(candidate => String(candidate.id)));
-  const upsert = db.prepare(`INSERT OR REPLACE INTO candidate_fixed_scores
-    (candidate_id, criterion, score, updated_at) VALUES (?, ?, ?, ?)`);
-  const remove = db.prepare('DELETE FROM candidate_fixed_scores WHERE candidate_id = ? AND criterion = ?');
-  const now = getNowIsoString();
-
-  runInTransaction(() => {
-    candidates.forEach(candidate => {
-      FIXED_SCORE_CRITERIA.forEach(criterion => {
-        const key = `fixed_${candidate.id}_${criterion}`;
-        if (!Object.prototype.hasOwnProperty.call(formBody, key)) return;
-        if (!validCandidateIds.has(String(candidate.id))) return;
-
-        const rawScore = String(formBody[key] ?? '').trim();
-        if (!rawScore) {
-          remove.run(candidate.id, criterion);
-          return;
-        }
-        if (!isValidFixedScore(rawScore)) {
-          throw new Error('Notas fixas devem ser números inteiros de 1 a 10.');
-        }
-
-        upsert.run(candidate.id, criterion, Number.parseInt(rawScore, 10), now);
-      });
-    });
-  });
-}
-
 function getAttendanceSummary(turmaId) {
   const candidates = getCandidatesByTurma(turmaId);
   const turmaCache = new Map();
@@ -732,9 +685,8 @@ function getResultsReport(turmaId = null) {
   const candidates = turmaId 
     ? getCandidatesByTurma(turmaId) 
     : getCandidatesByTurma('all');
-  const fixedScores = getFixedScoresByCandidateIds(candidates.map(candidate => candidate.id));
 
-  const results = candidates.map(candidate => calculateCandidateResult(candidate, evaluatorIds, fixedScores[candidate.id]));
+  const results = candidates.map(candidate => calculateCandidateResult(candidate, activeEvaluators));
 
   return {
     results,
@@ -747,7 +699,7 @@ function getResultsReport(turmaId = null) {
 function getReportTurma(turmaId) {
   if (!turmaId) return null;
   const turma = getTurmas().find(row => String(row.id) === String(turmaId));
-  return turma ? { id: turma.id, name: turma.name } : null;
+  return turma ? { id: turma.id, name: turma.name, teacher_name: turma.teacher_name, ritmos_avaliados: turma.ritmos_avaliados } : null;
 }
 
 // Define a progressão de patentes
@@ -781,7 +733,8 @@ function promoteApprovedCandidates(results, idByName) {
 /**
  * Calcula o resultado individual de um candidato
  */
-function calculateCandidateResult(candidate, evaluatorIds, fixedScores = {}) {
+function calculateCandidateResult(candidate, activeEvaluators) {
+  const evaluatorIds = activeEvaluators.map(e => e.id);
   const numEvaluators = evaluatorIds.length;
   const turma = candidate.turma_id ? getTurmaById(candidate.turma_id) : null;
   const presenceSummary = calculateCandidatePresence(candidate, turma ? turma.total_aulas : 0);
@@ -792,20 +745,35 @@ function calculateCandidateResult(candidate, evaluatorIds, fixedScores = {}) {
     return buildReprovedResult({ ...candidate, presence: presenceSummary.label }, numEvaluators, 'Presença insuficiente', presenceSummary);
   }
 
-  // Calcula médias
-  const averages = {
-    ...calculateAverages(candidate.id, evaluatorIds),
-    ...getFixedScoreAverages(fixedScores),
-  };
+  // Calcula médias globais
+  const averages = calculateAverages(candidate.id, evaluatorIds);
   
   // Critérios específicos por gênero
   const peso2Criterion = candidate.gender === 'male' ? maleCriteria : femaleCriteria;
+  const evaluatorCriteria = getCriteriaFor(getCandidateGender(candidate.id));
   
-  // Nota final
-  const finalNote = calculateFinalNote(averages, peso2Criterion);
+  // Nota final global
+  const finalNote = calculateFinalNote(averages, peso2Criterion, presenceValue);
   
-  // Aprovações individuais
-  const approvedCount = countIndividualApprovals(candidate.id, evaluatorIds, peso2Criterion, fixedScores);
+  // Aprovações individuais e avaliações individuais
+  let approvedCount = 0;
+  const individual_evaluations = {};
+
+  for (const evaluator of activeEvaluators) {
+    const indResult = getIndividualEvaluatorResult(evaluator.id, candidate.id, evaluatorCriteria, peso2Criterion, averages, presenceValue);
+    
+    individual_evaluations[evaluator.id] = {
+      name: evaluator.name,
+      finalNote: indResult.finalNote,
+      isApproved: indResult.isApproved,
+      scores: indResult.scores
+    };
+
+    if (indResult.isApproved) {
+      approvedCount++;
+    }
+  }
+
   const reprovedCount = numEvaluators - approvedCount;
   
   // Status final
@@ -823,6 +791,7 @@ function calculateCandidateResult(candidate, evaluatorIds, fixedScores = {}) {
     status,
     current_rank: candidate.status,
     final_status: status === 'Aprovado' ? getNextStatus(candidate.status) : candidate.status,
+    individual_evaluations,
   };
 }
 
@@ -843,46 +812,36 @@ function calculateAverages(candidateId, evaluatorIds) {
   return averages;
 }
 
-function getFixedScoreAverages(fixedScores = {}) {
-  return FIXED_SCORE_CRITERIA.reduce((averages, criterion) => {
-    averages[criterion] = fixedScores[criterion] ?? '-';
-    return averages;
-  }, {});
-}
-
 /**
- * Conta quantos avaliadores aprovaram o candidato individualmente
+ * Calcula a aprovação e as notas de um avaliador individualmente
  */
-function countIndividualApprovals(candidateId, evaluatorIds, peso2Criterion, fixedScores = {}) {
-  let approvedCount = 0;
-  const evaluatorCriteria = getCriteriaFor(getCandidateGender(candidateId))
-    .filter(criterion => !FIXED_SCORE_CRITERIA_SET.has(criterion));
-
-  for (const evaluatorId of evaluatorIds) {
-    if (isEvaluatorApproved(evaluatorId, candidateId, evaluatorCriteria, peso2Criterion, fixedScores)) {
-      approvedCount++;
+function getIndividualEvaluatorResult(evaluatorId, candidateId, criteria, peso2Criterion, averages, presencePercentage) {
+  const scores = getScoresForEvaluatorCandidate(evaluatorId, candidateId);
+  
+  // Completa a nota final do professor com as médias globais para TODOS os critérios que ele não preencheu
+  // Isso garante que se o professor marcou 'X' (ou deixou em branco), o aluno não receba 0 naquele quesito 
+  // para o cálculo da aprovação individual.
+  const fullScoresForFinalNote = { ...scores };
+  
+  for (const criterion of criteria) {
+    if (!Object.prototype.hasOwnProperty.call(fullScoresForFinalNote, criterion)) {
+       fullScoresForFinalNote[criterion] = averages[criterion] !== '-' ? Number(averages[criterion]) : 0;
     }
   }
 
-  return approvedCount;
-}
-
-/**
- * Verifica se um avaliador aprovou o candidato
- */
-function isEvaluatorApproved(evaluatorId, candidateId, criteria, peso2Criterion, fixedScores = {}) {
-  const scores = getScoresForEvaluatorCandidate(evaluatorId, candidateId);
+  const finalNote = calculateFinalNote(fullScoresForFinalNote, peso2Criterion, presencePercentage || 0);
   
-  // Verifica se avaliou todos os critérios editáveis exigidos.
-  if (!criteria.every(criterion => Object.prototype.hasOwnProperty.call(scores, criterion))) {
-    return false;
+  // Formata as notas para não ter casas decimais excessivas igual no painel
+  const formattedScores = {};
+  for (const [k, v] of Object.entries(fullScoresForFinalNote)) {
+    formattedScores[k] = roundOneDecimal(v);
   }
 
-  const finalNote = calculateFinalNote({
-    ...scores,
-    ...getFixedScoreAverages(fixedScores),
-  }, peso2Criterion);
-  return finalNote >= 7; // Utiliza a mesma lógica de arredondamento da nota final
+  return {
+    isApproved: finalNote >= 7,
+    finalNote: finalNote,
+    scores: formattedScores
+  };
 }
 
 // --- Funções Auxiliares ---
@@ -962,17 +921,24 @@ function getEvaluationHistory() {
 }
 
 function getEvaluationHistoryReport(eventId) {
-  const event = db.prepare(`SELECT ev.*, t.name AS turma_name
+  const event = db.prepare(`SELECT ev.*, t.name AS turma_name, e.name AS teacher_name, t.ritmos_avaliados
     FROM evaluation_events ev
     LEFT JOIN turmas t ON t.id = ev.turma_id
+    LEFT JOIN evaluators e ON e.id = t.teacher_id
     WHERE ev.id = ?`).get(eventId);
   if (!event) return null;
 
-  const snapshots = db.prepare('SELECT payload FROM evaluation_snapshots WHERE event_id = ? ORDER BY candidate_id').all(eventId);
+  const snapshots = db.prepare('SELECT payload FROM evaluation_snapshots WHERE event_id = ? ORDER BY candidate_name').all(eventId);
   return {
     event: {
       ...event,
       evaluator_names: safeJsonParse(event.evaluator_names, []),
+    },
+    turma: {
+      id: event.turma_id,
+      name: event.turma_name,
+      teacher_name: event.teacher_name,
+      ritmos_avaliados: event.ritmos_avaliados
     },
     results: snapshots.map(row => safeJsonParse(row.payload, {})),
     numEvaluators: event.num_evaluators,
@@ -1149,6 +1115,7 @@ module.exports = {
   getTurmaById,
   setTurmaPassword,
   verifyTurmaPassword,
+  updateTurmaRitmos,
   getCandidatesByTurma,
   assignCandidateToTurma,
   deleteTurma,
@@ -1170,8 +1137,6 @@ module.exports = {
   getOrCreateEvaluator,
   touchEvaluatorForSession,
   saveScores,
-  saveFixedScoresForTurma,
-  getFixedScoresForTurma,
   getEvaluatorScores,
   getActiveEvaluatorStatus,
   getResultsReport,

@@ -55,7 +55,7 @@
             <div>
                 <p class="eyebrow">Central da turma</p>
                 <h2><%= turma.name %></h2>
-                <p>Controle alunos, presença consolidada e notas fixas usadas no resultado final.</p>
+                <p>Controle alunos, presença consolidada e ritmos avaliados da turma.</p>
             </div>
             <div class="hero-metrics">
                 <article>
@@ -195,61 +195,26 @@
             </section>
         <% } %>
 
-        <% if (candidates.length > 0) { %>
-            <section class="panel admin-module">
-                <div class="section-heading">
-                    <div>
-                        <p class="eyebrow">Notas fixas</p>
-                        <h2>Critérios administrativos da turma</h2>
-                        <p class="panel-copy">Estas notas entram no cálculo final e não podem ser alteradas pelos avaliadores.</p>
-                    </div>
+        <section class="panel admin-module">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Configurações</p>
+                    <h2>Ritmos Avaliados</h2>
+                    <p class="panel-copy">Defina quais ritmos serão avaliados nesta turma. Ex: 1.Forró - 2.Bolero - 3.Zouk</p>
                 </div>
+            </div>
 
-                <form action="/admin/turma/<%= turma.id %>/fixed-scores" method="POST">
-                    <div class="admin-table-wrap scores-table">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Aluno</th>
-                                    <th>Presença e comportamento nos auxílios</th>
-                                    <th>Comprometimento e participação em eventos</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% candidates.forEach(c => { %>
-                                    <tr>
-                                        <td><strong><%= c.name %></strong></td>
-                                        <td>
-                                            <input
-                                                type="text"
-                                                inputmode="numeric"
-                                                maxlength="2"
-                                                name="fixed_<%= c.id %>_presenca_auxilios"
-                                                value="<%= (fixedScores[c.id] && fixedScores[c.id].presenca_auxilios) || '' %>"
-                                                placeholder="-"
-                                            >
-                                        </td>
-                                        <td>
-                                            <input
-                                                type="text"
-                                                inputmode="numeric"
-                                                maxlength="2"
-                                                name="fixed_<%= c.id %>_comprometimento_eventos"
-                                                value="<%= (fixedScores[c.id] && fixedScores[c.id].comprometimento_eventos) || '' %>"
-                                                placeholder="-"
-                                            >
-                                        </td>
-                                    </tr>
-                                <% }) %>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="module-footer">
-                        <button type="submit">Salvar notas fixas</button>
-                    </div>
-                </form>
-            </section>
-        <% } %>
+            <form action="/admin/turma/ritmos" method="POST" class="candidate-form form-card">
+                <input type="hidden" name="turmaId" value="<%= turma.id %>">
+                <label>
+                    Ritmos da Audição
+                    <input type="text" name="ritmosAvaliados" value="<%= turma.ritmos_avaliados || '' %>" placeholder="Ex: 1.Forró - 2.Bolero - 3.Zouk">
+                </label>
+                <div class="module-footer" style="padding-top: 1rem;">
+                    <button type="submit">Salvar ritmos</button>
+                </div>
+            </form>
+        </section>
     </main>
 
     <script src="/transitions.js"></script>

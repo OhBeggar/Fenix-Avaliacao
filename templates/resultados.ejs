@@ -27,7 +27,7 @@
                 <img src="/images/icons8-fenix-cute-color-96.png" alt="Fênix Dança">
                 <div class="header-text">
                     <span class="eyebrow"><%= isHistorical ? 'HISTÓRICO OFICIAL' : 'CONSOLIDAÇÃO OFICIAL' %></span>
-                    <h1><%= isHistorical ? historicalEvent.title : 'Audição de Bolsistas 2024_2 para Auxiliares 2025_2' %></h1>
+                    <h1><%= dynamicTitle %></h1>
                 </div>
             </div>
             <p>Resultados finais com médias por critério, nota final e maioria simples.</p>
@@ -54,6 +54,15 @@
                         <% }) %>
                     </select>
                 </form>
+            <% } else if (results && results.length > 0 && results[0].individual_evaluations && Object.keys(results[0].individual_evaluations).length > 0) { %>
+                <div class="turma-filter-form">
+                    <select id="evaluatorFilter" onchange="updateTable(this.value)">
+                        <option value="global">Ver: Consolidação Oficial</option>
+                        <% Object.keys(results[0].individual_evaluations).forEach(evaluatorId => { %>
+                            <option value="<%= evaluatorId %>">Ver notas de: <%= results[0].individual_evaluations[evaluatorId].name %></option>
+                        <% }) %>
+                    </select>
+                </div>
             <% } %>
         </div>
 
@@ -75,35 +84,35 @@
                         <th>Condução</th>
                         <th>Musicalidade</th>
                         <th>Nota Final</th>
-                        <th>Aprov.</th>
-                        <th>Reprov.</th>
+                        <th class="col-aprov">Aprov.</th>
+                        <th class="col-reprov">Reprov.</th>
                         <th>Status</th>
                         <th>Patente</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="resultsTableBody">
                     <% if (results && results.length > 0) { %>
                         <% results.forEach((result, i) => { %>
-                            <tr>
+                            <tr data-index="<%= i %>">
                                 <td><%= i + 1 %></td>
                                 <td class="candidate-name"><%= result.name %></td>
                                 <td><%= result.presence %></td>
-                                <td><%= result.averages.presenca_auxilios || '-' %></td>
-                                <td><%= result.averages.comprometimento_eventos || '-' %></td>
-                                <td><%= result.averages.deslocamento_cavalheiro || result.averages.floreio_dama || '-' %></td>
-                                <td><%= result.averages.abraco_postura || '-' %></td>
-                                <td><%= result.averages.equilibrio || '-' %></td>
-                                <td><%= result.averages.passos || '-' %></td>
-                                <td><%= result.averages.ritmo || '-' %></td>
-                                <td><%= result.averages.corpo_ritmo || '-' %></td>
-                                <td><%= result.averages.conducao || '-' %></td>
-                                <td><%= result.averages.musicalidade || '-' %></td>
-                                <td class="<%= result.final_note >= 7 ? 'nota-alta' : 'nota-baixa' %>">
+                                <td data-crit="presenca_auxilios"><%= result.averages.presenca_auxilios || '-' %></td>
+                                <td data-crit="comprometimento_eventos"><%= result.averages.comprometimento_eventos || '-' %></td>
+                                <td data-crit="peso2"><%= result.averages.deslocamento_cavalheiro || result.averages.floreio_dama || '-' %></td>
+                                <td data-crit="abraco_postura"><%= result.averages.abraco_postura || '-' %></td>
+                                <td data-crit="equilibrio"><%= result.averages.equilibrio || '-' %></td>
+                                <td data-crit="passos"><%= result.averages.passos || '-' %></td>
+                                <td data-crit="ritmo"><%= result.averages.ritmo || '-' %></td>
+                                <td data-crit="corpo_ritmo"><%= result.averages.corpo_ritmo || '-' %></td>
+                                <td data-crit="conducao"><%= result.averages.conducao || '-' %></td>
+                                <td data-crit="musicalidade"><%= result.averages.musicalidade || '-' %></td>
+                                <td class="final-note <%= result.final_note >= 7 ? 'nota-alta' : 'nota-baixa' %>">
                                     <%= result.final_note %>
                                 </td>
-                                <td><%= result.approved %></td>
-                                <td><%= result.reproved %></td>
-                                <td><strong><%= result.status %></strong></td>
+                                <td class="col-aprov"><%= result.approved %></td>
+                                <td class="col-reprov"><%= result.reproved %></td>
+                                <td class="status-cell"><strong><%= result.status %></strong></td>
                                 <td><%= result.final_status %></td>
                             </tr>
                         <% }) %>
@@ -125,6 +134,58 @@
     </main>
 
     <script>
+        const rawResults = <%- JSON.stringify(results || []) %>;
+
+        function updateTable(evaluatorId) {
+            const isGlobal = evaluatorId === 'global';
+            
+            // Mostrar ou ocultar colunas de aprovação/reprovação
+            const colsToHide = document.querySelectorAll('.col-aprov, .col-reprov');
+            colsToHide.forEach(el => {
+                el.style.display = isGlobal ? '' : 'none';
+            });
+
+            // Atualizar os valores da tabela
+            const rows = document.querySelectorAll('#resultsTableBody tr[data-index]');
+            rows.forEach((row, idx) => {
+                const result = rawResults[idx];
+                if (!result) return;
+
+                const data = isGlobal ? result.averages : (result.individual_evaluations[evaluatorId]?.scores || {});
+                const finalNote = isGlobal ? result.final_note : (result.individual_evaluations[evaluatorId]?.finalNote || 0);
+                const statusStr = isGlobal ? result.status : (result.individual_evaluations[evaluatorId]?.isApproved ? 'Aprovado' : 'Reprovado');
+                const isAutoReproved = result.status === 'Presença insuficiente';
+
+                // Se o aluno está reprovado por falta, manter o status global de falta
+                const displayStatus = (isGlobal || isAutoReproved) ? result.status : statusStr;
+
+                const getVal = (key) => {
+                    // Para o peso2, verificamos deslocamento ou floreio
+                    if (key === 'peso2') {
+                        return data.deslocamento_cavalheiro || data.floreio_dama || '-';
+                    }
+                    return data[key] || '-';
+                };
+
+                row.querySelector('[data-crit="presenca_auxilios"]').textContent = getVal('presenca_auxilios');
+                row.querySelector('[data-crit="comprometimento_eventos"]').textContent = getVal('comprometimento_eventos');
+                row.querySelector('[data-crit="peso2"]').textContent = getVal('peso2');
+                row.querySelector('[data-crit="abraco_postura"]').textContent = getVal('abraco_postura');
+                row.querySelector('[data-crit="equilibrio"]').textContent = getVal('equilibrio');
+                row.querySelector('[data-crit="passos"]').textContent = getVal('passos');
+                row.querySelector('[data-crit="ritmo"]').textContent = getVal('ritmo');
+                row.querySelector('[data-crit="corpo_ritmo"]').textContent = getVal('corpo_ritmo');
+                row.querySelector('[data-crit="conducao"]').textContent = getVal('conducao');
+                row.querySelector('[data-crit="musicalidade"]').textContent = getVal('musicalidade');
+
+                const finalNoteCell = row.querySelector('.final-note');
+                finalNoteCell.textContent = finalNote;
+                finalNoteCell.className = 'final-note ' + (finalNote >= 7 ? 'nota-alta' : 'nota-baixa');
+
+                row.querySelector('.status-cell strong').textContent = displayStatus;
+            });
+        }
+
         // Auto-refresh a cada 15 segundos (apenas para resultados em tempo real, não para histórico)
         <% if (!isHistorical) { %>
         setInterval(() => {

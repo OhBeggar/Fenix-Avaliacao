@@ -1,14 +1,17 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Avaliação | <%= evaluatorName %></title>
-    <link rel="stylesheet" href="/avaliacao.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <title>Avaliação | <%= evaluatorName %>
+    </title>
+    <link rel="stylesheet" href="/avaliacao.css?v=2">
     <link rel="stylesheet" href="/theme.css">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <main class="page-shell">
         <header class="page-header">
@@ -16,14 +19,16 @@
                 <img src="/images/icons8-fenix-cute-color-70.png" alt="Icon" style="height: 40px; width: auto;">
                 <div>
                     <span class="eyebrow">Professor avaliador</span>
-                    <h1><%= evaluatorName %></h1>
+                    <h1>
+                        <%= evaluatorName %>
+                    </h1>
                 </div>
             </div>
             <div style="display:flex; align-items:center; gap:12px;">
-                <a href="/turmas/<%= encodeURIComponent(evaluatorName) %>" class="ghost-link nav-action back">Voltar à turma</a>
-                <form action="/teacher/logout" method="POST" style="margin:0;">
+                <a href="/turmas/<%= encodeURIComponent(evaluatorName) %>" class="ghost-link nav-action back" onclick="return confirm('Deseja voltar para a seleção de turmas?')">Voltar à turma</a>
+                <form action="/teacher/logout" method="POST" style="margin:0;" onsubmit="return confirm('Deseja realmente sair do sistema?')">
                     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                    <button type="submit" class="ghost-link" style="padding:8px 16px;">Trocar professor</button>
+                    <button type="submit" class="ghost-link" style="padding:8px 16px;">Sair</button>
                 </form>
             </div>
         </header>
@@ -31,10 +36,16 @@
         <section class="page-note">
             <div>
                 <p>Notas válidas: inteiros de 1 a 10 ou <strong>X</strong> para item não avaliado.</p>
-                <p class="subtle-note">
-                    O sistema considera como online quem teve atividade nos últimos
-                    <strong><%= activeEvaluatorStatus.timeoutMinutes %> minutos</strong>.
-                </p>
+                <% if (turma && turma.ritmos_avaliados) { %>
+                    <p class="subtle-note"><strong>Ritmos avaliados:</strong> <code><%= turma.ritmos_avaliados %></code>
+                    </p>
+                    <% } %>
+                        <p class="subtle-note">
+                            O sistema considera como online quem teve atividade nos últimos
+                            <strong>
+                                <%= activeEvaluatorStatus.timeoutMinutes %> minutos
+                            </strong>.
+                        </p>
             </div>
             <div class="online-status">
                 <span class="status-pill" id="online-count">
@@ -65,45 +76,47 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <% candidates.forEach((cand, i) => { %>
+                        <% candidates.forEach((cand, i)=> { %>
                             <tr>
-                                <td><%= i + 1 %></td>
-                                <td class="candidate-name"><%= cand.name %></td>
-                                <td><%= cand.presence %></td>
-                                <td><%= (fixedScores[cand.id] && fixedScores[cand.id].presenca_auxilios) || '-' %></td>
-                                <td><%= (fixedScores[cand.id] && fixedScores[cand.id].comprometimento_eventos) || '-' %></td>
                                 <td>
-                                    <% if (cand.gender === 'male') { %>
-                                        <input
-                                            type="text"
-                                            inputmode="numeric"
-                                            maxlength="2"
-                                            name="<%= cand.id %>_deslocamento_cavalheiro"
-                                            value="<%= (currentScores[cand.id] && currentScores[cand.id].deslocamento_cavalheiro) || '' %>"
-                                        >
-                                    <% } else { %>
-                                        <input
-                                            type="text"
-                                            inputmode="numeric"
-                                            maxlength="2"
-                                            name="<%= cand.id %>_floreio_dama"
-                                            value="<%= (currentScores[cand.id] && currentScores[cand.id].floreio_dama) || '' %>"
-                                        >
-                                    <% } %>
+                                    <%= i + 1 %>
                                 </td>
-                                <% commonCriteria.slice(2).forEach((crit) => { %>
+                                <td class="candidate-name">
+                                    <%= cand.name %>
+                                </td>
+                                <td>
+                                    <%= cand.presence %>
+                                </td>
+                                <td>
+                                    <input type="text" inputmode="numeric" maxlength="2"
+                                        name="<%= cand.id %>_presenca_auxilios"
+                                        value="<%= (currentScores[cand.id] && currentScores[cand.id].presenca_auxilios) || '' %>">
+                                </td>
+                                <td>
+                                    <input type="text" inputmode="numeric" maxlength="2"
+                                        name="<%= cand.id %>_comprometimento_eventos"
+                                        value="<%= (currentScores[cand.id] && currentScores[cand.id].comprometimento_eventos) || '' %>">
+                                </td>
+                                <td>
+                                    <% if (cand.gender==='male' ) { %>
+                                        <input type="text" inputmode="numeric" maxlength="2"
+                                            name="<%= cand.id %>_deslocamento_cavalheiro"
+                                            value="<%= (currentScores[cand.id] && currentScores[cand.id].deslocamento_cavalheiro) || '' %>">
+                                        <% } else { %>
+                                            <input type="text" inputmode="numeric" maxlength="2"
+                                                name="<%= cand.id %>_floreio_dama"
+                                                value="<%= (currentScores[cand.id] && currentScores[cand.id].floreio_dama) || '' %>">
+                                            <% } %>
+                                </td>
+                                <% commonCriteria.slice(2).forEach((crit)=> { %>
                                     <td>
-                                        <input
-                                            type="text"
-                                            inputmode="numeric"
-                                            maxlength="2"
+                                        <input type="text" inputmode="numeric" maxlength="2"
                                             name="<%= cand.id %>_<%= crit %>"
-                                            value="<%= (currentScores[cand.id] && currentScores[cand.id][crit]) || '' %>"
-                                        >
+                                            value="<%= (currentScores[cand.id] && currentScores[cand.id][crit]) || '' %>">
                                     </td>
-                                <% }) %>
+                                    <% }) %>
                             </tr>
-                        <% }) %>
+                            <% }) %>
                     </tbody>
                 </table>
             </div>
@@ -151,7 +164,7 @@
                 onlineCountElement.title = payload.activeNames.length
                     ? `Online agora: ${payload.activeNames.join(', ')}`
                     : 'Nenhum avaliador online no momento';
-            } catch {}
+            } catch { }
         }
 
         refreshOnlineEvaluators();
@@ -165,9 +178,10 @@
             }
             // Clean up the URL
             const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + (urlParams.get('turmaId') ? '?turmaId=' + urlParams.get('turmaId') : '');
-            window.history.replaceState({path: cleanUrl}, '', cleanUrl);
+            window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
         }
     </script>
     <script src="/back.js"></script>
 </body>
+
 </html>

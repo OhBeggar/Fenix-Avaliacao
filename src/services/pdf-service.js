@@ -22,6 +22,7 @@ const COLORS = {
   passGreen: rgb(0.94, 0.82, 0.60),
   failPink: rgb(0.99, 0.88, 0.84),
   red: rgb(0.72, 0.03, 0.06),
+  textGreen: rgb(0.1, 0.55, 0.1),
   brandRed: rgb(0.72, 0.03, 0.06),
   brandGold: rgb(0.74, 0.58, 0.37),
   pageCream: rgb(1, 0.97, 0.90),
@@ -68,7 +69,18 @@ function getDynamicTitle(report) {
   const baseRank = getPredominantRank(results) || 'Candidato';
   const nextRank = getNextRank(baseRank);
 
-  return `${turmaName} - ${pluralizeRank(baseRank)} para ${turmaName} ${pluralizeRank(nextRank)}`;
+  // Extrai ano_semestre do nome da turma (ex: "Ivan Bonatti 2025_1" → "2025_1")
+  const periodMatch = turmaName.match(/(\d{4}_\d)/);
+  if (!periodMatch) {
+    // Fallback se não encontrar o padrão ano_semestre
+    return `Audição ${pluralizeRank(baseRank)} para ${pluralizeRank(nextRank)}`;
+  }
+
+  const currentPeriod = periodMatch[1]; // ex: "2025_1"
+  const [yearStr, semester] = currentPeriod.split('_');
+  const nextPeriod = `${Number(yearStr) + 1}_${semester}`; // ex: "2026_1"
+
+  return `Audição ${pluralizeRank(baseRank)} ${currentPeriod} para ${pluralizeRank(nextRank)} ${nextPeriod}`;
 }
 
 function getReportTurmaName(report) {
@@ -139,24 +151,65 @@ async function buildResultsPdf(report) {
 
   let page = pdfDoc.addPage(PAGE_SIZE);
   let y = drawReportHeader(page, fonts, titleText, report);
-  drawTableHeader(page, fonts, y, numEvaluators);
+  let headerTopY = y;
+  drawTableHeader(page, fonts, y, numEvaluators, report);
   y -= HEADER_HEIGHT;
+
+  let pageData = [];
+  let currentTopY = headerTopY - 20; // Starts right below the top header text
+  let currentBottomY = y;
 
   results.forEach((result, index) => {
     if (y < 98) {
+      pageData.push({ page, topY: currentTopY, bottomY: currentBottomY });
+      
       page = pdfDoc.addPage(PAGE_SIZE);
       y = drawReportHeader(page, fonts, titleText, report, true);
-      drawTableHeader(page, fonts, y, numEvaluators);
+      headerTopY = y;
+      drawTableHeader(page, fonts, y, numEvaluators, report);
+      
+      currentTopY = headerTopY - 20;
       y -= HEADER_HEIGHT;
+      currentBottomY = y;
     }
 
     drawResultRow(page, fonts, result, index, y);
     y -= ROW_HEIGHT;
+    currentBottomY = y;
+  });
+
+  pageData.push({ page, topY: currentTopY, bottomY: currentBottomY });
+
+  // Draw separators for all pages
+  pageData.forEach(({ page, topY, bottomY }) => {
+    drawWeightSeparators(page, topY, bottomY);
   });
 
   drawRules(page, fonts, Math.max(30, y - 16), numEvaluators);
 
   return pdfDoc.save();
+}
+
+function drawWeightSeparators(page, topY, bottomY) {
+  // Column indices after which we draw the thick separator
+  // 2: fim da Presença %
+  // 4: fim do Peso 1 (Comprometimento)
+  // 7: fim do Peso 2 (Equilíbrio)
+  // 12: fim do Peso 3 (Musicalidade)
+  const separatorIndices = [2, 4, 7, 12];
+  let x = MARGIN_X;
+  
+  COLUMNS.forEach((column, index) => {
+    x += column.width;
+    if (separatorIndices.includes(index)) {
+      page.drawLine({
+        start: { x: x, y: topY },
+        end: { x: x, y: bottomY },
+        thickness: 1.5,
+        color: COLORS.black
+      });
+    }
+  });
 }
 
 function drawReportHeader(page, fonts, titleText, report, continued = false) {
@@ -229,17 +282,25 @@ function drawBrandMark(page, fonts, centerX, y) {
 }
 
 function buildMetaText(report) {
-  if (report?.event?.title) return report.event.title;
-  if (report?.turma?.name) return `Turma: ${report.turma.name}`;
-  return '';
+  let text = '';
+  if (report?.event?.title) text = report.event.title;
+  else if (report?.turma?.name) text = `Turma: ${report.turma.name}`;
+
+  if (report?.turma?.ritmos_avaliados) {
+    if (text) text += ` - Ritmos: ${report.turma.ritmos_avaliados}`;
+    else text = `Ritmos: ${report.turma.ritmos_avaliados}`;
+  }
+  return text;
 }
 
-function drawTableHeader(page, fonts, y, numEvaluators) {
+function drawTableHeader(page, fonts, y, numEvaluators, report) {
   const topY = y;
   const groupY = topY - 20;
   const labelY = groupY - 38;
 
-  drawCell(page, MARGIN_X, groupY, COLUMNS[0].width + COLUMNS[1].width, 20, 'JOÃO ANTÔNIO', fonts.bold, 8, {
+  const teacherName = report?.turma?.teacher_name?.toUpperCase() || 'CANDIDATOS';
+
+  drawCell(page, MARGIN_X, groupY, COLUMNS[0].width + COLUMNS[1].width, 20, teacherName, fonts.bold, 8, {
     fill: COLORS.rankGreen,
     align: 'center',
   });
@@ -286,10 +347,15 @@ function drawResultRow(page, fonts, result, index, y) {
       color = COLORS.red;
       font = fonts.bold;
     }
-    if (column.key === 'status' && result.status !== 'Aprovado') {
-      fill = COLORS.failPink;
-      color = COLORS.red;
-      font = fonts.bold;
+    if (column.key === 'status') {
+      if (result.status === 'Aprovado') {
+        color = COLORS.textGreen;
+        font = fonts.bold;
+      } else if (result.status !== 'Aprovado' && result.status !== '-') {
+        fill = COLORS.failPink;
+        color = COLORS.red;
+        font = fonts.bold;
+      }
     }
     if (column.key === 'name') {
       font = fonts.bold;
@@ -485,6 +551,7 @@ module.exports = {
   buildResultsPdf,
   buildAttachmentDisposition,
   asciiFilename,
+  getDynamicTitle,
   _private: {
     getDynamicTitle,
     sanitize,

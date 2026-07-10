@@ -311,7 +311,7 @@ test('teacher logout clears teacher session', async () => {
         const cookie = await loginTeacher(server, 'Professor Troca', 'senha');
         const page = await getText(server, '/turmas/Professor%20Troca', { Cookie: cookie });
         assert.equal(page.res.statusCode, 200);
-        assert.match(page.text, /Trocar professor/);
+        assert.match(page.text, /Sair/);
 
         const csrfToken = extractCsrfToken(page.text);
         const logout = await postForm(
@@ -491,73 +491,7 @@ test('sensitive authenticated POSTs require CSRF', async () => {
     }
 });
 
-test('admin saves fixed scores and ignores candidates outside the turma', async () => {
-    service.addTeacher('Professor Nota Fixa', 'senha');
-    const teacher = service.getTeacherList().find((row) => row.name === 'Professor Nota Fixa');
-    service.createTurma('Turma Nota Fixa', teacher.id, 'senha-a');
-    service.createTurma('Turma Nota Fixa Outra', teacher.id, 'senha-b');
-    const turma = service.getTurmas().find((row) => row.name === 'Turma Nota Fixa');
-    const otherTurma = service.getTurmas().find((row) => row.name === 'Turma Nota Fixa Outra');
-    service.createCandidate({ name: 'Aluno Nota Fixa', gender: 'male', presence: '100%', status: 'Bolsista', turma_id: turma.id });
-    service.createCandidate({ name: 'Aluno Outra Turma Nota Fixa', gender: 'male', presence: '100%', status: 'Bolsista', turma_id: otherTurma.id });
-    const candidate = service.getCandidatesByTurma(turma.id)[0];
-    const otherCandidate = service.getCandidatesByTurma(otherTurma.id)[0];
-
-    const server = http.createServer(app).listen(0);
-
-    try {
-        const cookie = adminCookie();
-        const adminPage = await getText(server, `/admin/turma/${turma.id}`, { Cookie: cookie });
-        const csrfToken = extractCsrfToken(adminPage.text);
-        const form = new URLSearchParams({
-            _csrf: csrfToken,
-            [`fixed_${candidate.id}_presenca_auxilios`]: '9',
-            [`fixed_${candidate.id}_comprometimento_eventos`]: '8',
-            [`fixed_${otherCandidate.id}_presenca_auxilios`]: '10',
-        });
-
-        const save = await postForm(server, `/admin/turma/${turma.id}/fixed-scores`, form, { Cookie: cookie });
-        assert.equal(save.res.statusCode, 302);
-
-        const fixedScores = service.getFixedScoresForTurma(turma.id);
-        const otherFixedScores = service.getFixedScoresForTurma(otherTurma.id);
-        assert.equal(fixedScores[candidate.id].presenca_auxilios, 9);
-        assert.equal(fixedScores[candidate.id].comprometimento_eventos, 8);
-        assert.equal(otherFixedScores[otherCandidate.id], undefined);
-    } finally {
-        server.close();
-    }
-});
-
-test('admin fixed scores reject values outside 1 to 10', async () => {
-    service.addTeacher('Professor Nota Fixa Inválida', 'senha');
-    const teacher = service.getTeacherList().find((row) => row.name === 'Professor Nota Fixa Inválida');
-    service.createTurma('Turma Nota Fixa Inválida', teacher.id, 'senha-a');
-    const turma = service.getTurmas().find((row) => row.name === 'Turma Nota Fixa Inválida');
-    service.createCandidate({ name: 'Aluno Nota Inválida', gender: 'male', presence: '100%', status: 'Bolsista', turma_id: turma.id });
-    const candidate = service.getCandidatesByTurma(turma.id)[0];
-
-    const server = http.createServer(app).listen(0);
-
-    try {
-        const cookie = adminCookie();
-        const adminPage = await getText(server, `/admin/turma/${turma.id}`, { Cookie: cookie });
-        const csrfToken = extractCsrfToken(adminPage.text);
-        const form = new URLSearchParams({
-            _csrf: csrfToken,
-            [`fixed_${candidate.id}_presenca_auxilios`]: '11',
-        });
-
-        const save = await postForm(server, `/admin/turma/${turma.id}/fixed-scores`, form, { Cookie: cookie });
-        assert.equal(save.res.statusCode, 302);
-        assert.match(save.res.headers.location, /type=error/);
-        assert.equal(service.getFixedScoresForTurma(turma.id)[candidate.id], undefined);
-    } finally {
-        server.close();
-    }
-});
-
-test('evaluation POST ignores fixed criteria and candidate scores outside the authorized turma', async () => {
+test('evaluation POST ignores candidate scores outside the authorized turma', async () => {
     service.addTeacher('Professor Escopo', 'senha');
     const teacher = service.getTeacherList().find((row) => row.name === 'Professor Escopo');
     service.createTurma('Turma Permitida', teacher.id, 'senha-a');
@@ -587,8 +521,6 @@ test('evaluation POST ignores fixed criteria and candidate scores outside the au
             `/evaluate/${encodeURIComponent(teacher.name)}?turmaId=${allowedTurma.id}`,
             { Cookie: authCookies }
         );
-        assert.doesNotMatch(evaluatePage.text, new RegExp(`name="${allowedCandidate.id}_presenca_auxilios"`));
-        assert.doesNotMatch(evaluatePage.text, new RegExp(`name="${allowedCandidate.id}_comprometimento_eventos"`));
         const csrfToken = extractCsrfToken(evaluatePage.text);
         const form = new URLSearchParams({
             _csrf: csrfToken,
@@ -608,8 +540,8 @@ test('evaluation POST ignores fixed criteria and candidate scores outside the au
 
         const allowedScores = service.getEvaluatorScores(teacher.id, allowedTurma.id);
         const blockedScores = service.getEvaluatorScores(teacher.id, blockedTurma.id);
-        assert.equal(allowedScores[allowedCandidate.id].presenca_auxilios, undefined);
-        assert.equal(allowedScores[allowedCandidate.id].comprometimento_eventos, undefined);
+        assert.equal(allowedScores[allowedCandidate.id].presenca_auxilios, '8');
+        assert.equal(allowedScores[allowedCandidate.id].comprometimento_eventos, '8');
         assert.equal(allowedScores[allowedCandidate.id].abraco_postura, '9');
         assert.equal(blockedScores[blockedCandidate.id], undefined);
     } finally {

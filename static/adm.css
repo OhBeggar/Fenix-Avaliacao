@@ -812,6 +812,31 @@ button.danger:hover {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 14px;
+    max-height: 560px;
+    overflow-y: auto;
+    padding-right: 8px; /* Espaço para o scrollbar */
+    align-content: start; /* Impede que os cards estiquem se houver poucos */
+}
+
+/* Custom scrollbar para as grids */
+.turmas-grid::-webkit-scrollbar,
+.person-grid::-webkit-scrollbar,
+.management-grid::-webkit-scrollbar,
+.presence-grid::-webkit-scrollbar {
+    width: 6px;
+}
+.turmas-grid::-webkit-scrollbar-track,
+.person-grid::-webkit-scrollbar-track,
+.management-grid::-webkit-scrollbar-track,
+.presence-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+.turmas-grid::-webkit-scrollbar-thumb,
+.person-grid::-webkit-scrollbar-thumb,
+.management-grid::-webkit-scrollbar-thumb,
+.presence-grid::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
 }
 
 .turma-card,
@@ -842,6 +867,8 @@ button.danger:hover {
     border-color: var(--brand-gold-light);
     box-shadow: var(--shadow);
 }
+
+
 
 .card-topline {
     display: flex;
