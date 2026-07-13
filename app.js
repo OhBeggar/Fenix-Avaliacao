@@ -1,5 +1,4 @@
 require('./load-env'); // <-- carrega as variáveis de ambiente do .env
-
 const QRCode = require('qrcode');
 const { getNetworkUrls } = require('./src/utils/network');
 
@@ -10,6 +9,7 @@ const cookieParser = require('cookie-parser');
 const evaluationService = require('./src/services/evaluation-service');
 const { commonCriteria, maleCriteria, femaleCriteria } = require('./src/constants');
 const { isAdminAuthenticated, setAdminCookie, clearAdminCookie } = require('./src/utils/admin-auth');
+const { isTeacherAuthenticated, setTeacherCookie, clearTeacherCookie, readTeacherPayload } = require('./src/utils/teacher-auth');
 const { buildResultsPdf, buildAttachmentDisposition, getDynamicTitle } = require('./src/services/pdf-service');
 const config = require('./src/config');
 
@@ -88,11 +88,55 @@ function adminAuthMiddleware(req, res, next) {
   next();
 }
 
+// Middleware de autenticação professor
+function teacherAuthMiddleware(req, res, next) {
+  if (!isTeacherAuthenticated(req)) {
+    return res.redirect('/login-teachers');
+  }
+  next();
+}
+
+// Middleware para permitir admin OU professor
+function adminOrTeacherAuthMiddleware(req, res, next) {
+  if (isAdminAuthenticated(req) || isTeacherAuthenticated(req)) {
+    return next();
+  }
+  if (req.path.startsWith('/admin')) {
+    return res.redirect('/admin/login');
+  } else {
+    return res.redirect('/login-teachers');
+  }
+}
+
 function isSecureRequest(req) {
   return Boolean(req.secure || String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https');
 }
 
+// Helper para obter detalhes da sessão (admin ou professor)
+function getAuthDetails(req) {
+  let user = null;
+  let isAdmin = false;
+  let isTeacher = false;
+
+  if (isAdminAuthenticated(req)) {
+    isAdmin = true;
+    user = { type: 'admin', name: 'Administrador' };
+  } else if (isTeacherAuthenticated(req)) {
+    isTeacher = true;
+    const teacherPayload = readTeacherPayload(req.cookies['teacher_access']);
+    if (teacherPayload) {
+      user = { type: 'teacher', id: teacherPayload.evaluatorId, name: teacherPayload.evaluatorName };
+    }
+  }
+  return { user, isAdmin, isTeacher };
+}
+
 function getAdminLocals(message = null, extra = {}) {
+  let authDetails = { isAdmin: true, isTeacher: false, user: { type: 'admin', name: 'Administrador' } };
+  if (this && this.req) {
+    authDetails = getAuthDetails(this.req);
+  }
+
   const activeSessions = evaluationService.getActiveSessions();
   const latestSession = activeSessions[0] || null;
 
@@ -107,6 +151,7 @@ function getAdminLocals(message = null, extra = {}) {
     currentTurmaId: latestSession ? latestSession.turma_id : null,
     activeSessions: activeSessions,
     message,
+    ...authDetails,
     ...extra,
   };
 }
@@ -203,8 +248,8 @@ function evaluationCookieName(turmaId) {
   return `evaluation_access_${turmaId}`;
 }
 
-function clearTeacherAccessCookies(req, res) {
-  clearAccessCookie(req, res, TEACHER_COOKIE_NAME);
+function clearTeacherAccessCookiesAndRelatedCookies(req, res) {
+  clearTeacherCookie(res, isSecureRequest(req));
   evaluationService.getTurmas().forEach((turma) => {
     clearAccessCookie(req, res, turmaCookieName(turma.id));
     clearAccessCookie(req, res, evaluationCookieName(turma.id));
@@ -221,31 +266,11 @@ function hasEvaluationAccess(req, turmaId, evaluatorName) {
   return String(payload.sessionId) === String(activeSession.id);
 }
 
-function setTeacherCookie(req, res, teacher) {
-  setAccessCookie(req, res, TEACHER_COOKIE_NAME, {
-    type: 'teacher',
-    evaluatorId: teacher.id,
-    evaluatorName: teacher.name,
-  });
-}
-
-function getTeacherSession(req, expectedName = null) {
-  const payload = readAccessPayload(req.cookies[TEACHER_COOKIE_NAME]);
-  if (!payload || payload.type !== 'teacher') return null;
-
+function getTeacherSession(req) {
+  const payload = readTeacherPayload(req.cookies['teacher_access']);
+  if (!payload) return null;
   const teacher = evaluationService.getTeacherById(payload.evaluatorId);
   if (!teacher || teacher.name !== payload.evaluatorName) return null;
-  if (expectedName && teacher.name !== expectedName) return null;
-
-  return teacher;
-}
-
-function requireTeacherSession(req, res, expectedName = null) {
-  const teacher = getTeacherSession(req, expectedName);
-  if (!teacher) {
-    res.redirect(`/avaliacao?message=${encodeURIComponent('Faça login para acessar suas turmas.')}`);
-    return null;
-  }
   return teacher;
 }
 
@@ -283,7 +308,7 @@ app.post('/login', async (req, res) => {
     return res.render('home', { message: 'Professor ou senha inválidos.' });
   }
 
-  setTeacherCookie(req, res, teacher);
+  setTeacherCookie(res, teacher.id, teacher.name, isSecureRequest(req));
 
   // 2. Redirecionar para seleção de turmas
   res.redirect(`/turmas/${encodeURIComponent(teacher.name)}`);
@@ -299,15 +324,15 @@ app.post('/api/check-teacher', (req, res) => {
 });
 
 app.post('/teacher/logout', requireCsrf, (req, res) => {
-  clearTeacherAccessCookies(req, res);
+  clearTeacherAccessCookiesAndRelatedCookies(req, res);
   res.redirect('/avaliacao');
 });
 
 // Página de Seleção de Turmas
 app.get('/turmas/:name', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
-  const teacher = requireTeacherSession(req, res, evaluatorName);
-  if (!teacher) return;
+  const teacher = readTeacherPayload(req.cookies['teacher_access']);
+  if (!teacher) return res.redirect('/avaliacao?message=Faça login para acessar suas turmas.');
 
   const turmas = evaluationService.getTurmas().map(turma => {
     const activeSession = evaluationService.getActiveSessionForTurma(turma.id);
@@ -357,8 +382,8 @@ app.post('/turmas/access', requireCsrf, (req, res) => {
 app.get('/turmas/:name/:turmaId', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = parseInt(req.params.turmaId, 10);
-  const teacher = requireTeacherSession(req, res, evaluatorName);
-  if (!teacher) return;
+  const teacher = readTeacherPayload(req.cookies['teacher_access']);
+  if (!teacher) return res.redirect('/avaliacao?message=Faça login para acessar suas turmas.');
 
   if (!hasAccess(req, turmaCookieName(turmaId), { type: 'turma', evaluatorName, turmaId })) {
     return res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}`);
@@ -377,7 +402,7 @@ app.get('/turmas/:name/:turmaId', (req, res) => {
     candidates,
     attendanceSummary,
     activeSession,
-    canManageAttendance: turma.teacher_name === evaluatorName,
+    canManageAttendance: teacher.evaluatorId === turma.teacher_id,
     message: req.query.message || null,
   });
 });
@@ -386,15 +411,18 @@ app.post('/turmas/:name/:turmaId/aulas', requireCsrf, (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = parseInt(req.params.turmaId, 10);
   const turma = evaluationService.getTurmaById(turmaId);
-  const teacher = requireTeacherSession(req, res, evaluatorName);
-  if (!teacher) return;
+  const teacher = readTeacherPayload(req.cookies['teacher_access']);
 
   if (!hasAccess(req, turmaCookieName(turmaId), { type: 'turma', evaluatorName, turmaId })) {
     return res.status(403).send('Acesso à turma não liberado.');
   }
 
-  if (!turma || turma.teacher_name !== evaluatorName) {
-    return res.status(403).send('Somente o professor responsável pode lançar presença.');
+  if (!turma) {
+    return res.status(404).send('Turma não encontrada.');
+  }
+
+  if (teacher.evaluatorId !== turma.teacher_id) {
+    return res.status(403).send('Acesso negado. Apenas o professor responsável pode alterar a presença.');
   }
 
   try {
@@ -402,6 +430,33 @@ app.post('/turmas/:name/:turmaId/aulas', requireCsrf, (req, res) => {
     res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}/${turmaId}`);
   } catch (error) {
     res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}/${turmaId}?message=${encodeURIComponent(error.message)}`);
+  }
+});
+
+app.post('/turmas/:name/:turmaId/ritmos', requireCsrf, (req, res) => {
+  const evaluatorName = decodeURIComponent(req.params.name);
+  const turmaId = parseInt(req.params.turmaId, 10);
+  const turma = evaluationService.getTurmaById(turmaId);
+  const teacher = readTeacherPayload(req.cookies['teacher_access']);
+
+  if (!hasAccess(req, turmaCookieName(turmaId), { type: 'turma', evaluatorName, turmaId })) {
+    return res.status(403).send('Acesso à turma não liberado.');
+  }
+
+  if (!turma) {
+    return res.status(404).send('Turma não encontrada.');
+  }
+
+  if (teacher.evaluatorId !== turma.teacher_id) {
+    return res.status(403).send('Acesso negado. Apenas o professor responsável pode alterar os ritmos.');
+  }
+
+  try {
+    const { ritmosAvaliados } = req.body;
+    evaluationService.updateTurmaRitmos(turmaId, ritmosAvaliados);
+    res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}/${turmaId}`);
+  } catch (error) {
+    res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}/${turmaId}?message=${encodeURIComponent(error.message || 'Erro ao atualizar ritmos.')}`);
   }
 });
 
@@ -434,8 +489,8 @@ app.post('/turmas/evaluate-access', requireCsrf, (req, res) => {
 app.get('/evaluate/:name', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
-  const teacher = requireTeacherSession(req, res, evaluatorName);
-  if (!teacher) return;
+  const teacher = readTeacherPayload(req.cookies['teacher_access']);
+  if (!teacher) return res.redirect('/avaliacao?message=Faça login para acessar suas turmas.');
 
   if (!turmaId || !hasEvaluationAccess(req, turmaId, evaluatorName)) {
     return res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}?message=${encodeURIComponent('Informe o PIN ativo antes de avaliar.')}`);
@@ -475,8 +530,8 @@ app.get('/evaluate/:name', (req, res) => {
 app.post('/evaluate/:name', requireCsrf, (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
-  const teacher = requireTeacherSession(req, res, evaluatorName);
-  if (!teacher) return;
+  const teacher = readTeacherPayload(req.cookies['teacher_access']);
+  if (!teacher) return res.redirect('/avaliacao?message=Faça login para acessar suas turmas.');
 
   if (!turmaId || !hasEvaluationAccess(req, turmaId, evaluatorName)) {
     return res.status(403).send('Acesso à avaliação não liberado.');
@@ -614,7 +669,7 @@ app.post('/admin/logout', adminAuthMiddleware, requireCsrf, (req, res) => {
 
 // Admin Dashboard
 app.get('/admin', adminAuthMiddleware, (req, res) => {
-  res.render('adm', getAdminLocals());
+  res.render('adm', getAdminLocals.call({ req }, req.query.message ? { type: req.query.type, text: req.query.message } : null));
 });
 
 // SSE endpoint para clientes ouvirem eventos do servidor (PINs / sessões)
@@ -763,10 +818,23 @@ app.post('/admin/turma/password', adminAuthMiddleware, requireCsrf, (req, res) =
   res.render('adm', getAdminLocals({ type: 'success', text: 'Senha da turma atualizada.' }));
 });
 
-app.post('/admin/turma/ritmos', adminAuthMiddleware, requireCsrf, (req, res) => {
+app.post('/admin/turma/ritmos', adminOrTeacherAuthMiddleware, requireCsrf, (req, res) => {
   const { turmaId, ritmosAvaliados } = req.body;
-  evaluationService.updateTurmaRitmos(turmaId, ritmosAvaliados);
-  res.redirect(`/admin/turma/${turmaId}?success=1`);
+  const { isTeacher, user } = getAuthDetails(req);
+
+  try {
+    const turma = evaluationService.getTurmaById(turmaId);
+    if (!turma) throw new Error('Turma não encontrada.');
+
+    if (isTeacher && user.id !== turma.teacher_id) {
+      return res.status(403).send('Acesso negado. Esta turma não pertence ao seu perfil de professor.');
+    }
+
+    evaluationService.updateTurmaRitmos(turmaId, ritmosAvaliados);
+    res.redirect(`/admin/turma/${turmaId}?success=1`);
+  } catch (error) {
+    res.redirect(`/admin/turma/${turmaId}?type=error&message=${encodeURIComponent(error.message || 'Erro ao atualizar ritmos.')}`);
+  }
 });
 
 // Adicionar Aluno (Admin)
@@ -806,10 +874,15 @@ app.post('/admin/turma/assign', adminAuthMiddleware, requireCsrf, (req, res) => 
 });
 
 // Visualizar detalhes de uma turma (lista de alunos)
-app.get('/admin/turma/:id', adminAuthMiddleware, (req, res) => {
+app.get('/admin/turma/:id', adminOrTeacherAuthMiddleware, async (req, res) => {
+  const { isAdmin, isTeacher, user } = getAuthDetails(req);
   const turmaId = parseInt(req.params.id, 10);
   const turmas = evaluationService.getTurmas();
   const turma = turmas.find(t => t.id === turmaId);
+  
+  if (isTeacher && turma && user.id !== turma.teacher_id) {
+    return res.status(403).send('Acesso negado. Esta turma não pertence ao seu perfil de professor.');
+  }
   
   if (!turma) {
     return res.status(404).send('Turma não encontrada');
@@ -819,6 +892,10 @@ app.get('/admin/turma/:id', adminAuthMiddleware, (req, res) => {
   const attendanceSummary = evaluationService.getAttendanceSummary(turmaId);
   
   res.render('admin-turma-detalhes', {
+    isAdmin,
+    isTeacher,
+    user,
+    ...getAuthDetails(req),
     turma,
     candidates,
     attendanceSummary,
@@ -829,8 +906,15 @@ app.get('/admin/turma/:id', adminAuthMiddleware, (req, res) => {
   });
 });
 
-app.post('/admin/turma/:id/aulas', adminAuthMiddleware, requireCsrf, (req, res) => {
+app.post('/admin/turma/:id/aulas', adminOrTeacherAuthMiddleware, requireCsrf, (req, res) => {
+  const { isTeacher, user } = getAuthDetails(req);
   const turmaId = req.params.id;
+  const turma = evaluationService.getTurmaById(turmaId);
+  
+  if (isTeacher && turma && user.id !== turma.teacher_id) {
+    return res.status(403).send('Acesso negado. Esta turma não pertence ao seu perfil de professor.');
+  }
+
   try {
     evaluationService.setAttendanceForTurma(turmaId, req.body);
     res.redirect(`/admin/turma/${turmaId}?type=success&message=${encodeURIComponent('Presença atualizada com sucesso.')}`);
@@ -851,6 +935,18 @@ app.post('/admin/candidate/delete', adminAuthMiddleware, requireCsrf, (req, res)
 
   // Senão, vai para a página principal de admin
   res.render('adm', getAdminLocals({ type: 'success', text: 'Aluno removido com sucesso.' }));
+});
+
+// Rota para renomear a turma (Admin)
+app.post('/admin/turma/rename', adminAuthMiddleware, requireCsrf, (req, res) => {
+    const { turmaId, newName } = req.body;
+    try {
+        evaluationService.updateTurmaName(turmaId, newName);
+        // Redireciona de volta para a página de detalhes da turma com mensagem de sucesso
+        res.redirect(`/admin/turma/${turmaId}?type=success&message=${encodeURIComponent('Nome da turma atualizado com sucesso.')}`);
+    } catch (error) {
+        res.redirect(`/admin/turma/${turmaId}?type=error&message=${encodeURIComponent(error.message || 'Erro ao renomear turma.')}`);
+    }
 });
 
 // Excluir Turma

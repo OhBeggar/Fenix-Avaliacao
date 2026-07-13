@@ -47,12 +47,12 @@ function calculateFinalNote(scoreMap, peso2Criterion, presencePercentage) {
         numericValue(scoreMap.comprometimento_eventos),
         numericValue(scoreMap[peso2Criterion]),
         numericValue(scoreMap.abraco_postura),
+        numericValue(scoreMap.equilibrio),
     ];
     const mediaPeso2 = average(peso2Values);
 
     // Peso 3 (60%): Equilíbrio + Passos + Ritmo + Corpo do Ritmo + Condução + Musicalidade
     const peso3Values = [
-        numericValue(scoreMap.equilibrio),
         numericValue(scoreMap.passos),
         numericValue(scoreMap.ritmo),
         numericValue(scoreMap.corpo_ritmo),
@@ -66,7 +66,7 @@ function calculateFinalNote(scoreMap, peso2Criterion, presencePercentage) {
 }
 
 /**
- * @deprecated Use calculateFinalNote diretamente. Mantida apenas por compatibilidade.
+ * @deprecated Use calculateFinalNote diretamente. Mantida apenas por compatibilidade. Excluir depois as linhas 69 a 74.
  */
 function calculateTotalPoints(scoreMap, peso2Criterion) {
     return calculateFinalNote(scoreMap, peso2Criterion, 0) * 25;
@@ -82,7 +82,7 @@ function determineResultStatus(finalNote, approved, numEvaluators) {
 module.exports = {
     average,
     calculateFinalNote,
-    calculateTotalPoints,
+    calculateTotalPoints, // Remover função deprecated depois de atualizar o front-end para usar calculateFinalNote
     determineResultStatus,
     isPresenceEligible,
     numericValue,

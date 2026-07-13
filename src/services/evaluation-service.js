@@ -300,6 +300,15 @@ function assignCandidateToTurma(candidateId, turmaId) {
   db.prepare('UPDATE candidates SET turma_id = ? WHERE id = ?').run(turmaId, candidateId);
 }
 
+// Modulo pra renomear as turmas, usado no front-end para permitir que o professor altere o nome da turma.
+function updateTurmaName(turmaId, newName) {
+    const name = String(newName || '').trim();
+    if (!name) {
+        throw new Error('O nome da turma não pode estar vazio.');
+    }
+    db.prepare('UPDATE turmas SET name = ? WHERE id = ?').run(name, turmaId);
+}
+
 // --- Sessão e Códigos de Acesso ---
 
 function generateSessionCode(turmaId) {
@@ -1111,6 +1120,7 @@ module.exports = {
   
   // Turmas
   createTurma,
+  updateTurmaName,
   getTurmas,
   getTurmaById,
   setTurmaPassword,

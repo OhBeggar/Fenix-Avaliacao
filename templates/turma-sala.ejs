@@ -111,7 +111,34 @@
             <% } %>
             </div>
         </details>
+
+        <% if (canManageAttendance) { %>
+        <details class="panel admin-accordion" style="margin-top: 16px;">
+            <summary class="accordion-summary">
+                <div>
+                    <h2>Ritmos Avaliados</h2>
+                    <p class="panel-copy">Defina quais ritmos serão avaliados nesta turma. Ex: 1.Forró - 2.Bolero - 3.Zouk</p>
+                </div>
+                <span class="accordion-indicator">Expandir</span>
+            </summary>
+            <div class="accordion-content">
+                <form action="/turmas/<%= encodeURIComponent(evaluatorName) %>/<%= turma.id %>/ritmos" method="POST" style="margin-top:16px;">
+                    <label style="display:block; margin-bottom:16px;">
+                        Ritmos da Audição
+                        <input type="text" name="ritmosAvaliados" value="<%= turma.ritmos_avaliados || '' %>" placeholder="Ex: 1.Forró - 2.Bolero - 3.Zouk">
+                    </label>
+                    <button type="submit" style="margin-top:8px;">Salvar ritmos</button>
+                </form>
+            </div>
+        </details>
+        <% } else if (turma.ritmos_avaliados) { %>
+        <div class="panel" style="margin-top: 16px; padding: 16px; background: white; border-radius: 8px; border: 1px solid var(--border);">
+            <h2 style="font-size: 1.1rem; margin-bottom: 8px;">Ritmos Avaliados</h2>
+            <p style="margin: 0; color: var(--text-color);"><%= turma.ritmos_avaliados %></p>
+        </div>
+        <% } %>
     </main>
+
 
     <script>
         (function(){

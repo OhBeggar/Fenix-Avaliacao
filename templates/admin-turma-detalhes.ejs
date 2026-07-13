@@ -33,8 +33,30 @@
                     <p class="panel-copy">Responsável: <%= turma.teacher_name || 'Não definido' %></p>
                 </div>
             </div>
-            <a href="/admin" class="ghost-link nav-action back">Voltar</a>
+            <a href="<%= isAdmin ? '/admin' : '/turmas' %>" class="ghost-link nav-action back">Voltar</a>
         </header>
+            <div class="turma-card-actions" style="margin-top: 20px; display: flex; gap: 8px;">
+                <button onclick="document.getElementById('renameModal').showModal()" class="btn-secondary" style="padding: 6px 12px;">Editar nome</button>
+            </div>
+        </section>
+
+        <dialog id="renameModal">
+            <h3>Renomear Turma</h3>
+            <p style="color: var(--muted); font-size: 0.9rem;">Altere o nome da turma para atualizar o período no título do PDF.</p>
+            
+            <form action="/admin/turma/rename" method="POST">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="turmaId" value="<%= turma.id %>">
+                
+                <label>Novo nome da turma</label>
+                <input type="text" name="newName" value="<%= turma.name %>" style="width: 100%; padding: 8px; margin-top: 8px;" required>
+                
+                <div class="modal-actions" style="margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end;">
+                    <button type="button" class="btn-cancel" onclick="this.closest('dialog').close()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar alterações</button>
+                </div>
+            </form>
+        </dialog>
 
         <% if (typeof message !== 'undefined' && message) { %>
             <div id="toast-data"
