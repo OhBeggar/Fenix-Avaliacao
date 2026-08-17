@@ -110,13 +110,15 @@ function getPredominantRank(results) {
 }
 
 function getRankForResult(result) {
-  if (result?.current_rank && RANK_HIERARCHY.includes(result.current_rank)) {
-    return result.current_rank;
-  }
-  if (result?.final_status && RANK_HIERARCHY.includes(result.final_status)) {
-    return result.final_status;
-  }
-  return null;
+  const findInHierarchy = (val) => {
+    if (!val) return null;
+    const clean = String(val).trim().toLowerCase();
+    return RANK_HIERARCHY.find(r => r.toLowerCase() === clean) || null;
+  };
+  return findInHierarchy(result?.current_rank)
+    || findInHierarchy(result?.final_status)
+    || findInHierarchy(result?.status)
+    || null;
 }
 
 function getNextRank(rank) {

@@ -4,9 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= typeof historicalEvent !== 'undefined' ? 'Histórico Oficial' : 'Resultados Finais' %> | Fênix Dança</title>
-    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
-    <link rel="stylesheet" href="/resultados.css">
+    <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('fenix-theme');
+        if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          t = 'dark';
+        }
+        if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {}
+    })();
+    </script>
     <link rel="stylesheet" href="/theme.css">
+    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+    <link rel="stylesheet" href="/resultados.css?v=2">
 </head>
 <body>
     <%
@@ -30,7 +41,10 @@
                     <h1><%= dynamicTitle %></h1>
                 </div>
             </div>
-            <p>Resultados finais com médias por critério, nota final e maioria simples.</p>
+            <p class="results-subtitle">
+                Resultados finais com médias por critério, nota final e maioria simples.
+                <button type="button" class="help-tip" id="rulesHelpBtn" aria-label="Ver regras de aprovação" title="Regras de aprovação">?</button>
+            </p>
             <p class="active-summary">
                 <%= summaryLabel %>: <strong><%= summaryCount %></strong>
                 <% if (summaryNames && summaryNames.length > 0) { %>
@@ -43,27 +57,85 @@
             <a href="<%= isHistorical ? '/results/history' : '/admin' %>" class="ghost-link nav-action back">
                 Voltar
             </a>
-            <% if (!isHistorical) { %>
+
+            <label class="results-search" aria-label="Buscar candidato">
+                <span class="search-icon" aria-hidden="true">⌕</span>
+                <input
+                    type="search"
+                    id="candidateSearch"
+                    placeholder="Buscar candidato..."
+                    autocomplete="off"
+                >
+            </label>
+            <% if (!isHistorical && typeof activeTurmas !== 'undefined' && activeTurmas.length > 1) { %>
                 <form method="GET" action="/results" class="turma-filter-form">
                     <select name="turmaId" onchange="this.form.submit()">
-                        <option value="">Todas as Turmas</option>
-                        <% turmas.forEach(t => { %>
+                        <% activeTurmas.forEach(t => { %>
                             <option value="<%= t.id %>" <%= t.id == selectedTurmaId ? 'selected' : '' %>>
                                 <%= t.name %>
                             </option>
                         <% }) %>
                     </select>
                 </form>
-            <% } else if (results && results.length > 0 && results[0].individual_evaluations && Object.keys(results[0].individual_evaluations).length > 0) { %>
-                <div class="turma-filter-form">
-                    <select id="evaluatorFilter" onchange="updateTable(this.value)">
-                        <option value="global">Ver: Consolidação Oficial</option>
-                        <% Object.keys(results[0].individual_evaluations).forEach(evaluatorId => { %>
-                            <option value="<%= evaluatorId %>">Ver notas de: <%= results[0].individual_evaluations[evaluatorId].name %></option>
-                        <% }) %>
-                    </select>
-                </div>
+            <% } else if (isHistorical) { %>
+                <% 
+                    const evaluatorsMap = {};
+                    if (results && results.length > 0) {
+                        results.forEach(r => {
+                            if (r.individual_evaluations) {
+                                Object.entries(r.individual_evaluations).forEach(([id, evalData]) => {
+                                    if (!evaluatorsMap[id] && evalData && evalData.name) {
+                                        evaluatorsMap[id] = evalData.name;
+                                    }
+                                });
+                            }
+                        });
+                    }
+                    const evaluatorIds = Object.keys(evaluatorsMap);
+                %>
+                <% if (evaluatorIds.length > 0) { %>
+                    <div class="turma-filter-form">
+                        <select id="evaluatorFilter" onchange="updateTable(this.value)">
+                            <option value="global">Ver: Consolidação Oficial</option>
+                            <% evaluatorIds.forEach(evaluatorId => { %>
+                                <option value="<%= evaluatorId %>">Ver notas de: <%= evaluatorsMap[evaluatorId] %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                <% } %>
             <% } %>
+
+            <% if (isHistorical && typeof historicalEvent !== 'undefined' && historicalEvent) { %>
+                <% if (typeof canExportPdf !== 'undefined' && canExportPdf) { %>
+                    <a class="btn-export" href="/export_pdf/history/<%= historicalEvent.id %>">
+                        PDF
+                    </a>
+                <% } %>
+
+                <a class="btn-export btn-export-excel" href="/export_excel/history/<%= historicalEvent.id %>">
+                    Excel
+                </a>
+            <% } %>
+        </div>
+
+        <% 
+            const totalCands = results ? results.length : 0;
+            const totalAprov = results ? results.filter(r => r.status === 'Aprovado').length : 0;
+            const totalReprov = totalCands - totalAprov;
+        %>
+        <div class="results-summary">
+            <div class="summary-item">
+                <strong><%= totalCands %></strong>
+                <span>candidatos</span>
+            </div>
+            <div class="summary-item aprov">
+                <strong><%= totalAprov %></strong>
+                <span>aprovados</span>
+            </div>
+            <div class="summary-item reprov">
+                <strong><%= totalReprov %></strong>
+                <span>reprovados</span>
+            </div>
         </div>
 
         <div class="table-wrap">
@@ -131,6 +203,21 @@
             <strong>Aprovado</strong> = nota média >= 7,0 e maioria simples dos avaliadores 
             (mais de <%= Math.floor(numEvaluators / 2) %> aprovações).
         </p>
+
+        <div class="rules-popover" id="rulesPopover" hidden>
+            <div class="rules-popover-header">
+                <strong>Regras de aprovação</strong>
+                <button type="button" class="rules-popover-close" id="rulesHelpClose" aria-label="Fechar">×</button>
+            </div>
+            <ul>
+                <li><strong>Presença mínima:</strong> abaixo de 80% → reprovação automática (independente das notas).</li>
+                <li><strong>Nota final:</strong> média ponderada (Peso 1 = 10%, Peso 2 = 30%, Peso 3 = 60%).</li>
+                <li><strong>Corte:</strong> nota final ≥ 7,0.</li>
+                <li><strong>Maioria simples:</strong> mais da metade dos avaliadores precisa aprovar. Empate reprova.</li>
+                <li><strong>Aprovado</strong> só se cumprir nota ≥ 7,0 <em>e</em> maioria.</li>
+                <li><strong>Patente:</strong> aprovado sobe de patente no fechamento (ex.: Bolsista → Auxiliar).</li>
+            </ul>
+        </div>
     </main>
 
     <script>
@@ -151,13 +238,13 @@
                 const result = rawResults[idx];
                 if (!result) return;
 
-                const data = isGlobal ? result.averages : (result.individual_evaluations[evaluatorId]?.scores || {});
-                const finalNote = isGlobal ? result.final_note : (result.individual_evaluations[evaluatorId]?.finalNote || 0);
-                const statusStr = isGlobal ? result.status : (result.individual_evaluations[evaluatorId]?.isApproved ? 'Aprovado' : 'Reprovado');
+                const evalData = result.individual_evaluations ? result.individual_evaluations[evaluatorId] : null;
                 const isAutoReproved = result.status === 'Presença insuficiente';
-
-                // Se o aluno está reprovado por falta, manter o status global de falta
-                const displayStatus = (isGlobal || isAutoReproved) ? result.status : statusStr;
+                const data = isGlobal ? (result.averages || {}) : (evalData?.scores || {});
+                
+                const finalNote = isGlobal ? result.final_note : (evalData ? evalData.finalNote : (isAutoReproved ? 0 : '-'));
+                const statusStr = isGlobal ? result.status : (isAutoReproved ? result.status : (evalData ? (evalData.isApproved ? 'Aprovado' : 'Reprovado') : 'Sem notas'));
+                const displayStatus = statusStr;
 
                 const getVal = (key) => {
                     // Para o peso2, verificamos deslocamento ou floreio
@@ -180,7 +267,7 @@
 
                 const finalNoteCell = row.querySelector('.final-note');
                 finalNoteCell.textContent = finalNote;
-                finalNoteCell.className = 'final-note ' + (finalNote >= 7 ? 'nota-alta' : 'nota-baixa');
+                finalNoteCell.className = 'final-note ' + (typeof finalNote === 'number' && finalNote >= 7 ? 'nota-alta' : 'nota-baixa');
 
                 row.querySelector('.status-cell strong').textContent = displayStatus;
             });
@@ -195,6 +282,97 @@
         }, 15000);
         <% } %>
     </script>
+    <script>
+    (function () {
+        const input = document.getElementById('candidateSearch');
+        const tbody = document.getElementById('resultsTableBody');
+        if (!input || !tbody) return;
+
+        function normalize(text) {
+            return String(text || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .trim();
+        }
+
+        function filterRows() {
+            const q = normalize(input.value);
+            const rows = tbody.querySelectorAll('tr[data-index]');
+
+            rows.forEach(row => {
+                const nameCell = row.querySelector('.candidate-name');
+                const name = normalize(nameCell ? nameCell.textContent : '');
+                const match = !q || name.includes(q);
+                row.classList.toggle('search-hidden', !match);
+            });
+        }
+
+        input.addEventListener('input', filterRows);
+        input.addEventListener('search', filterRows); // limpar no "x" do input type=search
+    })();
+    </script>
+    <script>
+    (function () {
+        const btn = document.getElementById('rulesHelpBtn');
+        const pop = document.getElementById('rulesPopover');
+        const closeBtn = document.getElementById('rulesHelpClose');
+        if (!btn || !pop) return;
+
+        function placePopover() {
+            const rect = btn.getBoundingClientRect();
+            const gap = 8;
+            let top = rect.bottom + gap;
+            let left = rect.left + rect.width / 2 - pop.offsetWidth / 2;
+
+            // Mantém dentro da viewport
+            left = Math.max(12, Math.min(left, window.innerWidth - pop.offsetWidth - 12));
+            if (top + pop.offsetHeight > window.innerHeight - 12) {
+                top = rect.top - pop.offsetHeight - gap;
+            }
+            pop.style.top = top + 'px';
+            pop.style.left = left + 'px';
+        }
+
+        function open() {
+            pop.hidden = false;
+            btn.setAttribute('aria-expanded', 'true');
+            placePopover();
+        }
+
+        function close() {
+            pop.hidden = true;
+            btn.setAttribute('aria-expanded', 'false');
+        }
+
+        function toggle() {
+            if (pop.hidden) open();
+            else close();
+        }
+
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggle();
+        });
+
+        if (closeBtn) closeBtn.addEventListener('click', close);
+
+        document.addEventListener('click', function (e) {
+            if (!pop.hidden && !pop.contains(e.target) && e.target !== btn) {
+                close();
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') close();
+        });
+
+        window.addEventListener('resize', function () {
+            if (!pop.hidden) placePopover();
+        });
+    })();
+    </script>
+    <script src="/theme.js"></script>
     <script src="/back.js"></script>
 </body>
 </html>

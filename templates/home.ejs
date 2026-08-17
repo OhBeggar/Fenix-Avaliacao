@@ -4,10 +4,58 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Avaliação de Bolsistas | Login</title>
+    <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('fenix-theme');
+        if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          t = 'dark';
+        }
+        if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {}
+    })();
+    </script>
+    <link rel="stylesheet" href="/theme.css">
     <link rel="stylesheet" href="/home.css">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
 </head>
 <body>
+    <div class="theme-switch-floating">
+        <label class="theme-switch" title="Alternar tema">
+          <input class="theme-switch-input" type="checkbox" role="switch" aria-label="Alternar tema claro e escuro">
+          <div class="slider round">
+            <div class="sun-moon">
+              <svg class="moon-dot moon-dot-1" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
+              <svg class="moon-dot moon-dot-2" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
+              <svg class="moon-dot moon-dot-3" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
+              <svg class="light-ray light-ray-1" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
+              <svg class="light-ray light-ray-2" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
+              <svg class="light-ray light-ray-3" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
+              <svg class="cloud-dark cloud-1" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
+              <svg class="cloud-dark cloud-2" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
+              <svg class="cloud-dark cloud-3" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
+              <svg class="cloud-light cloud-4" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
+              <svg class="cloud-light cloud-5" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
+              <svg class="cloud-light cloud-6" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"></circle></svg>
+            </div>
+            <div class="stars">
+              <svg class="star star-1" viewBox="0 0 20 20">
+                <path d="M 0 10 C 10 10,10 10 ,0 10 C 10 10 , 10 10 , 10 20 C 10 10 , 10 10 , 20 10 C 10 10 , 10 10 , 10 0 C 10 10,10 10 ,0 10 Z"></path>
+              </svg>
+              <svg class="star star-2" viewBox="0 0 20 20">
+                <path d="M 0 10 C 10 10,10 10 ,0 10 C 10 10 , 10 10 , 10 20 C 10 10 , 10 10 , 20 10 C 10 10 , 10 10 , 10 0 C 10 10,10 10 ,0 10 Z"></path>
+              </svg>
+              <svg class="star star-3" viewBox="0 0 20 20">
+                <path d="M 0 10 C 10 10,10 10 ,0 10 C 10 10 , 10 10 , 10 20 C 10 10 , 10 10 , 20 10 C 10 10 , 10 10 , 10 0 C 10 10,10 10 ,0 10 Z"></path>
+              </svg>
+              <svg class="star star-4" viewBox="0 0 20 20">
+                <path d="M 0 10 C 10 10,10 10 ,0 10 C 10 10 , 10 10 , 10 20 C 10 10 , 10 10 , 20 10 C 10 10 , 10 10 , 10 0 C 10 10,10 10 ,0 10 Z"></path>
+              </svg>
+            </div>
+          </div>
+        </label>
+    </div>
+
     <div class="container">
         <div class="header-logo">
             <img src="/images/fenix.png" alt="Logo Fênix" class="logo">
@@ -51,15 +99,23 @@
 
             <label class="password-group" id="passwordGroup">
                 Senha de Acesso
-                <div class="input-wrapper">
-                    <input 
-                        type="password" 
+                <div class="input-wrapper password-wrapper">
+                    <input
+                        type="password"
                         id="passwordInput"
-                        name="password" 
-                        placeholder="Sua senha" 
+                        name="password"
+                        placeholder="Sua senha"
                         required
                         disabled
+                        autocomplete="current-password"
                     >
+                    <button
+                        type="button"
+                        class="toggle-password"
+                        data-target="passwordInput"
+                        aria-label="Mostrar senha"
+                        title="Mostrar senha"
+                    >👁</button>
                 </div>
             </label>
 
@@ -143,6 +199,16 @@
             passwordInput.disabled = true;
             passwordInput.value = '';
             loginBtn.disabled = true;
+            if (passwordInput.type === 'text') {
+                passwordInput.type = 'password';
+                const toggle = passwordGroup.querySelector('.toggle-password');
+                if (toggle) {
+                    toggle.classList.remove('is-visible');
+                    toggle.setAttribute('aria-label', 'Mostrar senha');
+                    toggle.title = 'Mostrar senha';
+                    toggle.textContent = '👁';
+                }
+            }
         }
 
         function showPassword() {
@@ -271,5 +337,23 @@
         });
     })();
     </script>
+    <script>
+    (function () {
+        document.querySelectorAll('.toggle-password').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const input = document.getElementById(this.dataset.target);
+                if (!input) return;
+
+                const showing = input.type === 'text';
+                input.type = showing ? 'password' : 'text';
+                this.classList.toggle('is-visible', !showing);
+                this.setAttribute('aria-label', showing ? 'Mostrar senha' : 'Ocultar senha');
+                this.title = showing ? 'Mostrar senha' : 'Ocultar senha';
+                this.textContent = showing ? '👁' : '🙈';
+            });
+        });
+    })();
+    </script>
+    <script src="/theme.js"></script>
 </body>
 </html>

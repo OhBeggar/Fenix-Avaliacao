@@ -4,8 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administração | Fênix Dança</title>
-    <link rel="stylesheet" href="/adm.css">
+    <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('fenix-theme');
+        if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          t = 'dark';
+        }
+        if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {}
+    })();
+    </script>
     <link rel="stylesheet" href="/theme.css">
+    <link rel="stylesheet" href="/adm.css?v=3">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -32,13 +43,13 @@
             </a>
 
             <nav class="sidebar-nav">
-                <a href="#dashboard" class="is-active"><span>🏠</span>Home</a>
-                <a href="#audicao"><span>💃</span>Audição</a>
-                <a href="#alunos"><span>🧑🏻</span>Alunos</a>
-                <a href="#professores"><span>🧑🏻‍🏫</span>Professores</a>
-                <a href="#turmas"><span>👥</span>Turmas</a>
-                <a href="#semestre"><span>📅</span>Semestre</a>
-                <a href="#historico"><span>🧾</span>Histórico</a>
+                <a href="#dashboard" data-tab="dashboard" class="is-active"><span>🏠</span>Home</a>
+                <a href="#audicao" data-tab="audicao"><span>💃</span>Audição</a>
+                <a href="#alunos" data-tab="alunos"><span>🧑🏻</span>Alunos</a>
+                <a href="#professores" data-tab="professores"><span>🧑🏻‍🏫</span>Professores</a>
+                <a href="#turmas" data-tab="turmas"><span>👥</span>Turmas</a>
+                <a href="#semestre" data-tab="semestre"><span>📅</span>Semestre</a>
+                <a href="#historico" data-tab="historico"><span>🧾</span>Histórico</a>
             </nav>
 
             <div class="sidebar-status">
@@ -50,7 +61,7 @@
             </div>
         </aside>
 
-        <main class="admin-main" id="dashboard">
+        <main class="admin-main">
             <header class="admin-topbar">
                 <div>
                     <p class="breadcrumb">Secretaria Administrativa</p>
@@ -63,7 +74,7 @@
                 </label>
 
                 <div class="topbar-actions">
-                    <a href="/" class="ghost-link nav-action back">Voltar</a>
+                    <a href="/admin/login" class="ghost-link nav-action back">Voltar</a>
                     <form action="/admin/logout" method="POST">
                         <button type="submit" class="danger nav-action exit">Sair</button>
                     </form>
@@ -85,109 +96,136 @@
                 </script>
             <% } %>
 
-            <section class="kpi-grid" aria-label="Resumo do sistema">
-                <article class="kpi-card">
-                    <span class="kpi-icon">👥</span>
-                    <strong><%= totalTurmas %></strong>
-                    <small>Turmas</small>
-                </article>
-                <article class="kpi-card">
-                    <span class="kpi-icon">🧑🏻</span>
-                    <strong><%= totalCandidates %></strong>
-                    <small>Alunos</small>
-                </article>
-                <article class="kpi-card">
-                    <span class="kpi-icon">🧑🏻‍🏫</span>
-                    <strong><%= totalTeachers %></strong>
-                    <small>Professores</small>
-                </article>
-                <article class="kpi-card live">
-                    <span class="kpi-icon">⚠️</span>
-                    <strong><%= totalActiveSessions %></strong>
-                    <small>Sessões ativas</small>
-                </article>
-            </section>
+            <div class="tab-panel is-active" data-tab-panel="dashboard" id="dashboard">
+                <section class="kpi-grid" aria-label="Resumo do sistema">
+                    <article class="kpi-card" onclick="window.location.hash='#turmas'" style="cursor:pointer;">
+                        <span class="kpi-icon">👥</span>
+                        <strong><%= totalTurmas %></strong>
+                        <small>Turmas</small>
+                    </article>
+                    <article class="kpi-card" onclick="window.location.hash='#alunos'" style="cursor:pointer;">
+                        <span class="kpi-icon">🧑🏻</span>
+                        <strong><%= totalCandidates %></strong>
+                        <small>Alunos</small>
+                    </article>
+                    <article class="kpi-card" onclick="window.location.hash='#professores'" style="cursor:pointer;">
+                        <span class="kpi-icon">🧑🏻‍🏫</span>
+                        <strong><%= totalTeachers %></strong>
+                        <small>Professores</small>
+                    </article>
+                    <article class="kpi-card live" onclick="window.location.hash='#audicao'" style="cursor:pointer;">
+                        <span class="kpi-icon">⚠️</span>
+                        <strong><%= totalActiveSessions %></strong>
+                        <small>Sessões ativas</small>
+                    </article>
+                </section>
 
-            <section class="dashboard-grid">
-                <article class="live-session-card" id="audicao">
-                    <div class="section-heading light">
-                        <span class="live-pulse"></span>
-                        <div>
-                            <p class="eyebrow">Audição</p>
-                            <h2><%= latestActiveSession ? 'Audição em andamento' : 'Nenhuma audição ativa' %></h2>
+                <section class="dashboard-grid">
+                    <article class="panel quick-panel" style="grid-column: 1 / -1;">
+                        <div class="section-heading">
+                            <div>
+                                <p class="eyebrow">Atalho</p>
+                                <h2>Ações rápidas</h2>
+                            </div>
                         </div>
+                        <div class="quick-actions">
+                            <a href="#turmas" data-tab="turmas" class="quick-action">Nova turma</a>
+                            <a href="#professores" data-tab="professores" class="quick-action">Novo professor</a>
+                            <a href="#alunos" data-tab="alunos" class="quick-action">Novo aluno</a>
+                            <a href="#audicao" data-tab="audicao" class="quick-action">Gerar PIN</a>
+                        </div>
+                        <div class="activity-feed">
+                            <h3>Estado atual</h3>
+                            <p><strong><%= evaluatorsOnline %></strong> avaliador(es) online agora.</p>
+                            <p><strong><%= totalHistory %></strong> histórico(s) oficial(is) arquivado(s).</p>
+                            <% activeSessions.forEach(session => { %>
+                                <a href="/results?turmaId=<%= session.turma_id %>">Painel ao vivo: <%= session.turma_name %></a>
+                            <% }) %>
+                        </div>
+                    </article>
+                </section>
+            </div>
+
+            <section class="tab-panel panel admin-module" data-tab-panel="audicao" id="audicao" hidden>
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Audição</p>
+                        <h2>Gerenciar sessões e PIN</h2>
+                        <p class="panel-copy">Gere PINs para liberar a avaliação para os professores ou encerre sessões em andamento.</p>
                     </div>
+                </div>
 
-                    <% if (latestActiveSession) { %>
-                        <div class="pin-hero">
-                            <span>PIN</span>
-                            <strong id="activePin"><%= latestActiveSession.code || sessionCode %></strong>
-                            <small><%= latestActiveSession.turma_name || currentTurmaName %></small>
+                <div class="audicao-layout">
+                    <!-- COLUNA ESQUERDA: card do PIN -->
+                    <article class="live-session-card">
+                        <div class="section-heading light">
+                            <span class="live-pulse"></span>
+                            <div>
+                                <p class="eyebrow">Audição</p>
+                                <h2><%= latestActiveSession ? 'Audição em andamento' : 'Nenhuma audição ativa' %></h2>
+                            </div>
                         </div>
-                        <div class="hero-actions">
-                            <button type="button" class="btn-light" data-copy-pin="<%= latestActiveSession.code || sessionCode %>">Copiar PIN</button>
-                            <a href="/results?turmaId=<%= latestActiveSession.turma_id || currentTurmaId %>" class="btn-light">Ver ao vivo</a>
-                        </div>
-                        <p class="close-semester-hint">Terminou a audição desta turma? Clique em <strong>“Fechar semestre”</strong> nas Ações rápidas para arquivar os resultados e reiniciar chamadas e percentuais.</p>
-                    <% } else { %>
-                        <p class="light-copy">Gere um PIN para liberar a avaliação da turma aos professores.</p>
-                    <% } %>
 
-                    <form action="/admin/generate-code" method="POST" class="session-form compact-form">
-                        <label>
-                            Turma da sessão
-                            <select name="turmaId" required>
-                                <option value="">Selecione uma turma...</option>
-                                <% turmas.forEach(t => { %>
-                                    <option value="<%= t.id %>"><%= t.name %> (Prof. <%= t.teacher_name %>)</option>
-                                <% }) %>
-                            </select>
-                        </label>
-                        <button type="submit">Gerar PIN</button>
-                    </form>
-
-                    <% if (latestActiveSession) { %>
-                        <form action="/admin/end-session" method="POST" class="end-session-form">
-                            <button type="submit" class="danger">Encerrar sessão atual</button>
-                        </form>
-                    <% } %>
-                </article>
-
-                <article class="panel quick-panel">
-                    <div class="section-heading">
-                        <div>
-                            <p class="eyebrow">Atalho</p>
-                            <h2>Ações rápidas</h2>
-                        </div>
-                    </div>
-                    <div class="quick-actions">
-                        <a href="#turmas" class="quick-action">Nova turma</a>
-                        <a href="#professores" class="quick-action">Novo professor</a>
-                        <a href="#alunos" class="quick-action">Novo aluno</a>
-                        <a href="#audicao" class="quick-action">Gerar PIN</a>
-                        <% if (totalActiveSessions > 0) { %>
-                            <form action="/admin/close-semester" method="POST" class="quick-action-form" onsubmit="return confirm('Fechar o semestre vai arquivar o resultado atual e reiniciar chamadas e percentuais das turmas com audição ativa. Continuar?');">
-                                <% activeSessions.forEach(session => { %>
-                                    <input type="hidden" name="turmaIds" value="<%= session.turma_id %>">
-                                <% }) %>
-                                <button type="submit" class="quick-action danger-soft">Fechar semestre</button>
-                            </form>
+                        <% if (latestActiveSession) { %>
+                            <div class="pin-hero">
+                                <span>PIN</span>
+                                <strong id="activePin"><%= latestActiveSession.code || sessionCode %></strong>
+                                <small><%= latestActiveSession.turma_name || currentTurmaName %></small>
+                            </div>
+                            <div class="hero-actions">
+                                <button type="button" class="btn-light" data-copy-pin="<%= latestActiveSession.code || sessionCode %>">Copiar PIN</button>
+                                <a href="/results?turmaId=<%= latestActiveSession.turma_id || currentTurmaId %>" class="btn-light">Ver ao vivo</a>
+                            </div>
                         <% } else { %>
-                            <button type="button" class="quick-action danger-soft is-disabled" disabled title="Disponível apenas quando houver uma audição ativa">Fechar semestre</button>
+                            <p class="light-copy">Gere um PIN para liberar a avaliação da turma aos professores.</p>
                         <% } %>
-                    </div>
-                    <div class="activity-feed">
-                        <h3>Estado atual</h3>
-                        <p><strong><%= evaluatorsOnline %></strong> avaliador(es) online agora.</p>
-                        <p><strong><%= totalHistory %></strong> histórico(s) oficial(is) arquivado(s).</p>
-                        <% activeSessions.forEach(session => { %>
-                            <a href="/results?turmaId=<%= session.turma_id %>">Painel ao vivo: <%= session.turma_name %></a>
-                        <% }) %>
-                    </div>
-                </article>
+
+                        <form action="/admin/generate-code" method="POST" class="session-form compact-form">
+                            <label>
+                                Turma da sessão
+                                <select name="turmaId" required>
+                                    <option value="">Selecione uma turma...</option>
+                                    <% turmas.forEach(t => { %>
+                                        <option value="<%= t.id %>"><%= t.name %> (Prof. <%= t.teacher_name %>)</option>
+                                    <% }) %>
+                                </select>
+                            </label>
+                            <button type="submit">Gerar PIN</button>
+                        </form>
+
+                        <% if (latestActiveSession) { %>
+                            <form action="/admin/end-session" method="POST" class="end-session-form">
+                                <button type="submit" class="danger">Encerrar sessão atual</button>
+                            </form>
+                        <% } %>
+                    </article>
+
+                    <!-- COLUNA DIREITA: fechar semestre -->
+                    <aside class="close-semester-card">
+                        <p class="eyebrow">Encerramento</p>
+                        <h3>Fechar semestre</h3>
+                        <p>
+                            Terminou a audição desta turma? Feche o semestre para
+                            <strong>arquivar os resultados</strong> no histórico e
+                            <strong>reiniciar chamadas e percentuais</strong> de presença.
+                        </p>
+
+                        <% if (totalActiveSessions > 0) { %>
+                            <button type="button" class="btn-close-semester" id="btnOpenCloseSemesterAudicao">
+                                Fechar semestre
+                            </button>
+                            <p class="hint-mini">Turmas ativas serão listadas na confirmação.</p>
+                        <% } else { %>
+                            <button type="button" class="btn-close-semester is-disabled" disabled>
+                                Fechar semestre
+                            </button>
+                            <p class="hint-mini">Disponível somente com audição ativa.</p>
+                        <% } %>
+                    </aside>
+                </div>
             </section>
 
-            <section class="panel admin-module" id="alunos">
+            <section class="tab-panel panel admin-module" data-tab-panel="alunos" id="alunos" hidden>
                 <div class="section-heading">
                     <div>
                         <p class="eyebrow">Alunos</p>
@@ -248,7 +286,7 @@
                 <% } %>
             </section>
 
-            <section class="panel admin-module" id="professores">
+            <section class="tab-panel panel admin-module" data-tab-panel="professores" id="professores" hidden>
                 <div class="section-heading">
                     <div>
                         <p class="eyebrow">Equipe</p>
@@ -291,7 +329,7 @@
                 </div>
             </section>
 
-            <section class="panel admin-module" id="turmas">
+            <section class="tab-panel panel admin-module" data-tab-panel="turmas" id="turmas" hidden>
                 <div class="section-heading">
                     <div>
                         <p class="eyebrow">Turmas</p>
@@ -385,7 +423,7 @@
                 </div>
             </section>
 
-            <section class="panel admin-module" id="semestre">
+            <section class="tab-panel panel admin-module" data-tab-panel="semestre" id="semestre" hidden>
                 <div class="section-heading">
                     <div>
                         <p class="eyebrow">Fechamento</p>
@@ -415,7 +453,7 @@
                 <% } %>
             </section>
 
-            <section class="panel admin-module history-module" id="historico">
+            <section class="tab-panel panel admin-module history-module" data-tab-panel="historico" id="historico" hidden>
                 <div class="section-heading">
                     <div>
                         <p class="eyebrow">Arquivo</p>
@@ -427,6 +465,53 @@
             </section>
         </main>
     </div>
+
+    <% if (totalActiveSessions > 0) { %>
+    <dialog id="closeSemesterModal" class="admin-modal">
+        <form method="POST" action="/admin/close-semester" id="closeSemesterForm">
+            <% activeSessions.forEach(session => { %>
+                <input type="hidden" name="turmaIds" value="<%= session.turma_id %>">
+            <% }) %>
+            <% if (typeof csrfToken !== 'undefined') { %>
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <% } %>
+
+            <div class="modal-header danger">
+                <h3>Fechar semestre</h3>
+                <button type="button" class="modal-close" data-close-modal aria-label="Fechar">×</button>
+            </div>
+
+            <div class="modal-body">
+                <p class="modal-lead">Esta ação é <strong>irreversível</strong> para o ciclo atual. Confira o que será feito:</p>
+
+                <ul class="modal-checklist">
+                    <li>Arquivar os resultados oficiais no <strong>histórico</strong></li>
+                    <li>Encerrar as sessões de audição ativas</li>
+                    <li>Reiniciar <strong>chamadas e percentuais de presença</strong> das turmas abaixo</li>
+                </ul>
+
+                <div class="modal-turmas">
+                    <span class="modal-label">Turmas que serão fechadas</span>
+                    <ul>
+                        <% activeSessions.forEach(session => { %>
+                            <li>
+                                <strong><%= session.turma_name %></strong>
+                                <span>PIN <%= session.code %></span>
+                            </li>
+                        <% }) %>
+                    </ul>
+                </div>
+
+                <p class="modal-warning">Só confirme se a audição realmente terminou e as notas já foram consolidadas.</p>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" data-close-modal>Cancelar</button>
+                <button type="submit" class="btn-danger-confirm">Confirmar fechamento</button>
+            </div>
+        </form>
+    </dialog>
+    <% } %>
 
     <script src="/transitions.js?v=2"></script>
     <script src="/toast.js?v=2"></script>
@@ -465,7 +550,128 @@
                 });
             });
         });
+
+        (function () {
+            const modal = document.getElementById('closeSemesterModal');
+            if (!modal) return;
+
+            ['btnOpenCloseSemester', 'btnOpenCloseSemesterAudicao'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        if (typeof modal.showModal === 'function') {
+                            modal.showModal();
+                        } else {
+                            modal.setAttribute('open', '');
+                        }
+                    });
+                }
+            });
+
+            modal.querySelectorAll('[data-close-modal]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (typeof modal.close === 'function') modal.close();
+                    else modal.removeAttribute('open');
+                });
+            });
+
+            // Fecha ao clicar no backdrop
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    if (typeof modal.close === 'function') modal.close();
+                    else modal.removeAttribute('open');
+                }
+            });
+        })();
+
+        (function () {
+            const links = document.querySelectorAll('.sidebar-nav a[data-tab]');
+            const panels = document.querySelectorAll('[data-tab-panel]');
+            const STORAGE_KEY = 'adminActiveTab';
+
+            function activateTab(tabId, persist) {
+                if (!tabId) tabId = 'dashboard';
+
+                // Se a aba não existir, cai no dashboard
+                const exists = document.querySelector('[data-tab-panel="' + tabId + '"]');
+                if (!exists) tabId = 'dashboard';
+
+                links.forEach(link => {
+                    link.classList.toggle('is-active', link.dataset.tab === tabId);
+                });
+
+                panels.forEach(panel => {
+                    const active = panel.dataset.tabPanel === tabId;
+                    panel.classList.toggle('is-active', active);
+                    if (active) panel.removeAttribute('hidden');
+                    else panel.setAttribute('hidden', '');
+                });
+
+                const titleEl = document.querySelector('.admin-topbar h1');
+                const titles = {
+                    dashboard: 'Painel Geral',
+                    audicao: 'Audição',
+                    alunos: 'Alunos',
+                    professores: 'Professores',
+                    turmas: 'Turmas',
+                    semestre: 'Semestre',
+                    historico: 'Histórico'
+                };
+                if (titleEl && titles[tabId]) {
+                    titleEl.textContent = titles[tabId];
+                }
+
+                if (persist !== false) {
+                    try { sessionStorage.setItem(STORAGE_KEY, tabId); } catch (e) {}
+                    if (location.hash.replace('#', '') !== tabId) {
+                        history.replaceState(null, '', '#' + tabId);
+                    }
+                }
+            }
+
+            links.forEach(link => {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    activateTab(this.dataset.tab);
+                });
+            });
+
+            // Intercepta qualquer clique em links com hash para abas (ex: Ações rápidas, KPIs, empty-states)
+            document.addEventListener('click', (e) => {
+                const anchor = e.target.closest('a[href^="#"]');
+                if (anchor && !anchor.closest('.sidebar-nav')) {
+                    const hash = anchor.getAttribute('href').replace('#', '');
+                    if (['dashboard', 'audicao', 'alunos', 'professores', 'turmas', 'semestre', 'historico'].includes(hash)) {
+                        activateTab(hash);
+                    }
+                }
+            });
+
+            // Ordem de prioridade: hash da URL > sessionStorage > dashboard
+            const fromHash = (window.location.hash || '').replace('#', '');
+            let fromStorage = '';
+            try { fromStorage = sessionStorage.getItem(STORAGE_KEY) || ''; } catch (e) {}
+
+            const initial = fromHash || fromStorage || 'dashboard';
+            activateTab(initial, false);
+            // Persiste o que realmente abriu
+            try { sessionStorage.setItem(STORAGE_KEY, initial); } catch (e) {}
+
+            window.addEventListener('hashchange', () => {
+                activateTab((window.location.hash || '#dashboard').replace('#', ''));
+            });
+
+            // Antes de enviar qualquer form do admin, grava a aba atual
+            document.querySelectorAll('form').forEach(form => {
+                form.addEventListener('submit', function () {
+                    const active = document.querySelector('.sidebar-nav a.is-active');
+                    const tabId = active ? active.dataset.tab : 'dashboard';
+                    try { sessionStorage.setItem(STORAGE_KEY, tabId); } catch (e) {}
+                });
+            });
+        })();
     </script>
+    <script src="/theme.js"></script>
     <script src="/back.js"></script>
 </body>
 </html>

@@ -4,10 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sala da Turma | <%= turma.name %></title>
+    <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('fenix-theme');
+        if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          t = 'dark';
+        }
+        if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {}
+    })();
+    </script>
+    <link rel="stylesheet" href="/theme.css">
     <link rel="stylesheet" href="/home.css">
     <link rel="stylesheet" href="/turmas.css">
     <link rel="stylesheet" href="/adm.css">
-    <link rel="stylesheet" href="/theme.css">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
 </head>
 <body class="admin-body">
@@ -33,8 +44,8 @@
         </header>
 
         <!-- Banner SSE: mostra quando uma sessão de avaliação estiver disponível (não entra automaticamente) -->
-        <div id="sse-banner" style="display:none; background: #fff8e6; border: 1px solid #ffd966; padding: 12px; margin: 12px 0; border-radius:6px;">
-            <strong>Avaliação disponível</strong>
+        <div id="sse-banner" style="display:none; background: var(--warning-light, #fef3c7); border: 1px solid var(--warning, #d97706); color: var(--ink); padding: 12px; margin: 12px 0; border-radius:8px;">
+            <strong style="color: var(--ink);">Avaliação disponível</strong>
             <small style="display:block; margin-top:6px; color:var(--muted);">Volte à seleção de turmas e informe o PIN compartilhado pelo admin.</small>
         </div>
 
@@ -132,9 +143,10 @@
             </div>
         </details>
         <% } else if (turma.ritmos_avaliados) { %>
-        <div class="panel" style="margin-top: 16px; padding: 16px; background: white; border-radius: 8px; border: 1px solid var(--border);">
-            <h2 style="font-size: 1.1rem; margin-bottom: 8px;">Ritmos Avaliados</h2>
-            <p style="margin: 0; color: var(--text-color);"><%= turma.ritmos_avaliados %></p>
+        <div class="panel" style="margin-top: 16px;">
+            <h2>Ritmos Avaliados</h2>
+            <p class="panel-copy" style="margin-top: 4px;">Ritmos avaliados nesta turma:</p>
+            <p style="margin-top: 8px; font-size: 1rem; font-weight: 600; color: var(--ink);"><%= turma.ritmos_avaliados %></p>
         </div>
         <% } %>
     </main>
@@ -198,6 +210,7 @@
             form.prepend(input);
         });
     </script>
+    <script src="/theme.js"></script>
     <script src="/back.js"></script>
 </body>
 </html>

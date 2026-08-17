@@ -868,6 +868,7 @@ function buildReprovedResult(candidate, numEvaluators, reason = 'Reprovado', pre
     status: reason,
     current_rank: candidate.status,
     final_status: candidate.status,
+    individual_evaluations: {},
   };
 }
 

@@ -138,7 +138,7 @@ body {
 
 .global-evaluation-button.is-idle {
     color: var(--muted);
-    background: #fff;
+    background: var(--panel);
     border: 1.5px solid var(--line);
     box-shadow: none;
     cursor: not-allowed;
@@ -442,7 +442,7 @@ input[type="password"].pin-input {
     border-radius: 999px;
     color: var(--ink);
     text-decoration: none;
-    background: #fff;
+    background: var(--panel);
     border: 1.5px solid var(--line);
     font-weight: 600;
     font-size: 0.88rem;
@@ -554,3 +554,66 @@ input[type="password"].pin-input {
 ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
 }
+
+/* ===== DARK MODE OVERRIDES PARA TURMAS ===== */
+html[data-theme="dark"] .turma-badge {
+    background: #334155;
+    color: #94a3b8;
+    border-color: #475569;
+}
+
+html[data-theme="dark"] .turma-badge.is-active {
+    background: #064e3b;
+    color: #6ee7b7;
+    border-color: #047857;
+}
+
+html[data-theme="dark"] .turma-card {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+html[data-theme="dark"] .turma-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="dark"] .pin-input {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .pin-input:focus {
+    border-color: var(--primary);
+    background: #1e293b;
+}
+
+html[data-theme="dark"] .evaluation-turma-option {
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .evaluation-turma-option:hover,
+html[data-theme="dark"] .evaluation-turma-option.is-selected {
+    background: #334155;
+    border-color: var(--primary);
+}
+
+html[data-theme="dark"] .btn-cancel {
+    background: #334155;
+    color: #cbd5e1;
+    border-color: #475569 !important;
+}
+
+html[data-theme="dark"] .btn-cancel:hover {
+    background: #475569;
+    color: #ffffff;
+}
+
+html[data-theme="dark"] .eyebrow {
+    background: #1e1b4b;
+    color: #a5b4fc;
+}
+

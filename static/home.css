@@ -30,13 +30,20 @@ body {
     background:
         radial-gradient(circle 300px at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(79, 70, 229, 0.08), transparent 50%),
         radial-gradient(circle at top right, rgba(217, 119, 6, 0.06), transparent 40%),
-        linear-gradient(135deg, #f1f5f9 0%, #f8fafc 50%, #f0f4f8 100%);
-    transition: background 0.1s linear;
+        linear-gradient(135deg, var(--bg) 0%, var(--panel) 100%);
+    transition: background 0.2s ease, color 0.2s ease;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 24px;
+}
+
+html[data-theme="dark"] body {
+    background:
+        radial-gradient(circle 300px at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(129, 140, 248, 0.12), transparent 50%),
+        radial-gradient(circle at top right, rgba(251, 191, 36, 0.08), transparent 40%),
+        linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 }
 
 .container {
@@ -122,7 +129,7 @@ h1 {
     padding: 28px;
     border-radius: var(--radius);
     border: 1.5px solid var(--line);
-    background: #fff;
+    background: var(--panel);
     box-shadow: var(--shadow-sm);
     animation: fadeInUp 0.5s ease-out 0.35s both;
     transition: box-shadow 0.3s ease;
@@ -149,7 +156,7 @@ input {
     font-size: 1rem;
     font-family: inherit;
     color: var(--ink);
-    background: #fff;
+    background: var(--bg);
     transition: all 0.2s ease;
 }
 
@@ -465,3 +472,117 @@ button:disabled::after {
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+/* ===== TOGGLE SENHA ===== */
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.password-wrapper input {
+    width: 100%;
+    padding-right: 44px; /* espaço para o botão */
+}
+
+.toggle-password {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%) !important;
+    min-height: 0 !important;
+    height: 32px !important;
+    width: 32px !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    animation: none !important;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0 !important;
+    border-radius: 8px;
+    color: #64748b;
+    opacity: 0.85;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.toggle-password:hover {
+    opacity: 1;
+    background: rgba(15, 23, 42, 0.06) !important;
+    transform: translateY(-50%) !important;
+    box-shadow: none !important;
+}
+
+.toggle-password:active {
+    transform: translateY(-50%) !important;
+}
+
+.toggle-password.is-visible {
+    color: #0d9488;
+}
+
+/* ===== DARK MODE OVERRIDES PARA HOME ===== */
+html[data-theme="dark"] .container {
+    background: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="dark"] .card {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+html[data-theme="dark"] .header-logo img,
+html[data-theme="dark"] .logo {
+    filter: brightness(0) invert(1) drop-shadow(0 4px 12px rgba(255, 255, 255, 0.15));
+}
+
+html[data-theme="dark"] .input-wrapper input {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .input-wrapper input:focus {
+    border-color: var(--primary);
+    background: #1e293b;
+}
+
+html[data-theme="dark"] .action-link.admin {
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .action-link.admin:hover {
+    background: #334155;
+    border-color: #64748b;
+    color: #ffffff;
+}
+
+html[data-theme="dark"] .infra-badge {
+    background: rgba(129, 140, 248, 0.15);
+    color: #a5b4fc;
+}
+
+html[data-theme="dark"] .toggle-password {
+    color: #94a3b8;
+}
+
+html[data-theme="dark"] .toggle-password:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+html[data-theme="dark"] .infra-note,
+html[data-theme="dark"] .site-footer {
+    color: #64748b;
+}
+
+
+

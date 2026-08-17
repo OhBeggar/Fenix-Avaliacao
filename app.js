@@ -11,6 +11,7 @@ const { commonCriteria, maleCriteria, femaleCriteria } = require('./src/constant
 const { isAdminAuthenticated, setAdminCookie, clearAdminCookie } = require('./src/utils/admin-auth');
 const { isTeacherAuthenticated, setTeacherCookie, clearTeacherCookie, readTeacherPayload } = require('./src/utils/teacher-auth');
 const { buildResultsPdf, buildAttachmentDisposition, getDynamicTitle } = require('./src/services/pdf-service');
+const { buildResultsExcel } = require('./src/services/export-excel');
 const config = require('./src/config');
 
 function validateSecurityConfig() {
@@ -57,6 +58,7 @@ app.use((req, res, next) => {
     || req.path.startsWith('/turmas')
     || req.path.startsWith('/results')
     || req.path.startsWith('/export_pdf')
+    || req.path.startsWith('/export_excel')
   ) {
     res.setHeader('Cache-Control', 'no-store');
   }
@@ -531,17 +533,35 @@ app.post('/evaluate/:name', requireCsrf, (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
   const teacher = readTeacherPayload(req.cookies['teacher_access']);
-  if (!teacher) return res.redirect('/avaliacao?message=Faça login para acessar suas turmas.');
+  const isAjax = req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest';
+
+  if (!teacher) {
+    if (isAjax) return res.status(401).json({ ok: false, message: 'Faça login novamente.' });
+    return res.redirect('/avaliacao?message=Faça login para acessar suas turmas.');
+  }
 
   if (!turmaId || !hasEvaluationAccess(req, turmaId, evaluatorName)) {
+    if (isAjax) return res.status(403).json({ ok: false, message: 'Acesso à avaliação não liberado.' });
     return res.status(403).send('Acesso à avaliação não liberado.');
   }
 
-  const evaluator = evaluationService.getOrCreateEvaluator(evaluatorName);
-  evaluationService.touchEvaluatorForSession(evaluator.id, turmaId);
+  try {
+    const evaluator = evaluationService.getOrCreateEvaluator(evaluatorName);
+    evaluationService.touchEvaluatorForSession(evaluator.id, turmaId);
+    evaluationService.saveScores(evaluator.id, req.body, turmaId);
 
-  evaluationService.saveScores(evaluator.id, req.body, turmaId);
-  res.redirect(`/evaluate/${encodeURIComponent(evaluatorName)}?turmaId=${turmaId}&saved=1`);
+    if (isAjax) {
+      return res.json({ ok: true, message: 'Notas salvas com sucesso!' });
+    }
+
+    return res.redirect(`/evaluate/${encodeURIComponent(evaluatorName)}?turmaId=${turmaId}&saved=1`);
+  } catch (error) {
+    console.error('Erro ao salvar notas:', error);
+    if (isAjax) {
+      return res.status(500).json({ ok: false, message: 'Erro ao salvar as notas.' });
+    }
+    return res.status(500).send('Erro ao salvar as notas.');
+  }
 });
 
 app.get('/api/evaluators/status', (req, res) => {
@@ -584,7 +604,8 @@ app.get('/results', adminAuthMiddleware, (req, res) => {
   }
 
   const report = evaluationService.getResultsReport(turmaId);
-  const turmas = evaluationService.getTurmas();
+  const activeSessions = evaluationService.getActiveSessions ? evaluationService.getActiveSessions() : [];
+  const activeTurmas = activeSessions.map(s => ({ id: s.turma_id, name: s.turma_name }));
   const liveEvaluatorStatus = hasLiveSession
     ? evaluationService.getActiveEvaluatorStatus(turmaId)
     : {
@@ -596,11 +617,12 @@ app.get('/results', adminAuthMiddleware, (req, res) => {
 
   res.render('resultados', {
     ...report,
-    turmas,
+    turmas: activeTurmas,
+    activeTurmas,
     selectedTurmaId: turmaId || '',
     liveEvaluatorStatus,
     sessionClosed: !hasLiveSession,
-    canExportPdf: false, // Remove o PDF da página de resultados
+    canExportPdf: false,
     dynamicTitle: getDynamicTitle(report),
   });
 });
@@ -636,11 +658,63 @@ app.get('/export_pdf/history/:eventId', adminAuthMiddleware, async (req, res) =>
     res.setHeader('Content-Type', 'application/pdf');
     // Gera um nome de arquivo seguro (ex: historico-Avaliacao-Teste.pdf)
     const filename = `historico-${report.event.title.replace(/[\s\/\\]/g, '_')}.pdf`;
-    res.setHeader('Content-Disposition', buildAttachmentDisposition(filename));
+    res.setHeader(
+      'Content-Disposition',
+      buildAttachmentDisposition(`historico-${report.event.title.replace(/[\s\/\\]/g, '_')}.pdf`)
+    );
     res.send(Buffer.from(pdfBytes));
   } catch (error) {
     console.error('Erro ao gerar PDF do histórico:', error);
     res.status(500).send('Erro ao gerar PDF.');
+  }
+});
+
+// === EXPORTAR EXCEL (.XLSX) ===
+
+// Resultados ao vivo (com filtro opcional por turma)
+app.get('/export_excel', adminAuthMiddleware, async (req, res) => {
+  try {
+    const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
+    const report = evaluationService.getResultsReport(turmaId);
+    const buffer = await buildResultsExcel(report);
+
+    const filename = turmaId ? `resultados-turma-${turmaId}.xlsx` : 'resultados.xlsx';
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', buildAttachmentDisposition(filename));
+    res.send(buffer);
+  } catch (error) {
+    console.error('Erro ao gerar Excel:', error);
+    res.status(500).send('Erro ao gerar Excel');
+  }
+});
+
+// Excel do Histórico
+app.get('/export_excel/history/:eventId', adminAuthMiddleware, async (req, res) => {
+  try {
+    const report = evaluationService.getEvaluationHistoryReport(req.params.eventId);
+    if (!report) return res.status(404).send('Histórico não encontrado.');
+
+    const buffer = await buildResultsExcel(report);
+    const safeTitle = (report.event?.title || 'historico')
+      .replace(/[\s\/\\]+/g, '_')
+      .slice(0, 80);
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      buildAttachmentDisposition(`historico-${safeTitle}.xlsx`)
+    );
+    res.send(buffer);
+  } catch (error) {
+    console.error('Erro ao gerar Excel do histórico:', error);
+    res.status(500).send('Erro ao gerar Excel');
   }
 });
 
@@ -664,7 +738,7 @@ app.post('/admin/login', (req, res) => {
 
 app.post('/admin/logout', adminAuthMiddleware, requireCsrf, (req, res) => {
   clearAdminCookie(res, isSecureRequest(req));
-  res.redirect('/');
+  res.redirect('/admin/login');
 });
 
 // Admin Dashboard
@@ -710,7 +784,7 @@ app.post('/admin/generate-code', adminAuthMiddleware, requireCsrf, (req, res) =>
     app.locals.serverEvents.emit('session', { event: 'session_started', turmaId: Number(turmaId) });
   } catch (e) {}
 
-  res.redirect('/admin');
+  res.redirect('/admin#audicao');
 });
 
 // Encerrar Sessão
@@ -718,14 +792,14 @@ app.post('/admin/end-session', adminAuthMiddleware, requireCsrf, (req, res) => {
   evaluationService.endCurrentSession();
   try { app.locals.serverEvents.emit('session', { event: 'session_ended' }); } catch (e) {}
 
-  res.redirect('/admin');
+  res.redirect('/admin#audicao');
 });
 
 app.post('/admin/close-evaluation', adminAuthMiddleware, requireCsrf, (req, res) => {
   try {
     const eventId = evaluationService.closeEvaluationEvent(req.body.turmaId, 'admin');
     try { app.locals.serverEvents.emit('session', { event: 'session_closed', turmaId: Number(req.body.turmaId) }); } catch (e) {}
-    res.redirect('/admin');
+    res.redirect('/admin#audicao');
   } catch (error) {
     res.render('adm', getAdminLocals({ type: 'error', text: error.message }));
   }

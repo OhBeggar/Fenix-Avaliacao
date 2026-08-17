@@ -6,11 +6,21 @@
     <title>Fênix</title>
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
+    <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('fenix-theme');
+        if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          t = 'dark';
+        }
+        if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {}
+    })();
+    </script>
+    <link rel="stylesheet" href="/theme.css">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
-    
-    <a href="/" class="ghost-link nav-action back"></a> Voltar </a>
+</head>
 
 
     <style>
@@ -1587,6 +1597,7 @@
         </div>
     </footer>
 
+    <script src="/theme.js"></script>
 </body>
 
 </html>

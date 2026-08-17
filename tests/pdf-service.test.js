@@ -3,9 +3,9 @@ const assert = require('node:assert/strict');
 
 const { _private } = require('../src/services/pdf-service');
 
-test('PDF title uses turma and rank progression', () => {
+test('PDF title uses turma and rank progression with year_semester', () => {
     const title = _private.getDynamicTitle({
-        turma: { name: 'T1' },
+        turma: { name: 'Ivan Bonatti 2025_1' },
         results: [
             {
                 name: 'Aluno A',
@@ -16,7 +16,7 @@ test('PDF title uses turma and rank progression', () => {
         ],
     });
 
-    assert.equal(title, 'T1 - Bolsistas para T1 Auxiliares');
+    assert.equal(title, 'Audição Bolsistas 2025_1 para Auxiliares 2026_1');
 });
 
 test('PDF title uses predominant initial rank for mixed turma', () => {
@@ -41,7 +41,7 @@ test('PDF title uses predominant initial rank for mixed turma', () => {
         ],
     });
 
-    assert.equal(title, 'T2 - Bolsistas para T2 Auxiliares');
+    assert.equal(title, 'Audição Bolsistas para Auxiliares');
 });
 
 test('PDF title keeps first valid rank when mixed turma has a tie', () => {
@@ -61,7 +61,7 @@ test('PDF title keeps first valid rank when mixed turma has a tie', () => {
         ],
     });
 
-    assert.equal(title, 'T3 - Auxiliares para T3 Assistentes');
+    assert.equal(title, 'Audição Auxiliares para Assistentes');
 });
 
 test('PDF title uses historical event turma name', () => {
@@ -76,7 +76,7 @@ test('PDF title uses historical event turma name', () => {
         ],
     });
 
-    assert.equal(title, 'Histórico T1 - Auxiliares para Histórico T1 Assistentes');
+    assert.equal(title, 'Audição Auxiliares para Assistentes');
 });
 
 test('PDF title falls back to final_status for old history snapshots', () => {
@@ -91,7 +91,7 @@ test('PDF title falls back to final_status for old history snapshots', () => {
         ],
     });
 
-    assert.equal(title, 'T4 - Auxiliares para T4 Assistentes');
+    assert.equal(title, 'Audição Auxiliares para Assistentes');
 });
 
 test('PDF title uses generic consolidated title without turma', () => {
@@ -120,7 +120,7 @@ test('PDF title falls back safely when no rank is available', () => {
         ],
     });
 
-    assert.equal(title, 'T5 - Candidatos para T5 Candidatos');
+    assert.equal(title, 'Audição Candidatos para Candidatos');
 });
 
 test('PDF title keeps backwards compatibility for array-only calls as generic', () => {

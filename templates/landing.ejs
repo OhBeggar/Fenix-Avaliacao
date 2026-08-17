@@ -4,7 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fênix Dança de Salão</title>
-    <link rel="stylesheet" href="/landing.css">
+    <script>
+    (function () {
+      try {
+        document.documentElement.removeAttribute('data-theme');
+      } catch (e) {}
+    })();
+    </script>
+    <link rel="stylesheet" href="/landing.css?v=2">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
 </head>
 <body>
@@ -16,7 +23,8 @@
             </a>
             <nav class="topnav" aria-label="Navegação principal">
                 <a href="#audicao">Audição</a>
-                <a href="#sistema">Sistema</a>
+                <a href="#como-funciona">Como funciona</a>
+                <a href="#regras">Regras</a>
                 <a href="/brek">Resultados</a>
             </nav>
         </header>
@@ -29,7 +37,7 @@
                     Sistema interno para gerenciar o processo de audição e avaliação de bolsistas.
                 </p>
                 <div class="hero-actions">
-                    <a href="/avaliacao" class="primary-cta" target="_blank" rel="noopener noreferrer">Acessar Salas</a>
+                    <a href="/avaliacao" class="primary-cta">Acessar Salas</a>
                     <a href="/admin/login" class="secondary-cta">Painel administrativo</a>
                 </div>
             </div>
@@ -53,6 +61,44 @@
             </div>
         </section>
 
+        <section id="como-funciona" class="landing-section">
+            <h2>Como funciona</h2>
+            <p class="section-lead">Do PIN à patente: o fluxo completo da audição.</p>
+
+            <div class="steps-grid">
+                <article class="step-card">
+                    <span class="step-num">1</span>
+                    <h3>PIN da sessão</h3>
+                    <p>A secretaria gera um PIN e libera a avaliação da turma aos professores.</p>
+                </article>
+                <article class="step-card">
+                    <span class="step-num">2</span>
+                    <h3>Login do professor</h3>
+                    <p>Cada avaliador entra com nome e senha e escolhe a turma da audição.</p>
+                </article>
+                <article class="step-card">
+                    <span class="step-num">3</span>
+                    <h3>Lançamento de notas</h3>
+                    <p>Notas de 1 a 10 por critério. É possível salvar e continuar depois.</p>
+                </article>
+                <article class="step-card">
+                    <span class="step-num">4</span>
+                    <h3>Resultado oficial</h3>
+                    <p>Médias ponderadas, maioria simples, status e evolução de patente.</p>
+                </article>
+            </div>
+        </section>
+
+        <section id="regras" class="landing-section rules-section">
+            <h2>Regras de aprovação</h2>
+            <ul class="rules-list">
+                <li><strong>Presença</strong> mínima de 80% nas aulas</li>
+                <li><strong>Nota final</strong> ≥ 7,0 (pesos 10% / 30% / 60%)</li>
+                <li><strong>Maioria simples</strong> dos avaliadores a favor</li>
+                <li>Nota e maioria precisam ser atendidas juntas</li>
+            </ul>
+        </section>
+
         <section class="feature-band" id="sistema">
             <article>
                 <span>01</span>
@@ -71,10 +117,10 @@
             </article>
         </section>
     </main>
-</body>
     <!-- Footer -->
     <footer class="site-footer">
         <p class="infra-note">Protegido e publicado com Cloudflare Tunnel</p>
         <p>&copy; 2026 Sistema de Avaliação. Todos os direitos reservados.</p>
     </footer>
+</body>
 </html>

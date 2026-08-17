@@ -371,7 +371,8 @@ h3 {
 .global-search,
 .module-search {
     display: flex;
-    align-items: center;
+    flex-direction: row !important;
+    align-items: center !important;
     gap: 9px;
     min-width: min(360px, 38vw);
     padding: 0 14px;
@@ -1352,7 +1353,8 @@ dialog h3 {
 }
 
 .btn-view,
-.btn-pdf {
+.btn-pdf,
+.btn-excel {
     color: #fff;
     border: 0;
 }
@@ -1363,6 +1365,14 @@ dialog h3 {
 
 .btn-pdf {
     background: var(--success) !important;
+}
+
+.btn-excel {
+    background: #217346 !important;
+}
+
+.btn-excel:hover {
+    background: #1a5c38 !important;
 }
 
 /* ===== UTILS ===== */
@@ -1541,3 +1551,626 @@ code {
     70% { box-shadow: 0 0 0 13px rgba(255, 219, 168, 0); }
     100% { box-shadow: 0 0 0 0 rgba(255, 219, 168, 0); }
 }
+
+/* ===== MODAL FECHAR SEMESTRE ===== */
+.admin-modal {
+    border: none;
+    border-radius: 16px;
+    padding: 0;
+    max-width: 440px;
+    width: calc(100% - 32px);
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+    background: #fff;
+}
+
+.admin-modal::backdrop {
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+}
+
+.admin-modal .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f1e8dc;
+}
+
+.admin-modal .modal-header.danger h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--brand-red, #8B0D16);
+}
+
+.admin-modal .modal-close {
+    border: none;
+    background: transparent;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #94a3b8;
+    padding: 4px 8px;
+}
+
+.admin-modal .modal-body {
+    padding: 18px 20px;
+}
+
+.admin-modal .modal-lead {
+    margin: 0 0 12px;
+    color: #334155;
+    font-size: 0.95rem;
+}
+
+.admin-modal .modal-checklist {
+    margin: 0 0 16px;
+    padding-left: 18px;
+    color: #475569;
+    font-size: 0.9rem;
+}
+
+.admin-modal .modal-checklist li {
+    margin-bottom: 6px;
+}
+
+.admin-modal .modal-turmas {
+    background: #F7E8D7;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+}
+
+.admin-modal .modal-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #8B0D16;
+    margin-bottom: 8px;
+}
+
+.admin-modal .modal-turmas ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.admin-modal .modal-turmas li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(139, 13, 22, 0.08);
+    font-size: 0.9rem;
+}
+
+.admin-modal .modal-turmas li:last-child {
+    border-bottom: none;
+}
+
+.admin-modal .modal-turmas span {
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.admin-modal .modal-warning {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #b45309;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+
+.admin-modal .modal-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding: 14px 20px 18px;
+    border-top: 1px solid #f1e8dc;
+}
+
+.admin-modal .btn-cancel {
+    min-height: 42px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: 1.5px solid #e2e8f0;
+    background: #fff;
+    color: #334155;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.admin-modal .btn-danger-confirm {
+    min-height: 42px;
+    padding: 0 18px;
+    border-radius: 999px;
+    border: none;
+    background: var(--brand-red, #8B0D16);
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 6px 14px rgba(139, 13, 22, 0.2);
+}
+
+.admin-modal .btn-danger-confirm:hover {
+    background: var(--brand-red-dark, #6A0910);
+}
+
+/* ===== TOGGLE SENHA ===== */
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.password-wrapper input {
+    width: 100%;
+    padding-right: 44px; /* espaço para o botão */
+}
+
+.toggle-password {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%) !important;
+    min-height: 0 !important;
+    height: 32px !important;
+    width: 32px !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    animation: none !important;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0 !important;
+    border-radius: 8px;
+    color: #64748b;
+    opacity: 0.85;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.toggle-password:hover {
+    opacity: 1;
+    background: rgba(15, 23, 42, 0.06) !important;
+    transform: translateY(-50%) !important;
+    box-shadow: none !important;
+}
+
+.toggle-password:active {
+    transform: translateY(-50%) !important;
+}
+
+.toggle-password.is-visible {
+    color: #0d9488;
+}
+
+/* ===== ABAS DO ADMIN ===== */
+.tab-panel {
+    display: none;
+    animation: tabFade 0.25s ease;
+}
+
+.tab-panel.is-active {
+    display: block;
+}
+
+.tab-panel[hidden] {
+    display: none !important;
+}
+
+@keyframes tabFade {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.sidebar-nav a.is-active {
+    background: rgba(255, 255, 255, 0.12);
+    font-weight: 800;
+}
+
+/* ===== LAYOUT ABA AUDIÇÃO ===== */
+.audicao-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 1.1fr) minmax(240px, 0.9fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.close-semester-card {
+    background: #fff;
+    border: 1px solid var(--border-soft, #f1e8dc);
+    border-radius: 16px;
+    padding: 20px 22px;
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05));
+}
+
+.close-semester-card .eyebrow {
+    margin-bottom: 6px;
+}
+
+.close-semester-card h3 {
+    margin: 0 0 10px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--brand-red, #8B0D16);
+}
+
+.close-semester-card p {
+    margin: 0 0 16px;
+    color: #475569;
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+.close-semester-card .btn-close-semester {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    width: 100%;
+    padding: 0 18px;
+    border: none;
+    border-radius: 999px;
+    background: var(--brand-red, #8B0D16);
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.95rem;
+    cursor: pointer;
+    box-shadow: 0 6px 14px rgba(139, 13, 22, 0.2);
+}
+
+.close-semester-card .btn-close-semester:hover:not(:disabled) {
+    background: var(--brand-red-dark, #6A0910);
+}
+
+.close-semester-card .btn-close-semester.is-disabled,
+.close-semester-card .btn-close-semester:disabled {
+    background: #e7e0d6;
+    color: #94a3b8;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.close-semester-card .hint-mini {
+    margin: 10px 0 0;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+@media (max-width: 900px) {
+    .audicao-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===== DARK MODE OVERRIDES PARA O PAINEL ADMIN ===== */
+html[data-theme="dark"] body.admin-body,
+html[data-theme="dark"] .admin-body {
+    background: #0b1324;
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] .login-card,
+html[data-theme="dark"] .admin-topbar,
+html[data-theme="dark"] .admin-header,
+html[data-theme="dark"] .quick-action-card,
+html[data-theme="dark"] .live-session-card,
+html[data-theme="dark"] .close-semester-card,
+html[data-theme="dark"] .historico-card,
+html[data-theme="dark"] .kpi-card,
+html[data-theme="dark"] .turma-card,
+html[data-theme="dark"] .student-card,
+html[data-theme="dark"] .teacher-card,
+html[data-theme="dark"] .searchable-card,
+html[data-theme="dark"] dialog {
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="dark"] .admin-sidebar {
+    background: #0f172a;
+    border-color: #1e293b;
+}
+
+html[data-theme="dark"] .sidebar-nav a {
+    color: #94a3b8;
+}
+
+html[data-theme="dark"] .sidebar-nav a:hover,
+html[data-theme="dark"] .sidebar-nav a.is-active {
+    background: #1e293b;
+    color: #f8fafc;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .ghost-link,
+html[data-theme="dark"] .btn-secondary,
+html[data-theme="dark"] .btn-cancel {
+    background: #334155;
+    border-color: #475569;
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .ghost-link:hover,
+html[data-theme="dark"] .btn-secondary:hover {
+    background: #475569;
+    color: #fff;
+}
+
+html[data-theme="dark"] table {
+    border-color: #334155;
+}
+
+html[data-theme="dark"] thead th {
+    background: #0f172a;
+    color: #94a3b8;
+    border-color: #334155;
+}
+
+html[data-theme="dark"] tbody td {
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+html[data-theme="dark"] tr:hover td,
+html[data-theme="dark"] tbody tr:hover td {
+    background: #334155 !important;
+    color: #f8fafc !important;
+}
+
+html[data-theme="dark"] th,
+html[data-theme="dark"] thead th {
+    background: #0f172a !important;
+    color: #94a3b8 !important;
+    border-color: #334155 !important;
+}
+
+html[data-theme="dark"] td strong {
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] input[type="text"],
+html[data-theme="dark"] input[type="search"],
+html[data-theme="dark"] input[type="password"],
+html[data-theme="dark"] select {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] input[type="text"]:focus,
+html[data-theme="dark"] input[type="search"]:focus,
+html[data-theme="dark"] input[type="password"]:focus,
+html[data-theme="dark"] select:focus {
+    background: #1e293b;
+    border-color: var(--accent);
+}
+
+html[data-theme="dark"] .status-chip.present,
+html[data-theme="dark"] .turma-badge.is-active {
+    background: #064e3b;
+    color: #6ee7b7;
+    border-color: #047857;
+}
+
+html[data-theme="dark"] .status-chip.absent {
+    background: #7f1d1d;
+    color: #fca5a5;
+    border-color: #991b1b;
+}
+
+html[data-theme="dark"] .status-chip.pending {
+    background: #78350f;
+    color: #fde047;
+    border-color: #b45309;
+}
+
+html[data-theme="dark"] .attendance-pending-row td {
+    background: rgba(120, 53, 15, 0.25);
+}
+
+html[data-theme="dark"] .attendance-option {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .accordion-summary h2,
+html[data-theme="dark"] .accordion-summary strong,
+html[data-theme="dark"] .presence-card strong {
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .presence-card {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+html[data-theme="dark"] .presence-card:hover {
+    background: #1e293b;
+    border-color: #475569;
+}
+
+html[data-theme="dark"] .eyebrow {
+    background: #1e1b4b;
+    color: #a5b4fc;
+}
+
+html[data-theme="dark"] .breadcrumb,
+html[data-theme="dark"] .panel-copy,
+html[data-theme="dark"] .subtle-note,
+html[data-theme="dark"] .hint-mini {
+    color: #94a3b8;
+}
+
+html[data-theme="dark"] .global-search,
+html[data-theme="dark"] .module-search {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+html[data-theme="dark"] .global-search input,
+html[data-theme="dark"] .module-search input {
+    background: transparent !important;
+    border: none !important;
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .quick-action {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .quick-action:hover {
+    background: #1e293b;
+    border-color: #475569;
+    color: #38bdf8;
+}
+
+html[data-theme="dark"] .quick-action.danger-soft,
+html[data-theme="dark"] .quick-panel .quick-actions button.quick-action {
+    background: rgba(220, 38, 38, 0.15);
+    border-color: rgba(220, 38, 38, 0.3);
+    color: #fca5a5;
+}
+
+html[data-theme="dark"] .quick-panel .quick-actions button.quick-action:hover:not(:disabled) {
+    background: rgba(220, 38, 38, 0.25);
+    border-color: #ef4444;
+    color: #fecaca;
+}
+
+html[data-theme="dark"] .quick-panel .quick-actions button.quick-action.is-disabled,
+html[data-theme="dark"] .quick-panel .quick-actions button.quick-action:disabled {
+    background: #0f172a;
+    border-color: #334155;
+    color: #64748b;
+}
+
+html[data-theme="dark"] .back-link {
+    color: #f87171;
+}
+
+html[data-theme="dark"] .back-link:hover {
+    color: #fca5a5;
+}
+
+html[data-theme="dark"] code {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.15);
+}
+
+html[data-theme="dark"] .form-card {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+html[data-theme="dark"] label {
+    color: #cbd5e1;
+}
+
+html[data-theme="dark"] .empty-state {
+    background: #0f172a;
+    border-color: #334155;
+    color: #94a3b8;
+}
+
+html[data-theme="dark"] .empty-state p:first-child {
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .card-topline strong {
+    color: #fca5a5;
+}
+
+html[data-theme="dark"] .card-link {
+    color: #38bdf8;
+}
+
+html[data-theme="dark"] .turma-card:hover .card-link {
+    color: #7dd3fc;
+}
+
+html[data-theme="dark"] .ghost-danger {
+    color: #fca5a5 !important;
+    background: rgba(220, 38, 38, 0.2) !important;
+    border-color: rgba(239, 68, 68, 0.35) !important;
+}
+
+html[data-theme="dark"] .ghost-danger:hover {
+    background: rgba(220, 38, 38, 0.35) !important;
+    color: #ffffff !important;
+}
+
+html[data-theme="dark"] .person-card,
+html[data-theme="dark"] .management-card {
+    background: #0f172a;
+    border-color: #334155;
+}
+
+html[data-theme="dark"] .person-card h3,
+html[data-theme="dark"] .management-card h3 {
+    color: #f1f5f9;
+}
+
+html[data-theme="dark"] .presence-score.risk {
+    color: #fca5a5;
+    background: rgba(220, 38, 38, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+html[data-theme="dark"] .presence-score.ok {
+    color: #6ee7b7;
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+html[data-theme="dark"] .presence-score.pending {
+    color: #fde047;
+    background: rgba(245, 158, 11, 0.2);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+html[data-theme="dark"] .accordion-indicator {
+    color: #a5b4fc;
+    background: #1e1b4b;
+    border-color: #312e81;
+}
+
+html[data-theme="dark"] .admin-accordion[open] .accordion-indicator {
+    color: #fca5a5;
+    background: rgba(220, 38, 38, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+
+
+
+
+
+
+
