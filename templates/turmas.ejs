@@ -33,7 +33,7 @@
                     <h1>Selecione a Turma</h1>
                 </div>
             </div>
-            <p class="intro">Entre na avaliação com o PIN do admin ou acesse a sala interna com a senha da turma.</p>
+            <p class="intro">Acesse a sala da turma para ver os alunos. Use “Entrar na avaliação” com o PIN do admin quando a audição estiver liberada.</p>
         </header>
 
         <div class="turmas-topbar">
@@ -84,19 +84,6 @@
                 <% }) %>
             </div>
         <% } %>
-    </div>
-
-    <!-- Modal de Senha da Turma -->
-    <div class="modal-backdrop" id="roomModal">
-        <div class="modal-card">
-            <h3>Senha da Turma</h3>
-            <p id="roomModalTurmaName">Turma: ...</p>
-            <input type="password" id="roomPasswordInput" class="pin-input" autocomplete="current-password" placeholder="Senha da turma">
-            <div class="modal-actions">
-                <button class="btn-cancel" id="btnRoomCancel">Cancelar</button>
-                <button id="btnRoomConfirm">Entrar na turma</button>
-            </div>
-        </div>
     </div>
 
     <!-- Modal de PIN da Avaliação -->

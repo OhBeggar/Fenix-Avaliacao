@@ -402,7 +402,7 @@ thead th.peso1:nth-child(2) {
     font-weight: 700;
 }
 
-.leg-peso1, .leg-peso2, .leg-peso3 {
+.leg-peso1, .leg-peso2, .leg-peso3, .leg-presenca {
     padding: 5px 12px;
     border-radius: 999px;
     white-space: nowrap;
@@ -411,6 +411,7 @@ thead th.peso1:nth-child(2) {
 .leg-peso1 { background: #e0f2fe; color: #0369a1; }
 .leg-peso2 { background: #fef9c3; color: #a16207; }
 .leg-peso3 { background: #d1fae5; color: #047857; }
+.leg-presenca { background: #f1f5f9; color: #475569; }
 
 @media (max-width: 720px) {
     .peso-legend {
@@ -419,7 +420,7 @@ thead th.peso1:nth-child(2) {
         gap: 6px;
     }
 
-    .leg-peso1, .leg-peso2, .leg-peso3 {
+    .leg-peso1, .leg-peso2, .leg-peso3, .leg-presenca {
         font-size: 0.72rem;
         padding: 4px 10px;
     }

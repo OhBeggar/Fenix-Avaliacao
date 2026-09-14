@@ -184,11 +184,12 @@
             <div class="historico-grid">
                 <% history.forEach(event => { %>
                     <div class="historico-card">
-                        <form action="/admin/history/delete" method="POST" class="delete-history-form" onsubmit="return confirm('Excluir permanentemente o histórico \'<%= event.title %>\'? Esta ação não pode ser desfeita.');">
-                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                            <input type="hidden" name="eventId" value="<%= event.id %>">
-                            <button type="submit" class="delete-history-btn" title="Excluir este histórico" aria-label="Excluir histórico">×</button>
-                        </form>
+                        <button type="button"
+                                class="delete-history-form delete-history-btn btn-delete-history"
+                                data-event-id="<%= event.id %>"
+                                data-event-title="<%= event.title %>"
+                                title="Excluir este histórico"
+                                aria-label="Excluir histórico">×</button>
                         <h3><%= event.title %></h3>
                         <p><strong>Turma:</strong> <%= event.turma_name || 'N/A' %></p>
                         <p><strong>Fechada em:</strong> <%= new Date(event.closed_at).toLocaleDateString('pt-BR') %></p>
@@ -214,8 +215,74 @@
             </div>
         <% } %>
     </div>
+
+    <dialog id="deleteHistoryModal" class="admin-modal">
+        <form method="POST" id="deleteHistoryForm">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="eventId" id="deleteHistoryEventId">
+
+            <div class="modal-header danger">
+                <h3>Excluir histórico</h3>
+                <button type="button" class="modal-close" data-close-modal aria-label="Fechar">×</button>
+            </div>
+
+            <div class="modal-body">
+                <p class="modal-lead">
+                    Esta ação é <strong>permanente</strong>. O registro oficial será removido e não poderá ser recuperado pelo sistema.
+                </p>
+
+                <div class="modal-turmas">
+                    <span class="modal-label">Registro a excluir</span>
+                    <p id="deleteHistoryTitle" style="margin:0; font-weight:700;"></p>
+                </div>
+
+                <p class="modal-warning">
+                    Só confirme se tiver certeza. PDFs/Excel já baixados não são afetados.
+                </p>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" data-close-modal>Cancelar</button>
+                <button type="submit" class="btn-danger-confirm">Excluir definitivamente</button>
+            </div>
+        </form>
+    </dialog>
+
     <script src="/toast.js"></script>
     <script src="/theme.js"></script>
     <script src="/back.js"></script>
+    <script>
+        (() => {
+            const modal = document.getElementById('deleteHistoryModal');
+            const form = document.getElementById('deleteHistoryForm');
+            const titleEl = document.getElementById('deleteHistoryTitle');
+            const eventIdEl = document.getElementById('deleteHistoryEventId');
+            if (!modal || !form || !titleEl || !eventIdEl) return;
+
+            const closeModal = () => {
+                if (typeof modal.close === 'function') modal.close();
+                else modal.removeAttribute('open');
+            };
+
+            document.querySelectorAll('.btn-delete-history').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const id = button.dataset.eventId;
+                    titleEl.textContent = button.dataset.eventTitle || `Registro #${id}`;
+                    eventIdEl.value = id;
+                    form.action = '/admin/history/delete';
+                    if (typeof modal.showModal === 'function') modal.showModal();
+                    else modal.setAttribute('open', '');
+                });
+            });
+
+            modal.querySelectorAll('[data-close-modal]').forEach((button) => {
+                button.addEventListener('click', closeModal);
+            });
+
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) closeModal();
+            });
+        })();
+    </script>
 </body>
 </html>

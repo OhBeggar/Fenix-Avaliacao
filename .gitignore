@@ -22,3 +22,7 @@ qa-history-result.png
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Runtime e estado local do PM2
+.runtime/
+.pm2/

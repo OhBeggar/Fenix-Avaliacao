@@ -3,67 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fênix Dança de Salão</title>
+    <title>Fênix Dança de Salão — Sistema de Avaliação</title>
+    <meta name="description" content="Sistema interno para gerenciar o processo de audição e avaliação de bolsistas do Centro de Danças Fênix.">
     <script>
     (function () {
-      try {
-        document.documentElement.removeAttribute('data-theme');
+            try {
+                var t = localStorage.getItem('fenix-theme');
+                if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+                if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
       } catch (e) {}
     })();
     </script>
-    <link rel="stylesheet" href="/landing.css?v=2">
     <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/landing.css?v=3">
 </head>
 <body>
-    <main class="landing-shell">
-        <header class="topbar">
-            <a href="/" class="brand" aria-label="Fênix Dança de Salão">
-                <img src="/images/fenix.png" alt="Logo Fênix" class="brand-logo">
+    <header class="topnav">
+        <div class="nav-inner">
+            <a class="brand" href="/" aria-label="Fênix Dança de Salão">
+                <img src="/images/fenix.png" alt="" width="36" height="36" class="brand-logo">
                 <span>Fênix Dança de Salão</span>
             </a>
-            <nav class="topnav" aria-label="Navegação principal">
+            <button class="menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" id="menuToggle">☰</button>
+            <nav class="nav-links" id="navLinks" aria-label="Navegação principal">
                 <a href="#audicao">Audição</a>
                 <a href="#como-funciona">Como funciona</a>
                 <a href="#regras">Regras</a>
-                <a href="/brek">Resultados</a>
+                <a href="#sistema">Sistema</a>
+                <a href="/em-breve">Em breve</a>
             </nav>
-        </header>
+        </div>
+    </header>
 
+    <main>
         <section class="hero" id="audicao">
-            <div class="hero-copy">
-                <p class="eyebrow">Audição de bolsistas</p>
+            <div class="hero-inner">
+              <div class="hero-copy">
+                <span class="pill">Audição de bolsistas</span>
                 <h1>Sistema para avaliar, acompanhar e promover talentos.</h1>
-                <p class="lead">
-                    Sistema interno para gerenciar o processo de audição e avaliação de bolsistas.
-                </p>
+                <p>Sistema interno para gerenciar o processo de audição e avaliação de bolsistas.</p>
                 <div class="hero-actions">
-                    <a href="/avaliacao" class="primary-cta">Acessar Salas</a>
-                    <a href="/admin/login" class="secondary-cta">Painel administrativo</a>
+                    <a href="/avaliacao" class="btn btn-primary">Acessar Salas</a>
+                    <a href="/admin/login" class="btn btn-ghost">Painel administrativo</a>
                 </div>
-            </div>
+              </div>
 
-            <div class="hero-card" aria-label="Resumo do sistema">
-                <div class="score-strip">
+              <aside class="hero-card" aria-label="Resumo do sistema">
+                <div class="hero-stat">
                     <span>Presença mínima</span>
                     <strong>80%</strong>
                 </div>
-                <div class="score-strip">
+                <div class="hero-stat">
                     <span>Nota final</span>
                     <strong>7.0+</strong>
                 </div>
-                <div class="score-strip">
+                <div class="hero-stat">
                     <span>Decisão</span>
                     <strong>Maioria</strong>
                 </div>
-                <div class="visual-mark">
-                    <img src="/images/icons8-fenix-cute-color-96.png" alt="" aria-hidden="true">
+                <div class="hero-card-art">
+                    <img src="/images/icons8-fenix-cute-color-70.png" alt="Fênix" width="64" height="64">
                 </div>
+              </aside>
             </div>
+                        <a class="scroll-cue" href="#como-funciona" aria-label="Ver mais conteúdo">
+                                <span class="scroll-cue-icon" aria-hidden="true"></span>
+                        </a>
         </section>
 
-        <section id="como-funciona" class="landing-section">
-            <h2>Como funciona</h2>
-            <p class="section-lead">Do PIN à patente: o fluxo completo da audição.</p>
+        <section class="section" id="como-funciona">
+            <div class="section-head">
+                <h2>Como funciona</h2>
+                <p>Fluxo completo da audição.</p>
+            </div>
 
             <div class="steps-grid">
                 <article class="step-card">
@@ -89,38 +103,88 @@
             </div>
         </section>
 
-        <section id="regras" class="landing-section rules-section">
-            <h2>Regras de aprovação</h2>
-            <ul class="rules-list">
-                <li><strong>Presença</strong> mínima de 80% nas aulas</li>
-                <li><strong>Nota final</strong> ≥ 7,0 (pesos 10% / 30% / 60%)</li>
-                <li><strong>Maioria simples</strong> dos avaliadores a favor</li>
-                <li>Nota e maioria precisam ser atendidas juntas</li>
-            </ul>
+        <section class="section" id="regras">
+            <div class="rules-panel">
+                <h2>Regras de aprovação</h2>
+                <ul class="rules-list">
+                    <li><strong>Presença</strong> mínima de 80% nas aulas</li>
+                    <li><strong>Nota final</strong> ≥ 7,0 (pesos 10% / 30% / 60%)</li>
+                    <li><strong>Maioria simples</strong> dos avaliadores a favor</li>
+                    <li>Nota e maioria precisam ser atendidas juntas</li>
+                </ul>
+            </div>
+            <div class="tri-grid">
+                <article class="info-card"><span class="info-num">01</span><h3>Presença</h3><p>Chamadas registradas antes da avaliação, sem assumir presença automática.</p></article>
+                <article class="info-card"><span class="info-num">02</span><h3>Avaliação</h3><p>Professores entram com PIN, registram notas inteiras e acompanham o painel ao vivo.</p></article>
+                <article class="info-card"><span class="info-num">03</span><h3>Resultado</h3><p>Fechamento oficial com histórico, PDF, Excel e promoção de patente.</p></article>
+            </div>
         </section>
 
-        <section class="feature-band" id="sistema">
-            <article>
-                <span>01</span>
-                <h2>Presença</h2>
-                <p>Chamadas registradas antes da avaliação, sem assumir presença automática.</p>
-            </article>
-            <article>
-                <span>02</span>
-                <h2>Avaliação</h2>
-                <p>Professores entram com PIN, registram notas inteiras e acompanham o painel ao vivo.</p>
-            </article>
-            <article>
-                <span>03</span>
-                <h2>Resultado</h2>
-                <p>Fechamento oficial com histórico, PDF administrativo e promoção de patente.</p>
-            </article>
+        <section class="section" id="sistema">
+            <div class="cta-box">
+                <h2>Pronto para a audição?</h2>
+                <p>Acesse as salas com suas credenciais de professor ou entre no painel da secretaria.</p>
+                <div class="hero-actions">
+                    <a class="btn btn-primary" href="/avaliacao">Acessar Salas</a>
+                    <a class="btn btn-ghost" href="/admin/login">Painel administrativo</a>
+                </div>
+            </div>
         </section>
     </main>
-    <!-- Footer -->
-    <footer class="site-footer">
-        <p class="infra-note">Protegido e publicado com Cloudflare Tunnel</p>
-        <p>&copy; 2026 Sistema de Avaliação. Todos os direitos reservados.</p>
+    <footer class="landing-footer">
+        <div class="footer-inner">
+            <div class="footer-brand">
+                <img src="/images/icons8-fenix-cute-color-70.png" alt="Fênix" width="40" height="40">
+                <div>
+                    <strong>Centro de Danças Fênix</strong>
+                    <span>Sistema de Avaliação · Audição de Bolsistas</span>
+                </div>
+            </div>
+
+            <div class="footer-contacts">
+                <h3>Contato e localização</h3>
+                <ul>
+                    <li>
+                        <span class="label">Instagram</span>
+                        <a href="https://instagram.com/centrodedancasfenix" target="_blank" rel="noopener">@centrodedancasfenix</a>
+                    </li>
+                    <li>
+                        <span class="label">Endereço</span>
+                        <span>Rua Rio Grande do Sul, 182 — Centro<br>Prédio da Livraria Pain, 2º piso<br>Rio Branco — AC</span>
+                    </li>
+                </ul>
+            </div>
+
+            <nav class="footer-links" aria-label="Links da landing">
+                <a href="#como-funciona">Como funciona</a>
+                <a href="#regras">Regras</a>
+                <a href="/em-breve">Em breve</a>
+                <a href="/avaliacao">Acessar Salas</a>
+            </nav>
+        </div>
+
+        <div class="footer-bottom">
+            <span>&copy; <span id="year"></span> Centro de Danças Fênix · Rio Branco — AC</span>
+        </div>
     </footer>
+    <script>
+        document.getElementById('year').textContent = new Date().getFullYear();
+        const toggle = document.getElementById('menuToggle');
+        const links = document.getElementById('navLinks');
+        if (toggle && links) {
+            toggle.addEventListener('click', () => {
+                const open = links.classList.toggle('open');
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                toggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+                toggle.textContent = open ? '✕' : '☰';
+            });
+            links.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => {
+                links.classList.remove('open');
+                toggle.setAttribute('aria-expanded', 'false');
+                toggle.setAttribute('aria-label', 'Abrir menu');
+                toggle.textContent = '☰';
+            }));
+        }
+    </script>
 </body>
 </html>

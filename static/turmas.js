@@ -4,35 +4,24 @@
     const evaluatorName = window.TURMAS_CONFIG?.evaluatorName || '';
     let activeEvaluationTurmas = window.TURMAS_CONFIG?.activeEvaluationTurmas || [];
     const csrfToken = window.TURMAS_CONFIG?.csrfToken || '';
-    const roomModal = document.getElementById('roomModal');
     const evaluationModal = document.getElementById('evaluationModal');
-    const roomPasswordInput = document.getElementById('roomPasswordInput');
     const evaluationPinInput = document.getElementById('evaluationPinInput');
-    const roomModalTurmaName = document.getElementById('roomModalTurmaName');
     const evaluationModalTurmaName = document.getElementById('evaluationModalTurmaName');
     const evaluationTurmaList = document.getElementById('evaluationTurmaList');
     const globalEvaluationButton = document.getElementById('globalEvaluationButton');
-    const btnRoomCancel = document.getElementById('btnRoomCancel');
-    const btnRoomConfirm = document.getElementById('btnRoomConfirm');
     const btnEvaluationCancel = document.getElementById('btnEvaluationCancel');
     const btnEvaluationConfirm = document.getElementById('btnEvaluationConfirm');
 
     let selectedTurmaId = null;
     let selectedTurmaName = '';
-    let currentMode = null;
 
     function clearErrors() {
         document.querySelectorAll('.modal-error').forEach(error => error.remove());
-        roomPasswordInput.classList.remove('error');
-        evaluationPinInput.classList.remove('error');
-    }
-
-    function getActiveInput() {
-        return currentMode === 'evaluation' ? evaluationPinInput : roomPasswordInput;
+        if (evaluationPinInput) evaluationPinInput.classList.remove('error');
     }
 
     function showError(message) {
-        const input = getActiveInput();
+        const input = evaluationPinInput;
         if (!input) return;
 
         input.classList.add('error');
@@ -92,25 +81,11 @@
         });
     }
 
-    function openRoomModal(id, name) {
-        selectedTurmaId = id;
-        selectedTurmaName = name;
-        currentMode = 'room';
-
-        roomModalTurmaName.textContent = `Turma: ${selectedTurmaName}`;
-        clearErrors();
-        roomPasswordInput.value = '';
-        roomModal.classList.add('active');
-        setTimeout(() => roomPasswordInput.focus(), 150);
-    }
-
     function openEvaluationModal() {
         if (activeEvaluationTurmas.length === 0) return;
 
         selectedTurmaId = null;
         selectedTurmaName = '';
-        currentMode = 'evaluation';
-
         renderEvaluationTurmas();
         clearErrors();
         evaluationPinInput.value = '';
@@ -127,48 +102,14 @@
     }
 
     function closeModal() {
-        roomModal.classList.remove('active');
-        evaluationModal.classList.remove('active');
+        if (evaluationModal) evaluationModal.classList.remove('active');
         selectedTurmaId = null;
         selectedTurmaName = '';
-        currentMode = null;
     }
 
-    async function enterRoom() {
-        const password = roomPasswordInput.value.trim();
-
-        if (!selectedTurmaId) {
-            showError('Selecione uma turma primeiro.');
-            return;
-        }
-
-        if (!password) {
-            showError('Digite a senha da turma.');
-            return;
-        }
-
-        try {
-            const response = await fetch('/turmas/access', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-                body: JSON.stringify({
-                    evaluatorName,
-                    turmaId: selectedTurmaId,
-                    password,
-                }),
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                window.location.href = data.redirectUrl;
-                return;
-            }
-
-            showError(data.message || 'Senha da turma inválida.');
-        } catch (error) {
-            console.error('Erro ao verificar senha da turma:', error);
-            showError('Erro de conexão com o servidor. Tente novamente.');
-        }
+    function goToRoom(turmaId) {
+        if (!turmaId || !evaluatorName) return;
+        window.location.href = `/turmas/${encodeURIComponent(evaluatorName)}/${turmaId}`;
     }
 
     async function enterEvaluation() {
@@ -210,35 +151,27 @@
 
     document.querySelectorAll('.turma-card[data-action="room"]').forEach(card => {
         card.addEventListener('click', () => {
-            openRoomModal(card.dataset.turmaId, card.dataset.turmaName);
+            goToRoom(card.dataset.turmaId);
         });
 
         card.addEventListener('keydown', event => {
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
-                openRoomModal(card.dataset.turmaId, card.dataset.turmaName);
+                goToRoom(card.dataset.turmaId);
             }
         });
     });
 
     globalEvaluationButton?.addEventListener('click', openEvaluationModal);
-    btnRoomCancel.addEventListener('click', closeModal);
-    btnEvaluationCancel.addEventListener('click', closeModal);
-    btnRoomConfirm.addEventListener('click', enterRoom);
-    btnEvaluationConfirm.addEventListener('click', enterEvaluation);
+    btnEvaluationCancel?.addEventListener('click', closeModal);
+    btnEvaluationConfirm?.addEventListener('click', enterEvaluation);
 
-    roomPasswordInput.addEventListener('keypress', event => {
-        if (event.key === 'Enter') enterRoom();
-    });
-
-    evaluationPinInput.addEventListener('keypress', event => {
+    evaluationPinInput?.addEventListener('keypress', event => {
         if (event.key === 'Enter') enterEvaluation();
     });
 
-    [roomModal, evaluationModal].forEach(modal => {
-        modal.addEventListener('click', event => {
-            if (event.target === modal) closeModal();
-        });
+    evaluationModal?.addEventListener('click', event => {
+        if (event.target === evaluationModal) closeModal();
     });
 
     document.addEventListener('keydown', event => {

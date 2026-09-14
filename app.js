@@ -3,6 +3,7 @@ const QRCode = require('qrcode');
 const { getNetworkUrls } = require('./src/utils/network');
 
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const cookieParser = require('cookie-parser');
@@ -295,6 +296,12 @@ app.get('/', (req, res) => {
   res.render('landing');
 });
 
+app.get('/em-breve', (req, res) => {
+  const indexHtml = fs.readFileSync(path.join(__dirname, 'templates', 'index.html'), 'utf8');
+  const svg = indexHtml.match(/<svg\b[\s\S]*?<\/svg>/i)?.[0] || '';
+  res.render('em-breve', { svg });
+});
+
 // Home - Login da avaliação
 app.get('/avaliacao', (req, res) => {
   res.render('home', { message: req.query.message || null });
@@ -335,6 +342,10 @@ app.get('/turmas/:name', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const teacher = readTeacherPayload(req.cookies['teacher_access']);
   if (!teacher) return res.redirect('/avaliacao?message=Faça login para acessar suas turmas.');
+
+  if (teacher.evaluatorName !== evaluatorName) {
+    return res.redirect(`/turmas/${encodeURIComponent(teacher.evaluatorName)}`);
+  }
 
   const turmas = evaluationService.getTurmas().map(turma => {
     const activeSession = evaluationService.getActiveSessionForTurma(turma.id);
@@ -387,8 +398,8 @@ app.get('/turmas/:name/:turmaId', (req, res) => {
   const teacher = readTeacherPayload(req.cookies['teacher_access']);
   if (!teacher) return res.redirect('/avaliacao?message=Faça login para acessar suas turmas.');
 
-  if (!hasAccess(req, turmaCookieName(turmaId), { type: 'turma', evaluatorName, turmaId })) {
-    return res.redirect(`/turmas/${encodeURIComponent(evaluatorName)}`);
+  if (teacher.evaluatorName !== evaluatorName) {
+    return res.redirect(`/turmas/${encodeURIComponent(teacher.evaluatorName)}/${turmaId}`);
   }
 
   const turma = evaluationService.getTurmaById(turmaId);
@@ -399,7 +410,7 @@ app.get('/turmas/:name/:turmaId', (req, res) => {
   const activeSession = evaluationService.getActiveSessionForTurma(turmaId);
 
   res.render('turma-sala', {
-    evaluatorName,
+    evaluatorName: teacher.evaluatorName,
     turma,
     candidates,
     attendanceSummary,
@@ -415,15 +426,15 @@ app.post('/turmas/:name/:turmaId/aulas', requireCsrf, (req, res) => {
   const turma = evaluationService.getTurmaById(turmaId);
   const teacher = readTeacherPayload(req.cookies['teacher_access']);
 
-  if (!hasAccess(req, turmaCookieName(turmaId), { type: 'turma', evaluatorName, turmaId })) {
-    return res.status(403).send('Acesso à turma não liberado.');
+  if (!teacher) {
+    return res.status(401).send('Faça login novamente.');
   }
 
   if (!turma) {
     return res.status(404).send('Turma não encontrada.');
   }
 
-  if (teacher.evaluatorId !== turma.teacher_id) {
+  if (teacher.evaluatorName !== evaluatorName || teacher.evaluatorId !== turma.teacher_id) {
     return res.status(403).send('Acesso negado. Apenas o professor responsável pode alterar a presença.');
   }
 
@@ -441,15 +452,15 @@ app.post('/turmas/:name/:turmaId/ritmos', requireCsrf, (req, res) => {
   const turma = evaluationService.getTurmaById(turmaId);
   const teacher = readTeacherPayload(req.cookies['teacher_access']);
 
-  if (!hasAccess(req, turmaCookieName(turmaId), { type: 'turma', evaluatorName, turmaId })) {
-    return res.status(403).send('Acesso à turma não liberado.');
+  if (!teacher) {
+    return res.status(401).send('Faça login novamente.');
   }
 
   if (!turma) {
     return res.status(404).send('Turma não encontrada.');
   }
 
-  if (teacher.evaluatorId !== turma.teacher_id) {
+  if (teacher.evaluatorName !== evaluatorName || teacher.evaluatorId !== turma.teacher_id) {
     return res.status(403).send('Acesso negado. Apenas o professor responsável pode alterar os ritmos.');
   }
 

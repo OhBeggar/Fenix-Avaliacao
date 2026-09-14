@@ -34,8 +34,32 @@ test('calculateTotalPoints matches the weighting model', () => {
         musicalidade: 10,
     };
 
-    assert.equal(calculateTotalPoints(scoreMap, 'deslocamento_cavalheiro'), 230);
-    assert.equal(calculateFinalNote(scoreMap, 'deslocamento_cavalheiro'), 10);
+    assert.equal(calculateTotalPoints(scoreMap, 'deslocamento_cavalheiro'), 250);
+    assert.equal(calculateFinalNote(scoreMap, 'deslocamento_cavalheiro', 100), 10);
+});
+
+test('calculateFinalNote handles score boundaries and gender-specific criteria', () => {
+    const allSeven = {
+        presenca_auxilios: 7,
+        comprometimento_eventos: 7,
+        deslocamento_cavalheiro: 7,
+        floreio_dama: 2,
+        abraco_postura: 7,
+        equilibrio: 7,
+        passos: 7,
+        ritmo: 7,
+        corpo_ritmo: 7,
+        conducao: 7,
+        musicalidade: 7,
+    };
+
+    assert.equal(calculateFinalNote(allSeven, 'deslocamento_cavalheiro', 70), 7);
+    assert.equal(calculateFinalNote(allSeven, 'deslocamento_cavalheiro', 80), 7);
+    assert.equal(calculateFinalNote(allSeven, 'deslocamento_cavalheiro', 100), 7);
+    assert.equal(calculateFinalNote(allSeven, 'floreio_dama', 100), 6.5);
+
+    const missingScores = { presenca_auxilios: 10 };
+    assert.equal(calculateFinalNote(missingScores, 'floreio_dama', 100), 0.5);
 });
 
 test('calculateFinalNote ignores missing technical scores as zero', () => {
@@ -52,12 +76,14 @@ test('calculateFinalNote ignores missing technical scores as zero', () => {
         musicalidade: '-',
     };
 
-    assert.equal(calculateTotalPoints(scoreMap, 'floreio_dama'), 27);
-    assert.equal(calculateFinalNote(scoreMap, 'floreio_dama'), 1.2);
+    assert.equal(calculateTotalPoints(scoreMap, 'floreio_dama'), 35);
+    assert.equal(calculateFinalNote(scoreMap, 'floreio_dama', 0), 1.4);
 });
 
 test('determineResultStatus requires final note and majority approval', () => {
     assert.equal(determineResultStatus(7.3, 7, 12), 'Aprovado');
+    assert.equal(determineResultStatus(7, 7, 12), 'Aprovado');
     assert.equal(determineResultStatus(6.9, 10, 12), 'Reprovado');
+    assert.equal(determineResultStatus(7.3, 6, 12), 'Reprovado');
     assert.equal(determineResultStatus(7.3, 6, 12), 'Reprovado');
 });

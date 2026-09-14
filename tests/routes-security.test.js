@@ -254,7 +254,7 @@ test('teacher session cannot be reused for another teacher URL', async () => {
         const cookie = await loginTeacher(server, 'Professor A Seguro', 'senha-a');
         const forged = await request(server, '/turmas/Professor%20B%20Seguro', { Cookie: cookie });
         assert.equal(forged.statusCode, 302);
-        assert.match(forged.headers.location, /^\/avaliacao\?message=/);
+        assert.equal(forged.headers.location, '/turmas/Professor%20A%20Seguro');
     } finally {
         server.close();
     }
@@ -279,6 +279,49 @@ test('turma access ignores forged evaluatorName and uses teacher session', async
 
         assert.equal(access.json.success, true);
         assert.equal(access.json.redirectUrl, `/turmas/Professor%20Dono/${turma.id}`);
+    } finally {
+        server.close();
+    }
+});
+
+test('teacher can view a turma without password but only the responsible teacher can edit attendance', async () => {
+    service.addTeacher('Professor Responsavel', 'senha-responsavel');
+    service.addTeacher('Professor Observador', 'senha-observador');
+    const responsible = service.getTeacherList().find((row) => row.name === 'Professor Responsavel');
+    service.createTurma('Turma Sem PIN', responsible.id, 'senha-que-nao-deve-ser-pedida');
+    const turma = service.getTurmas().find((row) => row.name === 'Turma Sem PIN');
+    service.createCandidate({ name: 'Aluno Sem PIN', gender: 'male', presence: '0%', status: 'Bolsista', turma_id: turma.id });
+
+    const server = http.createServer(app).listen(0);
+
+    try {
+        const observerCookie = await loginTeacher(server, 'Professor Observador', 'senha-observador');
+        const observerPage = await getText(server, `/turmas/Professor%20Observador/${turma.id}`, { Cookie: observerCookie });
+        assert.equal(observerPage.res.statusCode, 200);
+        assert.match(observerPage.text, /Turma Sem PIN/);
+
+        const observerCsrf = extractCsrfToken(observerPage.text);
+        const observerForm = new URLSearchParams({ _csrf: observerCsrf, total_aulas: '10' });
+        const blocked = await postForm(
+            server,
+            `/turmas/Professor%20Observador/${turma.id}/aulas`,
+            observerForm,
+            { Cookie: observerCookie }
+        );
+        assert.equal(blocked.res.statusCode, 403);
+
+        const responsibleCookie = await loginTeacher(server, 'Professor Responsavel', 'senha-responsavel');
+        const responsiblePage = await getText(server, `/turmas/Professor%20Responsavel/${turma.id}`, { Cookie: responsibleCookie });
+        assert.equal(responsiblePage.res.statusCode, 200);
+
+        const responsibleCsrf = extractCsrfToken(responsiblePage.text);
+        const saved = await postForm(
+            server,
+            `/turmas/Professor%20Responsavel/${turma.id}/aulas`,
+            new URLSearchParams({ _csrf: responsibleCsrf, total_aulas: '10' }),
+            { Cookie: responsibleCookie }
+        );
+        assert.equal(saved.res.statusCode, 302);
     } finally {
         server.close();
     }
