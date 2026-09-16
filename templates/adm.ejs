@@ -33,7 +33,7 @@
     %>
 
     <div class="admin-app">
-        <aside class="admin-sidebar" aria-label="Navegação administrativa">
+        <aside class="admin-sidebar" id="adminSidebar" aria-label="Navegação administrativa">
             <a href="#dashboard" class="brand-lockup">
                 <img src="/images/icons8-fenix-cute-color-96.png" alt="Fênix Dança">
                 <span>
@@ -48,7 +48,6 @@
                 <a href="#alunos" data-tab="alunos"><span>🧑🏻</span>Alunos</a>
                 <a href="#professores" data-tab="professores"><span>🧑🏻‍🏫</span>Professores</a>
                 <a href="#turmas" data-tab="turmas"><span>👥</span>Turmas</a>
-                <a href="#semestre" data-tab="semestre"><span>📅</span>Semestre</a>
                 <a href="#historico" data-tab="historico"><span>🧾</span>Histórico</a>
             </nav>
 
@@ -60,12 +59,21 @@
                 </div>
             </div>
         </aside>
+        <div class="sidebar-backdrop" id="adminSidebarBackdrop" hidden></div>
 
         <main class="admin-main">
             <header class="admin-topbar">
+                <button type="button"
+                        class="sidebar-toggle"
+                        id="adminSidebarToggle"
+                        aria-label="Abrir menu"
+                        aria-expanded="false"
+                        aria-controls="adminSidebar">
+                    <span></span><span></span><span></span>
+                </button>
                 <div>
                     <p class="breadcrumb">Secretaria Administrativa</p>
-                    <h1>Painel Geral</h1>
+                    <h1 id="adminPageTitle">Painel Geral</h1>
                 </div>
 
                 <label class="global-search" aria-label="Busca administrativa">
@@ -74,8 +82,9 @@
                 </label>
 
                 <div class="topbar-actions">
-                    <a href="/admin/login" class="ghost-link nav-action back">Voltar</a>
+                    <a href="/" class="ghost-link nav-action back">Início</a>
                     <form action="/admin/logout" method="POST" style="display:inline;">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                         <button type="submit" class="danger nav-action exit">Sair</button>
                     </form>
                 </div>
@@ -353,10 +362,6 @@
                         </select>
                     </label>
                     <label>
-                        Senha da turma
-                        <input type="password" name="accessPassword" required placeholder="Senha compartilhada" autocomplete="new-password">
-                    </label>
-                    <label>
                         Ritmos Avaliados
                         <input type="text" name="ritmosAvaliados" placeholder="Ex: 1.Forró - 2.Bolero - 3.Zouk">
                     </label>
@@ -369,7 +374,7 @@
                     %>
                         <article class="management-card searchable-card" data-search="<%= `${t.name} ${t.teacher_name || ''}`.toLowerCase() %>">
                             <div class="card-topline">
-                                <span><%= t.has_access_password ? 'Senha configurada' : 'Senha pendente' %></span>
+                                <span>Turma</span>
                                 <strong><%= alunosCount %> aluno<%= alunosCount !== 1 ? 's' : '' %></strong>
                             </div>
                             <h3><%= t.name %></h3>
@@ -377,28 +382,12 @@
                             <div class="card-actions">
                                 <a href="/admin/turma/<%= t.id %>" class="ghost-link">Alunos</a>
                                 <button type="button" onclick="document.getElementById('assign-<%= t.id %>').showModal()" class="ghost-link">Vincular</button>
-                                <button type="button" onclick="document.getElementById('password-<%= t.id %>').showModal()" class="ghost-link">Senha</button>
                             </div>
                             <form action="/admin/turma/delete" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir a turma <%= t.name %>? Todos os alunos serão desvinculados.');">
                                 <input type="hidden" name="turmaId" value="<%= t.id %>">
                                 <button type="submit" class="danger ghost-danger full-width">Excluir turma</button>
                             </form>
                         </article>
-
-                        <dialog id="password-<%= t.id %>">
-                            <h3>Trocar senha da turma <%= t.name %></h3>
-                            <form action="/admin/turma/password" method="POST">
-                                <input type="hidden" name="turmaId" value="<%= t.id %>">
-                                <label>
-                                    Nova senha da turma
-                                    <input type="password" name="accessPassword" required placeholder="Nova senha compartilhada" autocomplete="new-password">
-                                </label>
-                                <div class="modal-actions">
-                                    <button type="button" onclick="this.closest('dialog').close()" class="ghost-link">Cancelar</button>
-                                    <button type="submit">Salvar senha</button>
-                                </div>
-                            </form>
-                        </dialog>
 
                         <dialog id="assign-<%= t.id %>">
                             <h3>Vincular alunos à <%= t.name %></h3>
@@ -421,36 +410,6 @@
                         </dialog>
                     <% }) %>
                 </div>
-            </section>
-
-            <section class="tab-panel panel admin-module" data-tab-panel="semestre" id="semestre" hidden>
-                <div class="section-heading">
-                    <div>
-                        <p class="eyebrow">Fechamento</p>
-                        <h2>Fechar semestre</h2>
-                        <p class="panel-copy">O fechamento agora é feito pelo atalho <strong>“Fechar semestre”</strong> nas Ações rápidas, disponível somente enquanto houver ao menos uma audição ativa.</p>
-                    </div>
-                </div>
-
-                <% if (activeSessions.length > 0) { %>
-                    <div class="selection-list semester-list">
-                        <% activeSessions.forEach(session => { %>
-                            <div class="selection-option" style="cursor:default;">
-                                <span class="status-dot online"></span>
-                                <div class="selection-copy">
-                                    <strong><%= session.turma_name %></strong>
-                                    <span>PIN <%= session.code %> ativo</span>
-                                </div>
-                            </div>
-                        <% }) %>
-                    </div>
-                    <p class="panel-copy">Clicar em “Fechar semestre” nas Ações rápidas vai arquivar essas turmas e reiniciar chamadas e percentuais.</p>
-                <% } else { %>
-                    <div class="empty-state">
-                        <p>Nenhuma audição ativa no momento.</p>
-                        <p>Gere um PIN em <a href="#audicao">Audição</a> para liberar o fechamento de semestre.</p>
-                    </div>
-                <% } %>
             </section>
 
             <section class="tab-panel panel admin-module history-module" data-tab-panel="historico" id="historico" hidden>
@@ -525,6 +484,36 @@
             form.prepend(input);
         });
 
+        (function () {
+            const app = document.querySelector('.admin-app');
+            const toggle = document.getElementById('adminSidebarToggle');
+            const backdrop = document.getElementById('adminSidebarBackdrop');
+            if (!app || !toggle) return;
+
+            function setOpen(open) {
+                app.classList.toggle('sidebar-open', open);
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                toggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+                if (backdrop) backdrop.hidden = !open;
+            }
+
+            toggle.addEventListener('click', () => {
+                setOpen(!app.classList.contains('sidebar-open'));
+            });
+
+            if (backdrop) backdrop.addEventListener('click', () => setOpen(false));
+
+            document.querySelectorAll('.sidebar-nav a').forEach((link) => {
+                link.addEventListener('click', () => {
+                    if (window.matchMedia('(max-width: 1100px)').matches) setOpen(false);
+                });
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') setOpen(false);
+            });
+        })();
+
         document.addEventListener('DOMContentLoaded', () => {
             const search = document.getElementById('adminSearch');
             const cards = document.querySelectorAll('.searchable-card');
@@ -588,6 +577,14 @@
             const links = document.querySelectorAll('.sidebar-nav a[data-tab]');
             const panels = document.querySelectorAll('[data-tab-panel]');
             const STORAGE_KEY = 'adminActiveTab';
+            const TAB_TITLES = {
+                dashboard: 'Painel Geral',
+                audicao: 'Audição',
+                alunos: 'Alunos',
+                professores: 'Professores',
+                turmas: 'Turmas',
+                historico: 'Histórico'
+            };
 
             function activateTab(tabId, persist) {
                 if (!tabId) tabId = 'dashboard';
@@ -607,18 +604,9 @@
                     else panel.setAttribute('hidden', '');
                 });
 
-                const titleEl = document.querySelector('.admin-topbar h1');
-                const titles = {
-                    dashboard: 'Painel Geral',
-                    audicao: 'Audição',
-                    alunos: 'Alunos',
-                    professores: 'Professores',
-                    turmas: 'Turmas',
-                    semestre: 'Semestre',
-                    historico: 'Histórico'
-                };
-                if (titleEl && titles[tabId]) {
-                    titleEl.textContent = titles[tabId];
+                const titleEl = document.getElementById('adminPageTitle');
+                if (titleEl) {
+                    titleEl.textContent = TAB_TITLES[tabId] || 'Painel Geral';
                 }
 
                 if (persist !== false) {
@@ -641,7 +629,7 @@
                 const anchor = e.target.closest('a[href^="#"]');
                 if (anchor && !anchor.closest('.sidebar-nav')) {
                     const hash = anchor.getAttribute('href').replace('#', '');
-                    if (['dashboard', 'audicao', 'alunos', 'professores', 'turmas', 'semestre', 'historico'].includes(hash)) {
+                    if (['dashboard', 'audicao', 'alunos', 'professores', 'turmas', 'historico'].includes(hash)) {
                         activateTab(hash);
                     }
                 }

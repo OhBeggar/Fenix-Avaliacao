@@ -370,7 +370,7 @@ app.get('/turmas/:name', (req, res) => {
   });
 });
 
-// API: Verificar senha da turma
+// API: Verificar senha da turma <pode ser removido não está mais em uso>
 app.post('/turmas/access', requireCsrf, (req, res) => {
   const { turmaId, password } = req.body;
   const teacher = getTeacherSession(req);
@@ -391,7 +391,7 @@ app.post('/turmas/access', requireCsrf, (req, res) => {
   res.json({ success: true, redirectUrl: `/turmas/${encodeURIComponent(teacher.name)}/${turmaId}` });
 });
 
-// Sala da Turma
+// Sala da Turma com reconhecimento de professor e verificação de acesso sem senha
 app.get('/turmas/:name/:turmaId', (req, res) => {
   const evaluatorName = decodeURIComponent(req.params.name);
   const turmaId = parseInt(req.params.turmaId, 10);
@@ -891,8 +891,8 @@ app.post('/admin/teacher/delete', adminAuthMiddleware, requireCsrf, (req, res) =
 
 // Criar Turma
 app.post('/admin/turma/add', adminAuthMiddleware, requireCsrf, (req, res) => {
-  const { name, teacherId, accessPassword, ritmosAvaliados } = req.body;
-  evaluationService.createTurma(name, teacherId, accessPassword, ritmosAvaliados);
+  const { name, teacherId, ritmosAvaliados } = req.body;
+  evaluationService.createTurma(name, teacherId, '', ritmosAvaliados);
 
   res.render('adm', getAdminLocals({ type: 'success', text: 'Turma criada com sucesso.' }));
 });
