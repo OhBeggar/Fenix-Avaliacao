@@ -71,9 +71,9 @@
         <form id="evaluation-form" method="POST" action="/evaluate/<%= encodeURIComponent(evaluatorName) %>?turmaId=<%= turmaId %>">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <div class="peso-legend">
-                <span class="leg-peso1">Peso 1 — 10%: auxílios · comprometimento</span>
-                <span class="leg-peso2">Peso 2 — 30%: desloc./floreio · abraço · equilíbrio</span>
-                <span class="leg-peso3">Peso 3 — 60%: passos · ritmo · corpo · condução · musicalidade</span>
+                <span class="leg-peso1" title="Auxílios + Comprometimento">Peso 1 - 10%</span>
+                <span class="leg-peso2" title="Desloc./Floreio + Abraço + Equilíbrio">Peso 2 - 30%</span>
+                <span class="leg-peso3" title="Passos + Ritmo + Corpo do ritmo + Condução + Musicalidade">Peso 3 - 60%</span>
                 <span class="leg-presenca">Presença nas aulas: mínimo de 80%</span>
             </div>
             <div class="table-wrap">
@@ -185,12 +185,13 @@
                 <button type="button" class="rules-popover-close" id="rulesHelpClose" aria-label="Fechar">×</button>
             </div>
             <ul>
-                <li><strong>Presença mínima:</strong> abaixo de 80% → reprovação automática (independente das notas).</li>
-                <li><strong>Nota final:</strong> Peso 1 = auxílios + comprometimento; Peso 2 = deslocamento/floreio + abraço + equilíbrio; Peso 3 = critérios técnicos.</li>
+                <li><strong>Presença mínima:</strong> abaixo de 80% nas aulas → reprovação automática (a % não entra na nota).</li>
+                <li><strong>Peso 1 (10%):</strong> média de Auxílios e Comprometimento.</li>
+                <li><strong>Peso 2 (30%):</strong> média de Deslocamento <em>ou</em> Floreio (conforme o candidato), Abraço e Equilíbrio.</li>
+                <li><strong>Peso 3 (60%):</strong> média de Passos, Ritmo, Corpo do ritmo, Condução e Musicalidade.</li>
                 <li><strong>Corte:</strong> nota final ≥ 7,0.</li>
                 <li><strong>Maioria simples:</strong> mais da metade dos avaliadores precisa aprovar. Empate reprova.</li>
-                <li><strong>Aprovado</strong> só se cumprir nota ≥ 7,0 <em>e</em> maioria.</li>
-                <li><strong>Patente:</strong> aprovado sobe de patente no fechamento (ex.: Bolsista → Auxiliar).</li>
+                <li><strong>X:</strong> item não avaliado - não entra na média (não conta como zero).</li>
             </ul>
         </div>
     </main>
