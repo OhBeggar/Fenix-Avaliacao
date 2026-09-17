@@ -39,12 +39,20 @@
             <div class="header-brand">
                 <img src="/images/icons8-fenix-cute-color-70.png" alt="Fênix Dança">
                 <div>
-                    <p class="breadcrumb">Dashboard / Turmas / <%= turma.name %></p>
+                    <p class="breadcrumb">
+                        <% if (isAdmin) { %>
+                            <a href="/admin#dashboard">Dashboard</a> /
+                            <a href="/admin#turmas">Turmas</a> /
+                        <% } else { %>
+                            Turmas /
+                        <% } %>
+                        <%= turma.name %>
+                    </p>
                     <h1><%= turma.name %></h1>
                     <p class="panel-copy">Responsável: <%= turma.teacher_name || 'Não definido' %></p>
                 </div>
             </div>
-            <a href="<%= isAdmin ? '/admin' : '/turmas' %>" class="ghost-link nav-action back">Voltar</a>
+            <a href="<%= isAdmin ? '/admin#turmas' : '/turmas' %>" class="ghost-link nav-action back">Voltar</a>
         </header>
             <div class="turma-card-actions" style="margin-top: 20px; display: flex; gap: 8px;">
                 <button onclick="document.getElementById('renameModal').showModal()" class="btn-secondary" style="padding: 6px 12px;">Editar nome</button>
@@ -154,7 +162,23 @@
                                 <% } %>
                             </small>
 
-                            <form action="/admin/candidate/delete" method="POST" onsubmit="return confirm('Tem certeza que deseja remover <%= c.name %> desta turma?');">
+                            <form action="/admin/candidate/status" method="POST" class="mini-form status-form">
+                                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                                <input type="hidden" name="candidateId" value="<%= c.id %>">
+                                <input type="hidden" name="turmaId" value="<%= turma.id %>">
+                                <label>
+                                    Status
+                                    <select name="status" onchange="this.form.requestSubmit()">
+                                        <option value="Bolsista" <%= c.status === 'Bolsista' ? 'selected' : '' %>>Bolsista</option>
+                                        <option value="Auxiliar" <%= c.status === 'Auxiliar' ? 'selected' : '' %>>Auxiliar</option>
+                                    </select>
+                                </label>
+                            </form>
+
+                            <form action="/admin/candidate/delete" method="POST" class="js-confirm-form"
+                                  data-confirm-title="Remover aluno"
+                                  data-confirm-message="Remover <%= c.name %> desta turma?">
+                                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                                 <input type="hidden" name="candidateId" value="<%= c.id %>">
                                 <input type="hidden" name="turmaId" value="<%= turma.id %>">
                                 <button type="submit" class="danger ghost-danger full-width">Remover aluno</button>
@@ -250,6 +274,19 @@
         </section>
     </main>
 
+    <dialog id="confirmModal" class="admin-modal">
+        <form method="dialog" id="confirmModalForm">
+            <div class="modal-header danger">
+                <h3 id="confirmModalTitle">Confirmar ação</h3>
+            </div>
+            <p id="confirmModalMessage" class="modal-body-text"></p>
+            <div class="modal-actions">
+                <button type="button" class="ghost-link" id="confirmModalCancel">Cancelar</button>
+                <button type="submit" class="danger" id="confirmModalOk">Confirmar</button>
+            </div>
+        </form>
+    </dialog>
+
     <script src="/transitions.js"></script>
     <script src="/toast.js"></script>
     <script>
@@ -275,6 +312,46 @@
                 });
             }
         });
+
+        (function () {
+            const modal = document.getElementById('confirmModal');
+            const titleEl = document.getElementById('confirmModalTitle');
+            const messageEl = document.getElementById('confirmModalMessage');
+            const cancelButton = document.getElementById('confirmModalCancel');
+            const modalForm = document.getElementById('confirmModalForm');
+            if (!modal || !modalForm) return;
+
+            let pendingForm = null;
+
+            document.querySelectorAll('form.js-confirm-form').forEach((sourceForm) => {
+                sourceForm.addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    pendingForm = sourceForm;
+                    titleEl.textContent = sourceForm.dataset.confirmTitle || 'Confirmar ação';
+                    messageEl.textContent = sourceForm.dataset.confirmMessage || 'Tem certeza?';
+                    if (typeof modal.showModal === 'function') modal.showModal();
+                    else modal.setAttribute('open', '');
+                });
+            });
+
+            function closeModal() {
+                pendingForm = null;
+                if (typeof modal.close === 'function') modal.close();
+                else modal.removeAttribute('open');
+            }
+
+            cancelButton.addEventListener('click', closeModal);
+            modalForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const sourceForm = pendingForm;
+                closeModal();
+                if (sourceForm) HTMLFormElement.prototype.submit.call(sourceForm);
+            });
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) closeModal();
+            });
+            modal.addEventListener('cancel', () => { pendingForm = null; });
+        })();
     </script>
     <script src="/theme.js"></script>
     <script src="/back.js"></script>

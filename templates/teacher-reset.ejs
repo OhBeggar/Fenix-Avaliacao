@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redefinir senha | Fênix</title>
+    <link rel="stylesheet" href="/theme.css">
+    <link rel="stylesheet" href="/home.css">
+    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+</head>
+<body>
+    <main class="container">
+        <div class="header-logo">
+            <img src="/images/fenix.png" alt="Logo Fênix" class="logo">
+        </div>
+        <div class="eyebrow">Acesso de professores</div>
+        <h1>Redefinir senha</h1>
+        <p class="intro">Use o código de 5 dígitos enviado pela secretaria.</p>
+
+        <% if (typeof message !== 'undefined' && message) { %>
+            <div id="toast-data" data-message="<%= message %>" data-type="error" style="display:none"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const dataEl = document.getElementById('toast-data');
+                    if (window.showToast && dataEl) showToast(dataEl.dataset.message, dataEl.dataset.type);
+                });
+            </script>
+        <% } %>
+
+        <form class="card" method="POST" action="/professor/redefinir-senha">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label>
+                Nome completo
+                <input type="text" name="name" required autocomplete="name" autofocus>
+            </label>
+            <label>
+                Código de 5 dígitos
+                <input type="text" name="code" required inputmode="numeric" maxlength="5" pattern="[0-9]{5}" autocomplete="one-time-code">
+            </label>
+            <label>
+                Nova senha
+                <input type="password" name="password" required minlength="4" autocomplete="new-password">
+            </label>
+            <label>
+                Confirmar senha
+                <input type="password" name="password2" required minlength="4" autocomplete="new-password">
+            </label>
+            <button type="submit">Atualizar senha</button>
+        </form>
+
+        <div class="actions">
+            <a href="/avaliacao" class="action-link">Voltar para o login</a>
+        </div>
+    </main>
+    <script src="/toast.js"></script>
+    <script src="/theme.js"></script>
+</body>
+</html>

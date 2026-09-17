@@ -84,6 +84,20 @@ function initDb() {
     FOREIGN KEY (evaluator_id) REFERENCES evaluators(id)
   )`);
 
+  db.exec(`CREATE TABLE IF NOT EXISTS teacher_reset_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    evaluator_id INTEGER NOT NULL,
+    token_hash TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (evaluator_id) REFERENCES evaluators(id) ON DELETE CASCADE
+  )`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_teacher_reset_tokens_evaluator
+    ON teacher_reset_tokens(evaluator_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_teacher_reset_tokens_active
+    ON teacher_reset_tokens(evaluator_id, used_at, expires_at)`);
+
   // Sistema antigo de chamadas (class_meetings/attendance_records) foi substituído
   // pelo modelo simplificado de "total de aulas x aulas presentes". Remove tabelas antigas.
   db.exec('DROP TABLE IF EXISTS attendance_records');
@@ -234,6 +248,50 @@ function resetTeacherPassword(teacherId, newPassword) {
   db.prepare('UPDATE evaluators SET password_hash = ? WHERE id = ?').run(hash, teacherId);
 }
 
+function hashResetToken(pin) {
+  return crypto.createHash('sha256').update(String(pin)).digest('hex');
+}
+
+function generateResetPin(teacherId) {
+  const teacher = getTeacherById(teacherId);
+  if (!teacher) throw new Error('Professor não encontrado.');
+
+  const pin = String(crypto.randomInt(0, 100_000)).padStart(5, '0');
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
+  runInTransaction(() => {
+    db.prepare(`UPDATE teacher_reset_tokens
+      SET used_at = datetime('now')
+      WHERE evaluator_id = ? AND used_at IS NULL`).run(teacher.id);
+    db.prepare(`INSERT INTO teacher_reset_tokens (evaluator_id, token_hash, expires_at)
+      VALUES (?, ?, ?)`).run(teacher.id, hashResetToken(pin), expiresAt);
+  });
+
+  return { pin, expiresAt };
+}
+
+function resetPasswordWithPin(teacherName, pin, newPassword) {
+  const teacher = getTeacherByName(teacherName);
+  const normalizedPin = String(pin || '').trim();
+  if (!teacher || !/^\d{5}$/.test(normalizedPin)) {
+    throw new Error('Código inválido ou expirado.');
+  }
+
+  const row = db.prepare(`SELECT id, token_hash, expires_at
+    FROM teacher_reset_tokens
+    WHERE evaluator_id = ? AND used_at IS NULL
+    ORDER BY id DESC LIMIT 1`).get(teacher.id);
+
+  if (!row || new Date(row.expires_at) < new Date() || row.token_hash !== hashResetToken(normalizedPin)) {
+    throw new Error('Código inválido ou expirado.');
+  }
+
+  runInTransaction(() => {
+    resetTeacherPassword(teacher.id, newPassword);
+    db.prepare(`UPDATE teacher_reset_tokens SET used_at = datetime('now') WHERE id = ?`).run(row.id);
+  });
+}
+
 function deleteTeacher(teacherId) {
   const id = Number.parseInt(teacherId, 10);
   runInTransaction(() => {
@@ -251,22 +309,22 @@ function deleteTeacher(teacherId) {
 
 // --- Gerenciamento de Turmas ---
 
-function createTurma(name, teacherId, accessPassword = '', ritmosAvaliados = '') {
+function createTurma(name, teacherId, ritmosAvaliados = '') {
   db.prepare('INSERT INTO turmas (name, teacher_id, access_password_hash, ritmos_avaliados) VALUES (?, ?, ?, ?)').run(
     String(name || '').trim(),
     teacherId,
-    accessPassword ? hashPassword(accessPassword) : null,
+    null,
     String(ritmosAvaliados || '').trim()
   );
 }
 
 function getTurmas() {
-  return db.prepare(`SELECT t.id, t.name, t.teacher_id, t.total_aulas, t.access_password_hash IS NOT NULL AS has_access_password, t.ritmos_avaliados, e.name as teacher_name
+  return db.prepare(`SELECT t.id, t.name, t.teacher_id, t.total_aulas, t.ritmos_avaliados, e.name as teacher_name
     FROM turmas t LEFT JOIN evaluators e ON t.teacher_id = e.id ORDER BY t.name`).all();
 }
 
 function getTurmaById(turmaId) {
-  return db.prepare(`SELECT t.id, t.name, t.teacher_id, t.total_aulas, t.access_password_hash, t.ritmos_avaliados, e.name as teacher_name
+  return db.prepare(`SELECT t.id, t.name, t.teacher_id, t.total_aulas, t.ritmos_avaliados, e.name as teacher_name
     FROM turmas t LEFT JOIN evaluators e ON t.teacher_id = e.id WHERE t.id = ?`).get(turmaId);
 }
 
@@ -275,17 +333,6 @@ function updateTurmaRitmos(turmaId, ritmosAvaliados) {
     String(ritmosAvaliados || '').trim(), 
     turmaId
   );
-}
-
-function setTurmaPassword(turmaId, password) {
-  db.prepare('UPDATE turmas SET access_password_hash = ? WHERE id = ?').run(hashPassword(password), turmaId);
-}
-
-function verifyTurmaPassword(turmaId, password) {
-  const turma = db.prepare('SELECT id, access_password_hash FROM turmas WHERE id = ?').get(turmaId);
-  if (!turma) return false;
-  if (!turma.access_password_hash) return false;
-  return verifyPassword(password, turma.access_password_hash);
 }
 
 function getCandidatesByTurma(turmaId) {
@@ -556,6 +603,18 @@ function updateCandidate(payload) {
     String(payload.status || 'Bolsista').trim(),
     payload.turma_id || null,
     Number.parseInt(payload.id, 10)
+  );
+}
+
+function updateCandidateStatus(candidateId, status) {
+  const allowedStatuses = new Set(['Bolsista', 'Auxiliar']);
+  if (!allowedStatuses.has(status)) {
+    throw new Error('Status de aluno inválido.');
+  }
+
+  db.prepare('UPDATE candidates SET status = ? WHERE id = ?').run(
+    status,
+    Number.parseInt(candidateId, 10)
   );
 }
 
@@ -1117,6 +1176,8 @@ module.exports = {
   getTeacherByName,
   getTeacherList,
   resetTeacherPassword,
+  generateResetPin,
+  resetPasswordWithPin,
   deleteTeacher,
   
   // Turmas
@@ -1124,8 +1185,6 @@ module.exports = {
   updateTurmaName,
   getTurmas,
   getTurmaById,
-  setTurmaPassword,
-  verifyTurmaPassword,
   updateTurmaRitmos,
   getCandidatesByTurma,
   assignCandidateToTurma,
@@ -1163,5 +1222,6 @@ module.exports = {
   // Admin
   createCandidate,
   updateCandidate,
+  updateCandidateStatus,
   deleteCandidate,
 };

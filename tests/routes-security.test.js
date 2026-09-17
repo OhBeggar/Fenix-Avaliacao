@@ -260,7 +260,7 @@ test('teacher session cannot be reused for another teacher URL', async () => {
     }
 });
 
-test('turma access ignores forged evaluatorName and uses teacher session', async () => {
+test('teacher room access uses the authenticated teacher session', async () => {
     service.addTeacher('Professor Dono', 'senha');
     const teacher = service.getTeacherList().find((row) => row.name === 'Professor Dono');
     service.createTurma('Turma Anti Spoof', teacher.id, 'senha-da-turma');
@@ -270,15 +270,10 @@ test('turma access ignores forged evaluatorName and uses teacher session', async
 
     try {
         const cookie = await loginTeacher(server, 'Professor Dono', 'senha');
-        const csrfToken = await getTeacherCsrf(server, 'Professor Dono', cookie);
-        const access = await postJson(server, '/turmas/access', {
-            evaluatorName: 'Outro Professor',
-            turmaId: turma.id,
-            password: 'senha-da-turma',
-        }, { Cookie: cookie, 'X-CSRF-Token': csrfToken });
+        const room = await getText(server, `/turmas/Professor%20Dono/${turma.id}`, { Cookie: cookie });
 
-        assert.equal(access.json.success, true);
-        assert.equal(access.json.redirectUrl, `/turmas/Professor%20Dono/${turma.id}`);
+        assert.equal(room.res.statusCode, 200);
+        assert.match(room.text, /Turma Anti Spoof/);
     } finally {
         server.close();
     }
@@ -522,9 +517,9 @@ test('sensitive authenticated POSTs require CSRF', async () => {
 
     try {
         const cookie = await loginTeacher(server, 'Professor CSRF', 'senha');
-        const res = await postJson(server, '/turmas/access', {
+        const res = await postJson(server, '/turmas/evaluate-access', {
             turmaId: 1,
-            password: 'qualquer',
+            code: 'qualquer',
         }, { Cookie: cookie });
 
         assert.equal(res.res.statusCode, 403);

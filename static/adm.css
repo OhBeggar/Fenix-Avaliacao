@@ -206,6 +206,12 @@ h3 {
     color: var(--brand-gold-light);
 }
 
+.sidebar-nav a .nav-ico svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+}
+
 .sidebar-nav a:hover,
 .sidebar-nav a.is-active {
     color: var(--page-cream);
@@ -389,6 +395,30 @@ h3 {
     margin: 6px 0 0;
     color: var(--muted);
     font-size: 0.92rem;
+}
+.history-list {
+    display: grid;
+    gap: 10px;
+}
+.history-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+}
+.history-row small {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+}
+.history-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .light-copy {
