@@ -279,6 +279,11 @@ h3 {
     backdrop-filter: blur(16px);
 }
 
+.admin-topbar > div,
+.admin-topbar .global-search {
+    min-width: 0;
+}
+
 .admin-topbar {
     position: sticky;
     top: 18px;
@@ -421,6 +426,63 @@ h3 {
     gap: 8px;
 }
 
+.bulk-candidates {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.bulk-candidates h3,
+.bulk-candidates .panel-copy {
+    margin-bottom: 0;
+}
+
+.alunos-lista-simples {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-soft);
+}
+
+.aluno-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 6px 0;
+}
+
+.aluno-nome {
+    flex: 1;
+    min-width: 140px;
+    font-weight: 750;
+}
+
+.aluno-meta,
+.empty-list,
+.error-list,
+.lista-loading {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.btn-danger-sm {
+    padding: 4px 10px;
+    color: var(--brand-red);
+    background: transparent;
+    border: 1px solid var(--brand-red);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.btn-danger-sm:hover {
+    color: #fff;
+    background: var(--brand-red);
+}
+
 .light-copy {
     color: rgba(255, 255, 255, 0.78);
 }
@@ -442,6 +504,12 @@ h3 {
 
 .module-search {
     min-width: min(320px, 100%);
+}
+
+.admin-topbar .global-search {
+    flex: 1 1 320px;
+    width: min(420px, 100%);
+    max-width: 420px;
 }
 
 .global-search span,
@@ -651,6 +719,10 @@ button.danger:hover {
     gap: 14px;
 }
 
+.kpi-grid + .dashboard-grid {
+    margin-top: 18px;
+}
+
 .kpi-card {
     position: relative;
     display: grid;
@@ -682,10 +754,17 @@ button.danger:hover {
     justify-content: center;
     width: 36px;
     height: 36px;
-    color: var(--brand-red);
-    background: var(--primary-light);
+    color: var(--brand-gold-light);
+    background: rgba(189, 148, 96, 0.18);
+    border: 1px solid rgba(232, 214, 184, 0.2);
     border-radius: 999px;
     font-weight: 900;
+}
+
+.kpi-icon svg {
+    width: 18px;
+    height: 18px;
+    display: block;
 }
 
 .kpi-card strong {
@@ -1529,10 +1608,23 @@ code {
 
     .admin-topbar {
         top: 10px;
+        flex-wrap: wrap;
+    }
+
+    .admin-topbar .global-search {
+        flex: 1 1 260px;
+    }
+
+    .admin-topbar .topbar-actions {
+        margin-left: auto;
     }
 
     .dashboard-grid {
         grid-template-columns: 1fr;
+    }
+
+    .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -2155,6 +2247,12 @@ html[data-theme="dark"] .module-search input {
     background: transparent !important;
     border: none !important;
     color: #f1f5f9;
+}
+
+html[data-theme="dark"] .kpi-icon {
+    color: #f5e6d3;
+    background: rgba(189, 148, 96, 0.2);
+    border-color: rgba(232, 214, 184, 0.28);
 }
 
 html[data-theme="dark"] .quick-action {

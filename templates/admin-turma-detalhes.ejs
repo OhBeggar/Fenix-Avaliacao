@@ -175,9 +175,9 @@
                                 </label>
                             </form>
 
-                            <form action="/admin/candidate/delete" method="POST" class="js-confirm-form"
+                                <form action="/admin/turma/candidate/remove" method="POST" class="js-confirm-form"
                                   data-confirm-title="Remover aluno"
-                                  data-confirm-message="Remover <%= c.name %> desta turma?">
+                                    data-confirm-message="Desvincular <%= c.name %> desta turma? O aluno continuará cadastrado no sistema.">
                                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                                 <input type="hidden" name="candidateId" value="<%= c.id %>">
                                 <input type="hidden" name="turmaId" value="<%= turma.id %>">

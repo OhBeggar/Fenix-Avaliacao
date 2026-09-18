@@ -347,6 +347,13 @@ function assignCandidateToTurma(candidateId, turmaId) {
   db.prepare('UPDATE candidates SET turma_id = ? WHERE id = ?').run(turmaId, candidateId);
 }
 
+function getStudentsSimpleByTurma(turmaId) {
+  return db.prepare(`SELECT id, name, gender, status
+    FROM candidates
+    WHERE turma_id = ?
+    ORDER BY name COLLATE NOCASE`).all(turmaId);
+}
+
 // Modulo pra renomear as turmas, usado no front-end para permitir que o professor altere o nome da turma.
 function updateTurmaName(turmaId, newName) {
     const name = String(newName || '').trim();
@@ -595,6 +602,52 @@ function createCandidate(payload) {
   );
 }
 
+function addCandidatesBulk({ turmaId, gender = 'female', status = 'Bolsista', names = [] }) {
+  const id = Number.parseInt(turmaId, 10);
+  const normalizedGender = gender === 'male' ? 'male' : 'female';
+  const normalizedStatus = status === 'Auxiliar' ? 'Auxiliar' : 'Bolsista';
+  const created = [];
+  const skipped = [];
+
+  if (!Number.isInteger(id) || id <= 0) throw new Error('Turma inválida.');
+  if (!db.prepare('SELECT id FROM turmas WHERE id = ?').get(id)) throw new Error('Turma não encontrada.');
+
+  const insert = db.prepare(`
+    INSERT INTO candidates (name, gender, presence, status, turma_id)
+    VALUES (?, ?, '0%', ?, ?)
+  `);
+  const exists = db.prepare(`
+    SELECT id FROM candidates
+    WHERE turma_id = ? AND lower(trim(name)) = lower(trim(?))
+  `);
+
+  runInTransaction(() => {
+    for (const rawValue of names) {
+      const raw = String(rawValue || '').trim();
+      if (!raw) continue;
+
+      let name = raw;
+      let candidateGender = normalizedGender;
+      const prefix = raw.match(/^([MmFf])\s+(.+)$/);
+      if (prefix) {
+        candidateGender = prefix[1].toLowerCase() === 'm' ? 'male' : 'female';
+        name = prefix[2].trim();
+      }
+      if (!name) continue;
+
+      if (exists.get(id, name)) {
+        skipped.push({ name, reason: 'já existe nesta turma' });
+        continue;
+      }
+
+      insert.run(name, candidateGender, normalizedStatus, id);
+      created.push(name);
+    }
+  });
+
+  return { created: created.length, skipped };
+}
+
 function updateCandidate(payload) {
   db.prepare('UPDATE candidates SET name = ?, gender = ?, presence = ?, status = ?, turma_id = ? WHERE id = ?').run(
     String(payload.name || '').trim(),
@@ -620,14 +673,28 @@ function updateCandidateStatus(candidateId, status) {
 
 function deleteCandidate(candidateId) {
   const id = Number.parseInt(candidateId, 10);
+  const candidate = db.prepare('SELECT id, name FROM candidates WHERE id = ?').get(id);
+  if (!candidate) throw new Error('Aluno não encontrado.');
+
   runInTransaction(() => {
     // Remove notas fixas do candidato (candidate_fixed_scores tem FOREIGN KEY em candidate_id)
     db.prepare('DELETE FROM candidate_fixed_scores WHERE candidate_id = ?').run(id);
     // Remove as notas do candidato
     db.prepare('DELETE FROM scores WHERE candidate_id = ?').run(id);
+    db.prepare('UPDATE evaluation_snapshots SET candidate_id = NULL WHERE candidate_id = ?').run(id);
     // Remove o candidato
     db.prepare('DELETE FROM candidates WHERE id = ?').run(id);
   });
+
+  return { deleted: true, name: candidate.name };
+}
+
+function removeCandidateFromTurma(candidateId, turmaId) {
+  const id = Number.parseInt(candidateId, 10);
+  const turma = Number.parseInt(turmaId, 10);
+  const candidate = db.prepare('SELECT id FROM candidates WHERE id = ? AND turma_id = ?').get(id, turma);
+  if (!candidate) throw new Error('Aluno não encontrado nesta turma.');
+  db.prepare('UPDATE candidates SET turma_id = NULL WHERE id = ? AND turma_id = ?').run(id, turma);
 }
 
 function deleteTurma(turmaId) {
@@ -1188,6 +1255,7 @@ module.exports = {
   updateTurmaRitmos,
   getCandidatesByTurma,
   assignCandidateToTurma,
+  getStudentsSimpleByTurma,
   deleteTurma,
   
   // Sessão
@@ -1221,7 +1289,9 @@ module.exports = {
 
   // Admin
   createCandidate,
+  addCandidatesBulk,
   updateCandidate,
   updateCandidateStatus,
   deleteCandidate,
+  removeCandidateFromTurma,
 };

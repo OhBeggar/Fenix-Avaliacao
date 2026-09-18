@@ -935,6 +935,35 @@ app.post('/admin/candidate/add', adminAuthMiddleware, requireCsrf, (req, res) =>
   res.render('adm', getAdminLocals({ type: 'success', text: `Aluno ${name} cadastrado com sucesso!` }));
 });
 
+app.post('/admin/candidate/bulk', adminAuthMiddleware, requireCsrf, (req, res) => {
+  const isAjax = req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest';
+  const { turmaId, gender, status, names } = req.body;
+  const list = (Array.isArray(names) ? names : String(names || '').split(/\r?\n/))
+    .map(name => String(name).trim())
+    .filter(Boolean);
+
+  if (!turmaId || !list.length) {
+    const message = 'Informe a turma e ao menos um nome.';
+    if (isAjax) return res.status(400).json({ ok: false, message });
+    return res.redirect('/admin#alunos');
+  }
+
+  try {
+    const result = evaluationService.addCandidatesBulk({
+      turmaId: Number.parseInt(turmaId, 10),
+      gender: gender === 'male' ? 'male' : 'female',
+      status: status === 'Auxiliar' ? 'Auxiliar' : 'Bolsista',
+      names: list,
+    });
+    const message = `${result.created} aluno(s) adicionado(s).${result.skipped.length ? ` ${result.skipped.length} ignorado(s).` : ''}`;
+    if (isAjax) return res.json({ ok: true, message, ...result });
+    return res.redirect('/admin#alunos');
+  } catch (error) {
+    if (isAjax) return res.status(500).json({ ok: false, message: error.message });
+    return res.redirect('/admin#alunos');
+  }
+});
+
 app.post('/admin/candidate/status', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { candidateId, status, turmaId } = req.body;
   try {
@@ -942,6 +971,22 @@ app.post('/admin/candidate/status', adminAuthMiddleware, requireCsrf, (req, res)
     res.redirect(`/admin/turma/${turmaId}`);
   } catch (error) {
     res.redirect(`/admin/turma/${turmaId}?type=error&message=${encodeURIComponent(error.message || 'Erro ao atualizar status.')}`);
+  }
+});
+
+app.get('/admin/turma/:id/students-simple', adminAuthMiddleware, (req, res) => {
+  const turmaId = Number.parseInt(req.params.id, 10);
+  if (!turmaId) return res.status(400).json({ ok: false, error: 'Turma inválida.' });
+  res.json({ ok: true, students: evaluationService.getStudentsSimpleByTurma(turmaId) });
+});
+
+app.post('/admin/turma/candidate/remove', adminAuthMiddleware, requireCsrf, (req, res) => {
+  const { candidateId, turmaId } = req.body;
+  try {
+    evaluationService.removeCandidateFromTurma(candidateId, turmaId);
+    res.redirect(`/admin/turma/${turmaId}?type=success&message=${encodeURIComponent('Aluno desvinculado da turma.')}`);
+  } catch (error) {
+    res.redirect(`/admin/turma/${turmaId}?type=error&message=${encodeURIComponent(error.message || 'Erro ao desvincular aluno.')}`);
   }
 });
 
@@ -1016,18 +1061,18 @@ app.post('/admin/turma/:id/aulas', adminOrTeacherAuthMiddleware, requireCsrf, (r
   }
 });
 
-// Excluir aluno (atualizado para redirecionar de volta para a turma)
 app.post('/admin/candidate/delete', adminAuthMiddleware, requireCsrf, (req, res) => {
-  const { candidateId, turmaId } = req.body;
-  evaluationService.deleteCandidate(candidateId);
-  
-  // Se veio de uma página de turma específica, redireciona de volta para ela
-  if (turmaId) {
-    return res.redirect(`/admin/turma/${turmaId}`);
+  const candidateId = Number(req.body.candidateId || req.body.id);
+  const isAjax = req.xhr || req.headers.accept?.includes('application/json');
+  try {
+    if (!candidateId) throw new Error('ID do aluno inválido.');
+    const result = evaluationService.deleteCandidate(candidateId);
+    if (isAjax) return res.json({ ok: true, ...result });
+    return res.redirect('/admin#alunos');
+  } catch (error) {
+    if (isAjax) return res.status(400).json({ ok: false, error: error.message || 'Erro ao remover aluno.' });
+    return res.redirect(`/admin#alunos`);
   }
-
-  // Senão, vai para a página principal de admin
-  res.render('adm', getAdminLocals({ type: 'success', text: 'Aluno removido com sucesso.' }));
 });
 
 // Rota para renomear a turma (Admin)
