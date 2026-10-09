@@ -15,9 +15,9 @@
       } catch (e) {}
     })();
     </script>
-    <link rel="stylesheet" href="/theme.css">
-    <link rel="stylesheet" href="/home.css">
-    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+    <link rel="stylesheet" href="/theme.css?v=3">
+    <link rel="stylesheet" href="/home.css?v=5">
+    <link rel="icon" href="/images/fenix-new.png" type="image/png">
 </head>
 <body>
     <div class="theme-switch-floating">
@@ -58,7 +58,7 @@
 
     <div class="container">
         <div class="header-logo">
-            <img src="/images/fenix.png" alt="Logo Fênix" class="logo">
+            <img src="/images/fenix.svg" alt="Logo Fênix" class="logo">
         </div>
         <div class="eyebrow">Audição de Bolsistas</div>
         <h1>Sistema de Avaliação</h1>
@@ -67,10 +67,16 @@
         </p>
 
         <% if (typeof message !== 'undefined' && message) { %>
-            <div id="toast-data" data-message="<%= message %>" data-type="error" style="display:none"></div>
+            <div id="toast-data" data-message="<%= message %>" data-type="error" data-forgot="<%= /inv[aá]lidos|Muitas tentativas/i.test(String(message)) ? '1' : '' %>" style="display:none"></div>
             <script>
                 document.addEventListener('DOMContentLoaded', () => {
                     const dataEl = document.getElementById('toast-data');
+                    // Login falhou (página recarregada pelo servidor): mostra "Esqueci a senha"
+                    if (dataEl && dataEl.dataset.forgot === '1') {
+                        const forgot = document.getElementById('forgotLink');
+                        if (forgot) forgot.style.display = '';
+                        try { sessionStorage.setItem('avaliForgot', '1'); } catch (e) {}
+                    }
                     if (window.showToast && dataEl) {
                         showToast(dataEl.dataset.message, dataEl.dataset.type);
                     }
@@ -88,7 +94,6 @@
                         name="name" 
                         placeholder="Ex: Eduarda Cavalcante" 
                         required 
-                        autofocus
                         autocomplete="off"
                     >
                     <span class="status-dot" id="statusDot"></span>
@@ -119,11 +124,24 @@
                 </div>
             </label>
 
+            <% if (typeof webauthn !== 'undefined' && webauthn.enabled) { %>
+            <style>
+                .bio-panel { display: grid; gap: 4px; margin-top: 4px; }
+                #bioLoginBtn { width: 100%; }
+                .bio-link { background: transparent; color: inherit; box-shadow: none; min-height: 36px; padding: 6px 10px; font-size: .9rem; font-weight: 600; text-decoration: underline; opacity: .75; }
+                .bio-link:hover { background: transparent; transform: none; box-shadow: none; opacity: 1; }
+            </style>
+            <div class="bio-panel" id="bioPanel" style="display:none">
+                <button type="button" id="bioLoginBtn">Entrar com biometria</button>
+                <button type="button" id="bioUsePassword" class="bio-link">Usar a senha</button>
+            </div>
+            <% } %>
             <button type="button" id="loginBtn" disabled>Entrar na Avaliação</button>
         </form>
 
         <div class="actions">
-            <a href="/professor/redefinir-senha" class="action-link">Esqueci a senha</a>
+            
+            <a href="/professor/redefinir-senha" class="action-link" id="forgotLink" style="display:none">Esqueci a senha</a>
             <!-- <a href="/admin/login" class="action-link">Painel ao vivo</a> -->
             <a href="/admin" class="action-link admin">Acessar painel administrativo</a>
         </div>
@@ -196,6 +214,7 @@
         }
 
         function hidePassword() {
+            hideBioPanel();
             passwordGroup.classList.remove('visible');
             passwordInput.disabled = true;
             passwordInput.value = '';
@@ -239,8 +258,16 @@
                 if (nameInput.value.trim() !== name) return;
 
                 if (data.exists) {
-                    setStatus('success');
-                    showPassword();
+                    if (bioAvailableFor(name)) {
+                        // Este aparelho já tem a biometria desse professor: oferece a biometria no lugar da senha
+                        hidePassword();
+                        setStatus('success', 'Entre com sua biometria');
+                        showBioPanel();
+                    } else {
+                        hideBioPanel();
+                        setStatus('success');
+                        showPassword();
+                    }
                 } else {
                     setStatus('error', 'Informe o nome completo');
                     hidePassword();
@@ -269,6 +296,70 @@
             }, 500);
         });
 
+        // "Esqueci a senha" fica escondido até o professor errar o login pelo menos uma vez.
+        // O aviso lembra da tentativa falha durante a aba (sessionStorage).
+        const forgotEl = document.getElementById('forgotLink');
+        function revealForgot() {
+            if (forgotEl) forgotEl.style.display = '';
+            try { sessionStorage.setItem('avaliForgot', '1'); } catch (e) {}
+        }
+        try {
+            if (sessionStorage.getItem('avaliForgot') === '1') revealForgot();
+        } catch (e) {}
+
+        // --- Login por biometria: só aparece se ESTE aparelho já tem a chave do professor digitado ---
+        const bioPanel = document.getElementById('bioPanel');
+        const bioLoginBtn = document.getElementById('bioLoginBtn');
+        const bioUsePassword = document.getElementById('bioUsePassword');
+        const bioRpID = <%- safeJson((typeof webauthn !== 'undefined' && webauthn.enabled) ? webauthn.rpID : '') %>;
+
+        function bioAvailableFor(name) {
+            const api = window.AvaliWebAuthn;
+            return Boolean(bioPanel && api && bioRpID && api.isUsableHere(bioRpID) && api.hasName(name));
+        }
+
+        function showBioPanel() {
+            if (!bioPanel) return;
+            bioPanel.style.display = '';
+            loginBtn.style.display = 'none';
+        }
+
+        function hideBioPanel() {
+            if (bioPanel) bioPanel.style.display = 'none';
+            loginBtn.style.display = '';
+        }
+
+        if (bioPanel && bioLoginBtn && bioUsePassword) {
+            bioUsePassword.addEventListener('click', function () {
+                hideBioPanel();
+                setStatus('success');
+                showPassword();
+            });
+
+            bioLoginBtn.addEventListener('click', function () {
+                const api = window.AvaliWebAuthn;
+                if (!api) return;
+                bioLoginBtn.disabled = true;
+                bioLoginBtn.textContent = 'Aguardando biometria...';
+
+                api.login().then(function (url) {
+                    try { sessionStorage.removeItem('avaliForgot'); } catch (e) {}
+                    window.location.href = url;
+                }).catch(function (error) {
+                    bioLoginBtn.disabled = false;
+                    bioLoginBtn.textContent = 'Entrar com biometria';
+                    // 401: a chave não vale mais (removida/revogada). Volta para a senha.
+                    if (error && error.serverSide && error.status === 401) {
+                        api.removeName(nameInput.value.trim());
+                        hideBioPanel();
+                        setStatus('success');
+                        showPassword();
+                    }
+                    if (window.showToast) showToast(api.friendlyError(error), 'error');
+                });
+            });
+        }
+
         // Login via fetch (evita abrir nova aba)
         async function doLogin() {
             const name = nameInput.value.trim();
@@ -293,6 +384,8 @@
                 // Se o servidor redirecionou (302), seguimos manualmente
                 const redirectUrl = res.headers.get('Location');
                 if (res.status === 0 || res.status === 302 || res.redirected || redirectUrl) {
+                    try { sessionStorage.removeItem('avaliForgot'); } catch (e) {}
+                    try { sessionStorage.setItem('avaliJustLoggedIn', '1'); } catch (e) {}
                     // Tenta pegar o Location header ou faz redirect baseado no nome
                     if (redirectUrl) {
                         window.location.href = redirectUrl;
@@ -305,9 +398,15 @@
                 // Se não redirecionou, pode ter dado erro
                 const html = await res.text();
                 // Verifica se a resposta contém mensagem de erro
-                if (html.includes('Professor ou senha inválidos') || res.status === 200) {
+                if (res.status === 429) {
                     loginBtn.disabled = false;
                     loginBtn.textContent = 'Entrar na Avaliação';
+                    revealForgot();
+                    if (window.showToast) showToast('Muitas tentativas. Aguarde alguns minutos e tente novamente.', 'error');
+                } else if (html.includes('Professor ou senha inválidos') || res.status === 200) {
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Entrar na Avaliação';
+                    revealForgot();
                     if (window.showToast) showToast('Professor ou senha inválidos.', 'error');
                 }
             } catch (err) {
@@ -336,6 +435,12 @@
                 }
             }
         });
+
+        try {
+            nameInput.focus({ preventScroll: true });
+        } catch (e) {
+            nameInput.focus();
+        }
     })();
     </script>
     <script>
@@ -355,6 +460,9 @@
         });
     })();
     </script>
+    <% if (typeof webauthn !== 'undefined' && webauthn.enabled) { %>
+    <script src="/webauthn.js?v=2"></script>
+    <% } %>
     <script src="/theme.js"></script>
 </body>
 </html>

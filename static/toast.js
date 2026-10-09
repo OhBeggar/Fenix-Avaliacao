@@ -11,27 +11,29 @@
     };
 
     const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
     toast.style.cssText = `
       position: fixed;
       top: 20px;
       right: 20px;
       padding: 16px 24px;
-      border-radius: 12px;
+      border-radius: var(--radius-sm, 10px);
       color: white;
       font-weight: 600;
-      font-family: "Segoe UI", Arial, sans-serif;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      font-family: inherit;
+      box-shadow: var(--shadow-lg, 0 8px 28px rgba(0, 0, 0, 0.6));
       z-index: 10000;
       min-width: 280px;
-      animation: slideInRight 0.4s ease-out;
       background: ${colors[type] || colors.info};
     `;
     toast.textContent = message;
     document.body.appendChild(toast);
 
     setTimeout(() => {
-      toast.style.animation = 'fadeOut 0.3s ease-out forwards';
-      setTimeout(() => toast.remove(), 320);
+      toast.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(-12px) scale(0.96)';
+      setTimeout(() => toast.remove(), 260);
     }, duration);
   };
 })();

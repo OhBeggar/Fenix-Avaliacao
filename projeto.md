@@ -1,115 +1,241 @@
-# Sistema de Avaliação de Bolsistas - Fênix Dança
+# Sistema de Avaliação de Bolsistas — Fênix Dança
 
 ## Visão Geral
-Aplicação web profissional para registro e consolidação de avaliações de candidatos à audição de bolsistas da Fênix Dança de Salão. O sistema conta com segurança de acesso por professores, organização por turmas, sessões temporárias com códigos PIN e geração de relatórios PDF com títulos dinâmicos.
+
+Aplicação web para registro, consolidação e arquivamento de avaliações de candidatos à audição de bolsistas da **Fênix Dança de Salão** (Rio Branco – Acre).
+
+O sistema oferece:
+- Acesso seguro para professores e secretaria
+- Organização por turmas e sessões temporárias com PIN
+- Lançamento de notas em tempo real (celular, tablet ou desktop)
+- Consolidação oficial com maioria simples
+- Histórico congelado e exportação em PDF e Excel
+- Interface com tema claro/escuro (OLED)
+
+---
 
 ## Base Documental
-O sistema segue as regras oficiais definidas nos documentos de referência da audição:
-- `AUDIÇÃO BOLSISTAS 2024_2 PARA AUXILIARES 2025_2.pdf`
+
+Regras oficiais de referência:
+- `AUDIÇÃO BOLSISTAS 2024_2 PARA AUXILIARES 2025_2.pdf` (e documentos equivalentes de semestres posteriores)
+
+A implementação atual usa a **fórmula B** (médias ponderadas em escala 0–10), alinhada à planilha Excel da Fênix. Ela substituiu o modelo antigo de 250 pontos (20 + 80 + 150), que segue equivalente em espírito.
+
+---
 
 ## Regras de Negócio
 
 ### Hierarquia e Progressão
-- **Status:** Bolsista → Auxiliar → Assistente → Monitor → Professor.
-- **Promoção:** Ao ser aprovado, o candidato avança automaticamente um nível na hierarquia (ex: Bolsista aprovado torna-se Auxiliar).
 
-### Modelo de Pontuação
-- **Peso 1:** Presença auxílios + Comprometimento (20 pts)
-- **Peso 2:** Deslocamento/Floreio (80 pts)
-- **Peso 3:** Demais critérios (150 pts)
-- **Total:** 250 pontos
-- **Aprovação por pontos:** 175 pontos, equivalentes a 70% de 250.
-- **Nota Final:** Escala de 0 a 10 (Pontuação / 25). Assim, 175 pontos equivalem a nota 7,0.
+- **Patentes:** Bolsista → Auxiliar → Assistente → Monitor → Professor
+- **Promoção:** no fechamento oficial, o candidato **aprovado** sobe um nível (ex.: Bolsista → Auxiliar)
+- Na interface, a secretaria ajusta o status dos alunos entre Bolsista e Auxiliar
 
-### Regra de Aprovação
-O candidato deve cumprir **todos** os requisitos abaixo:
-1. Presença nas aulas $\ge$ 80% (Eliminatória)
-2. Nota final $\ge$ 7,0 (175 pontos ou mais)
-3. Aprovação pela maioria simples dos avaliadores ativos
+### Presença (gate eliminatório)
 
-Maioria simples significa **mais da metade** dos avaliadores, portanto empate reprova. Exemplos:
-- 2 avaliadores: aprova com 2/2; reprova com 1/2.
-- 3 avaliadores: aprova com 2/3.
-- 9 avaliadores: aprova com 5/9.
-- 10 avaliadores: aprova com 6/10.
-- 16 avaliadores: aprova com 9/16.
-- 22 avaliadores: aprova com 12/22.
+- Presença nas aulas **≥ 80%**. Quem não atinge é **automaticamente reprovado**, independentemente das notas técnicas.
+- Modelo simplificado: cada turma tem um **total de aulas** e cada aluno um número de **aulas presentes**. A porcentagem é `presentes / total`.
+- Se a turma não tem total de aulas definido, vale a presença manual do aluno.
+- A porcentagem de presença **não entra** na nota final.
 
-### Escala de Avaliação
-- Notas inteiras de **1 a 10**.
-- **X** para item não avaliado. O `X` não entra na média daquele critério; se um critério ficar sem nenhuma nota válida, ele conta como zero na consolidação final.
+### Modelo de pontuação (fórmula B)
+
+Notas inteiras de **1 a 10** por critério (ou **X** = não avaliado).
+
+| Peso | % da nota final | Critérios |
+|------|-----------------|-----------|
+| **1** | **10%** | Presença e comportamento nos auxílios · Comprometimento e participação em eventos |
+| **2** | **30%** | Deslocamento/Floreio · Abraço e postura · Equilíbrio |
+| **3** | **60%** | Passos · Ritmo · Corpo do ritmo · Condução · Musicalidade |
+
+**Nota final** = `(médiaPeso1 × 0,1) + (médiaPeso2 × 0,3) + (médiaPeso3 × 0,6)`, arredondada a uma casa decimal.
+
+- **Deslocamento/Floreio:** um único campo na interface. Deslocamento para cavalheiro, Floreio para dama, conforme o gênero do candidato.
+- **X** não entra na média do critério. Se um critério ficar sem nenhuma nota válida entre os avaliadores, conta como zero na consolidação.
+- Na aprovação individual de cada professor, critérios marcados com `X` ou em branco são preenchidos com a média global do critério, para o aluno não receber zero por um item não avaliado.
+
+### Regra de aprovação
+
+O candidato precisa cumprir **todos** os itens:
+
+1. Presença nas aulas **≥ 80%** (eliminatória)
+2. Nota final **≥ 7,0**
+3. Aprovação pela **maioria simples** dos avaliadores ativos (mais da metade; empate reprova). Cada avaliador aprova individualmente se a nota final calculada com as notas dele for ≥ 7,0.
+
+Exemplos de maioria:
+- 2 avaliadores → aprova com 2/2
+- 3 avaliadores → aprova com 2/3
+- 9 avaliadores → aprova com 5/9
+- 10 avaliadores → aprova com 6/10
+
+### Avaliadores ativos
+
+Um avaliador é considerado **online** se teve atividade na sessão nos últimos `EVALUATOR_ONLINE_WINDOW_MINUTES` (padrão 30). Só os avaliadores ativos entram na consolidação e na maioria.
+
+---
 
 ## Arquitetura Técnica
 
 ### Stack
-- **Backend:** Node.js + Express
-- **Banco de Dados:** SQLite (via `node:sqlite` nativo)
-- **Frontend:** EJS + CSS3 (Variáveis e Animações)
-- **PDF:** `pdf-lib`
 
-### Estrutura de Arquivos
+| Camada | Tecnologia |
+|--------|------------|
+| Backend | Node.js + Express 5 |
+| Banco | SQLite (`node:sqlite` nativo) |
+| Views | EJS |
+| Estilo | CSS moderno (variáveis, claro/escuro OLED) |
+| PDF | pdf-lib |
+| Excel | ExcelJS |
+| Terminal | qrcode (QR Code de acesso ao iniciar) |
+| Testes | Node test runner (`node --test`) |
+
+### Estrutura de arquivos
+
 ```text
-├── app.js                 # Rotas e Middleware
-├── .env                   # Configurações sensíveis
-├── load-env.js            # Carregamento manual de variáveis
+├── app.js                          # Rotas e middlewares
+├── load-env.js                     # Carrega o .env
+├── .env / .env.example
 ├── src/
+│   ├── config.js
+│   ├── constants.js                # Critérios por gênero
+│   ├── db/index.js                 # Conexão SQLite
+│   ├── data/default-candidates.js  # Seed inicial
 │   ├── services/
-│   │   ├── evaluation-service.js  # Lógica de negócio e DB
-│   │   ├── scoring-rules.js       # Cálculos matemáticos
-│   │   └── pdf-service.js         # Geração do relatório
-│   ├── utils/
-│   │   ├── admin-auth.js          # Sessão do Admin
-│   │   └── network.js             # Detecção de IP local
-│   ├── data/
-│   │   └── default-candidates.js
-│   └── db/index.js        # Conexão SQLite
-└── templates/             # Views EJS
+│   │   ├── evaluation-service.js   # Negócio + banco
+│   │   ├── scoring-rules.js        # Fórmula B
+│   │   ├── pdf-service.js          # Relatório PDF
+│   │   └── export-excel.js         # Relatório Excel
+│   └── utils/
+│       ├── admin-auth.js           # Sessão do admin
+│       ├── teacher-auth.js         # Sessão do professor
+│       └── network.js              # URLs de acesso
+├── templates/                      # Views EJS
+├── static/                         # CSS, JS e imagens
+└── tests/
 ```
 
-## Fluxos Principais
+### Modelo de dados (tabelas principais)
 
-### 1. Administrador
-**Acesso:** `/admin/login` (Senha via `.env`).
+`candidates` (alunos) · `evaluators` (professores) · `turmas` · `sessions` (PINs) · `scores` · `evaluator_session_presence` · `teacher_reset_tokens` · `evaluation_events` e `evaluation_snapshots` (histórico oficial) · `candidate_fixed_scores`.
+
+---
+
+## Fluxos principais
+
+### 1. Secretaria (Admin)
+
+**Acesso:** `/admin/login` (senha via `.env`), depois `/admin`.
+
 **Funções:**
-- Cadastrar/Remover Professores (com senha).
-- Criar Turmas e vincular Alunos.
-- Iniciar Sessão de Audição (Gera PIN de 4 dígitos).
-- Gerenciar candidatos (CRUD).
+- Dashboard com KPIs
+- Cadastro de professores, turmas e alunos (individual e em lote)
+- Geração de PIN de audição (4 dígitos, válido no dia, expira em 6 h) e encerramento de sessão
+- Página da turma: presença, status (Bolsista/Auxiliar), renomear turma, desvínculo de aluno
+- Fechamento de semestre e reabertura (gera novo PIN)
+- Histórico oficial (snapshot) com exportação em PDF e Excel
+- Reset de senha de professor (código de 5 dígitos, 30 min, uso único)
+- Exclusão definitiva de aluno (aba Alunos) vs. desvínculo da turma (página da turma)
 
-### 2. Professor Avaliador
-**Login:** Nome + Senha em `/`.
-**Seleção:** Escolhe a Turma da avaliação.
-**Validação:** Insere o PIN de sessão fornecido pelo Admin.
-**Avaliação:** Preenche notas. O sistema salva e persiste os dados (não perde ao recarregar).
+### 2. Professor avaliador
 
-### 3. Consolidação
-**Resultados:** `/results`. Atualiza em tempo real (auto-refresh).
-**Filtros:** Possibilidade de filtrar resultados por Turma.
-**PDF:** Exportação com nome dinâmico baseado na patente dos alunos.
+- **Login:** nome + senha em `/avaliacao`
+- **Turmas:** escolhe a turma em `/turmas/:nome`
+- **PIN:** informa o PIN gerado pela secretaria para liberar a avaliação
+- **Avaliação:** lança notas em `/evaluate/:nome`, com salvamento sem recarregar a página
+- **Professor responsável pela turma:** também edita presença (total de aulas e aulas presentes) e os ritmos avaliados
+- **Redefinição de senha:** em `/professor/redefinir-senha`, com o código gerado pela secretaria
 
-## Configuração (config.js)
-Variáveis de ambiente obrigatórias no `.env`:
-- `PORT`: Porta do servidor (Padrão: 5000)
-- `HOST`: Interface de escuta (Use 0.0.0.0 para rede local)
-- `ADMIN_PASSWORD`: Senha mestra do painel
-- `ADMIN_COOKIE_SECRET`: Hash para segurança do cookie
-- `EVALUATOR_ONLINE_WINDOW_MINUTES`: Janela de tempo para considerar avaliador "online"
+### 3. Consolidação e histórico
 
-## Estado Atual
+- **Ao vivo:** `/results?turmaId=` (médias por critério, nota final, maioria), restrito ao admin. Sem sessão ativa, redireciona para o histórico.
+- **Fechamento:** ao fechar o semestre, o sistema grava o snapshot em `/results/history`, promove os aprovados e zera notas e presença da turma para o próximo ciclo.
+- **Exportação:** PDF e Excel a partir dos resultados ao vivo ou do snapshot histórico.
 
-### ✅ Resolvido
-- **Segurança:** Login de professores e Painel Admin protegido.
-- **Organização:** Sistema de Turmas e Vinculação de Alunos.
-- **Acesso Temporário:** Códigos PIN de 4 dígitos para sessões.
-- **Persistência:** Notas salvas no banco e recuperadas ao recarregar.
-- **PDF Dinâmico:** Título e lógica de patente automática.
-- **UX/UI:** Animações, Transições, Toast Notifications e Scrollbar customizada.
-- **Rede:** QR Code de acesso rápido no terminal ao iniciar.
+---
 
-[![This Website is Powered by DigitalPlat FreeDomain Get a free domain from DigitalPlat.](https://img.shields.io/badge/DigitalPlat-Get%20a%20free%20domain%20from%20DigitalPlat.-e2e8f0?style=flat-square&logo=databricks&logoColor=ffffff)](https://dash.domain.digitalplat.org/signup?ref=gBJOEoVVvW)
+## Configuração
 
-### 🚧 Pendências / Melhorias Futuras
-- Configuração de DNS local (ex: `fenix.local`) para acesso amigável.
-- Backup automático do banco de dados `evaluations.db`.
-- Logs de auditoria (quem alterou o quê e quando).
-- Suporte a temas (Light/Dark mode).
+Variáveis no `.env`:
+
+```env
+PORT=5000
+HOST=0.0.0.0
+ADMIN_PASSWORD=troque-esta-senha
+ADMIN_COOKIE_SECRET=troque-este-segredo
+EVALUATOR_ONLINE_WINDOW_MINUTES=30
+```
+
+Opcionais: `PUBLIC_BASE_URL` (URL pública mostrada no terminal/QR Code) e `EVALUATIONS_DB_PATH` (caminho do banco; padrão `./evaluations.db`).
+
+Com `NODE_ENV=production`, o servidor recusa iniciar com senha/segredo vazios ou de exemplo.
+
+```bash
+npm install
+npm start       # servidor
+npm test        # testes
+npm run check   # sintaxe
+```
+
+---
+
+## Deploy e acesso público
+
+Produção atual:
+
+- **Cloudflare Tunnel** (`cloudflared`)
+- Domínio **DigitalPlat** (`.us.kg`), ex.: `https://ohbeggar.us.kg`
+- HTTPS fornecido pelo túnel
+- App Node em `HOST=0.0.0.0` + porta do `.env` (padrão `5000`)
+
+Fluxo:
+
+```text
+Professor / Secretaria  →  https://ohbeggar.us.kg  →  Cloudflare Tunnel  →  localhost:5000
+```
+
+Acesso por IP local (`http://192.168.x.x:5000`) continua válido na LAN.
+`fenix.local` é opcional e só faz sentido em rede sem túnel/internet.
+
+### Boas práticas de operação
+
+- Rodar o tunnel de forma persistente (serviço Windows ou script de inicialização)
+- Não commitar tokens do Cloudflare nem o arquivo `.env`
+- Backup periódico de `evaluations.db`
+
+---
+
+## Estado atual
+
+### Concluído
+
+- Login de professores e painel admin protegido (CSRF, cookies, senhas com scrypt)
+- Turmas, alunos e status
+- Presença simplificada (total de aulas x aulas presentes)
+- PIN de sessão de audição
+- Fórmula B (10% / 30% / 60%)
+- Histórico oficial com snapshot, promoção de patente e reabertura de semestre
+- Exportação em PDF e Excel
+- Cadastro em lote de alunos
+- Reset de senha por código de 5 dígitos
+- Ritmos avaliados por turma
+- Tema claro/escuro OLED, toasts, interface mobile
+- Separação clara entre exclusão do sistema e desvínculo da turma
+- Deploy público via Cloudflare Tunnel + domínio `.us.kg` (DigitalPlat), com execução via PM2
+- Endurecimento de segurança: limite de tentativas, CSRF amarrado à sessão, chaves de cookie separadas, sessão do professor invalidada ao trocar a senha, política de senha e cabeçalhos extras
+- Login por biometria (WebAuthn/passkeys) para professores e para o admin, com revogação pelo admin (`@simplewebauthn/server`)
+- 78 testes automatizados passando (`npm test`)
+
+### Melhorias futuras (opcional)
+
+- Backup automático do banco `evaluations.db`
+- Logs de auditoria (quem alterou o quê e quando)
+- Entrega automática do código de reset por e-mail/WhatsApp
+
+---
+
+## Contato da escola
+
+**Fênix Dança de Salão**
+Instagram: [@centrodedancasfenix](https://instagram.com/centrodedancasfenix)
+Prédio da Livraria Pain — 2º piso
+Rua Rio Grande do Sul, 182 — Centro · Rio Branco – Acre

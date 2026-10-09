@@ -382,7 +382,7 @@ test('session SSE payload never exposes active PIN code', async () => {
     try {
         const { port } = server.address();
         const received = await new Promise((resolve, reject) => {
-            const req = http.request({ port, path: '/events', method: 'GET' }, (res) => {
+            const req = http.request({ port, path: '/events', method: 'GET', headers: { Cookie: adminCookie() } }, (res) => {
                 res.setEncoding('utf8');
                 res.on('data', (chunk) => {
                     if (!chunk.includes('session_started')) return;
@@ -455,7 +455,8 @@ test('evaluator heartbeat requires evaluation cookie and stops after session clo
         const csrfToken = await getTeacherCsrf(server, teacher.name, teacherCookie);
         const unsigned = await getJson(
             server,
-            `/api/evaluators/status?evaluatorName=${encodeURIComponent(teacher.name)}&turmaId=${turma.id}`
+            `/api/evaluators/status?evaluatorName=${encodeURIComponent(teacher.name)}&turmaId=${turma.id}`,
+            { Cookie: teacherCookie }
         );
         assert.equal(unsigned.json.sessionClosed, false);
         assert.equal(unsigned.json.activeCount, 0);

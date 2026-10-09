@@ -16,7 +16,7 @@
     })();
     </script>
     <link rel="stylesheet" href="/theme.css">
-    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+    <link rel="icon" href="/images/fenix-new.png" type="image/png">
     <link rel="stylesheet" href="/resultados.css?v=2">
 </head>
 <body>
@@ -35,14 +35,14 @@
     <main class="results-shell">
         <header class="results-header">
             <div class="results-header-top">
-                <img src="/images/icons8-fenix-cute-color-96.png" alt="Fênix Dança">
+                <img src="/images/fenix-app.png?v=2" alt="Fênix Dança">
                 <div class="header-text">
                     <span class="eyebrow"><%= isHistorical ? 'HISTÓRICO OFICIAL' : 'CONSOLIDAÇÃO OFICIAL' %></span>
                     <h1><%= dynamicTitle %></h1>
                 </div>
             </div>
             <p class="results-subtitle">
-                Resultados finais com médias por critério, nota final e maioria simples.
+                Resultados finais.
                 <button type="button" class="help-tip" id="rulesHelpBtn" aria-label="Ver regras de aprovação" title="Regras de aprovação">?</button>
             </p>
             <p class="active-summary">
@@ -221,7 +221,7 @@
     </main>
 
     <script>
-        const rawResults = <%- JSON.stringify(results || []) %>;
+        const rawResults = <%- safeJson(results || []) %>;
 
         function updateTable(evaluatorId) {
             const isGlobal = evaluatorId === 'global';

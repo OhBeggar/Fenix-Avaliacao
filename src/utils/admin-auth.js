@@ -1,59 +1,29 @@
-const crypto = require('crypto');
 const config = require('../config');
+const {
+    deriveKey,
+    signPayload,
+    readSignedPayload,
+    parseCookieHeader,
+} = require('./security');
 
 const ADMIN_COOKIE_NAME = config.adminCookieName;
 const ADMIN_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 8;
 
-function getSigningSecret() {
-    return config.adminCookieValue || config.adminPassword || 'avali-admin-cookie-secret';
-}
-
-function signValue(value) {
-    return crypto.createHmac('sha256', getSigningSecret()).update(value).digest('base64url');
-}
+// Chave exclusiva do admin, derivada do segredo principal.
+const ADMIN_KEY = deriveKey(
+    config.adminCookieValue || config.adminPassword || 'avali-admin-cookie-secret',
+    'admin'
+);
 
 function signAdminPayload(payload) {
-    const raw = Buffer.from(JSON.stringify(payload)).toString('base64url');
-    return `${raw}.${signValue(raw)}`;
+    return signPayload(payload, ADMIN_KEY);
 }
 
 function readAdminPayload(token) {
-    if (!token || !token.includes('.')) return null;
-
-    const [raw, signature] = token.split('.');
-    const expected = signValue(raw);
-    if (!signature || Buffer.byteLength(signature) !== Buffer.byteLength(expected)) return null;
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
-
-    try {
-        const payload = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
-        if (!payload || payload.type !== 'admin') return null;
-        if (!payload.exp || Date.now() > Number(payload.exp)) return null;
-        return payload;
-    } catch {
-        return null;
-    }
-}
-
-function parseCookies(req) {
-    const rawCookie = req.headers.cookie || '';
-
-    return rawCookie
-        .split(';')
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .reduce((acc, item) => {
-            const separatorIndex = item.indexOf('=');
-
-            if (separatorIndex === -1) {
-                return acc;
-            }
-
-            const key = item.slice(0, separatorIndex);
-            const value = item.slice(separatorIndex + 1);
-            acc[key] = decodeURIComponent(value);
-            return acc;
-        }, {});
+    const payload = readSignedPayload(token, ADMIN_KEY);
+    if (!payload || payload.type !== 'admin') return null;
+    if (!payload.exp) return null;
+    return payload;
 }
 
 function isAdminAuthenticated(req) {
@@ -61,7 +31,7 @@ function isAdminAuthenticated(req) {
         return false;
     }
 
-    const cookies = parseCookies(req);
+    const cookies = parseCookieHeader(req.headers.cookie);
     return Boolean(readAdminPayload(cookies[ADMIN_COOKIE_NAME]));
 }
 
@@ -96,4 +66,5 @@ module.exports = {
     setAdminCookie,
     clearAdminCookie,
     signAdminPayload,
+    readAdminPayload,
 };

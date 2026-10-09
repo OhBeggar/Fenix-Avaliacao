@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="/theme.css">
     <link rel="stylesheet" href="/home.css">
     <link rel="stylesheet" href="/turmas.css">
-    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+    <link rel="icon" href="/images/fenix-new.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
@@ -27,7 +27,7 @@
     <div class="turmas-container">
         <header class="turmas-header">
             <div style="display:flex; gap:12px; align-items:center; justify-content:center; margin-bottom: 8px;">
-                <img src="/images/icons8-fenix-cute-color-70.png" alt="Icon" style="height: 40px; width: auto;">
+                <img src="/images/fenix-app.png?v=2" alt="Icon" style="height: 40px; width: auto;">
                 <div>
                     <span class="eyebrow">Bem-vindo, <%= evaluatorName %></span>
                     <h1>Selecione a Turma</h1>
@@ -86,6 +86,29 @@
         <% } %>
     </div>
 
+    <% if (typeof webauthn !== 'undefined' && webauthn.enabled) { %>
+    <!-- Biometria: link discreto no rodapé + janela (aviso único após o login e gerenciamento) -->
+    <style>
+        .bio-footer { text-align: center; margin: 4px 0 32px; }
+        .bio-footer a { color: var(--muted); font-size: .85rem; text-decoration: underline; }
+        .bio-device-list { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; text-align: left; }
+        .bio-device-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); font-size: .9rem; }
+        .bio-device-list small { color: var(--muted); display: block; }
+        .bio-never { display: block; margin: 14px auto 0; background: none; border: none; box-shadow: none; min-height: auto; padding: 6px 10px; color: var(--muted); font-size: .82rem; font-weight: 500; text-decoration: underline; cursor: pointer; }
+        .bio-never:hover { background: none; transform: none; box-shadow: none; color: var(--ink); }
+    </style>
+    <p class="bio-footer" id="bioFooter" style="display:none"><a href="#" id="bioManageLink">Gerenciar biometria</a></p>
+    <div class="modal-backdrop" id="bioModal" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="bioTitle">
+            <h3 id="bioTitle">Biometria</h3>
+            <p id="bioText"></p>
+            <ul class="bio-device-list" id="bioDeviceList"></ul>
+            <div class="modal-actions" id="bioActions"></div>
+            <button type="button" class="bio-never" id="bioNever" style="display:none">Não perguntar mais neste aparelho</button>
+        </div>
+    </div>
+    <% } %>
+
     <!-- Modal de PIN da Avaliação -->
     <div class="modal-backdrop" id="evaluationModal">
         <div class="modal-card">
@@ -100,11 +123,197 @@
         </div>
     </div>
 
+    <% if (typeof webauthn !== 'undefined' && webauthn.enabled) { %>
+    <script src="/webauthn.js?v=2"></script>
+    <script>
+        // Biometria: aviso único depois do login com senha + gerenciamento discreto no rodapé.
+        document.addEventListener('DOMContentLoaded', function () {
+            var api = window.AvaliWebAuthn;
+            var modal = document.getElementById('bioModal');
+            var footer = document.getElementById('bioFooter');
+            if (!api || !modal || !footer) return;
+
+            var rpID = <%- safeJson(webauthn.rpID) %>;
+            if (!api.isUsableHere(rpID)) return;
+
+            var cfg = JSON.parse(document.getElementById('turmas-config').textContent || '{}');
+            var csrf = cfg.csrfToken;
+            var teacherName = cfg.evaluatorName;
+            var titleEl = document.getElementById('bioTitle');
+            var textEl = document.getElementById('bioText');
+            var listEl = document.getElementById('bioDeviceList');
+            var actionsEl = document.getElementById('bioActions');
+            var neverEl = document.getElementById('bioNever');
+            var devices = [];
+            var max = 5;
+
+            function toast(message, type) {
+                if (window.showToast) showToast(message, type || 'info');
+            }
+
+            function formatDate(value) {
+                if (!value) return '';
+                var date = new Date(String(value).replace(' ', 'T') + 'Z');
+                return isNaN(date.getTime()) ? '' : date.toLocaleDateString('pt-BR');
+            }
+
+            function openModal() {
+                modal.classList.add('active');
+                modal.setAttribute('aria-hidden', 'false');
+            }
+
+            function closeModal() {
+                modal.classList.remove('active');
+                modal.setAttribute('aria-hidden', 'true');
+            }
+
+            function makeButton(label, className, handler) {
+                var button = document.createElement('button');
+                button.type = 'button';
+                if (className) button.className = className;
+                button.textContent = label;
+                button.addEventListener('click', handler);
+                return button;
+            }
+
+            function refresh() {
+                return api.listDevices().then(function (data) {
+                    max = data.max || max;
+                    devices = data.credentials || [];
+                    // o servidor não tem mais nenhuma chave: este aparelho volta a usar só a senha
+                    if (!devices.length) api.removeName(teacherName);
+                });
+            }
+
+            function activate(button) {
+                button.disabled = true;
+                button.textContent = 'Aguardando biometria...';
+                api.register(csrf, undefined, teacherName).then(function (list) {
+                    devices = list;
+                    closeModal();
+                    toast('Biometria ativada neste aparelho.', 'success');
+                }).catch(function (error) {
+                    if (error && error.name === 'InvalidStateError') {
+                        // A chave já existe neste aparelho (ex.: sincronizada pela conta Google/Apple).
+                        api.addName(teacherName);
+                        closeModal();
+                        toast('Este aparelho já está com a biometria ativada.', 'success');
+                        return refresh();
+                    }
+                    button.disabled = false;
+                    button.textContent = 'Ativar biometria';
+                    toast(api.friendlyError(error), 'error');
+                });
+            }
+
+            function renderDevices() {
+                listEl.innerHTML = '';
+                devices.forEach(function (device) {
+                    var li = document.createElement('li');
+                    var info = document.createElement('div');
+                    var label = document.createElement('span');
+                    label.textContent = device.label;
+                    var meta = document.createElement('small');
+                    var used = device.lastUsedAt ? 'usado em ' + formatDate(device.lastUsedAt) : 'ainda não usado';
+                    meta.textContent = 'cadastrado em ' + formatDate(device.createdAt) + ' · ' + used;
+                    info.appendChild(label);
+                    info.appendChild(meta);
+
+                    var remove = makeButton('Remover', 'ghost-link', function () {
+                        if (!window.confirm('Remover "' + device.label + '"? Esse aparelho volta a precisar da senha.')) return;
+                        remove.disabled = true;
+                        api.removeDevice(device.id, csrf).then(function (remaining) {
+                            devices = remaining;
+                            if (!remaining.length) api.removeName(teacherName);
+                            toast('Aparelho removido.', 'success');
+                            openManage();
+                        }).catch(function (error) {
+                            remove.disabled = false;
+                            toast(api.friendlyError(error), 'error');
+                        });
+                    });
+                    remove.style.padding = '6px 12px';
+
+                    li.appendChild(info);
+                    li.appendChild(remove);
+                    listEl.appendChild(li);
+                });
+            }
+
+            // Aviso único, logo depois de entrar com a senha
+            function openPrompt() {
+                titleEl.textContent = 'Entrar mais rápido?';
+                textEl.textContent = 'Da próxima vez, ao digitar seu nome, você entra com a digital ou o rosto, sem digitar a senha.';
+                listEl.innerHTML = '';
+                actionsEl.innerHTML = '';
+                actionsEl.appendChild(makeButton('Agora não', 'btn-cancel', function () {
+                    api.snoozeAsk(teacherName);
+                    closeModal();
+                }));
+                var enable = makeButton('Ativar biometria', '', function () { activate(enable); });
+                actionsEl.appendChild(enable);
+                neverEl.style.display = '';
+                neverEl.onclick = function () {
+                    api.neverAsk(teacherName);
+                    closeModal();
+                    toast('Tudo bem. Você pode ativar depois em "Gerenciar biometria".', 'info');
+                };
+                openModal();
+            }
+
+            // Gerenciar aparelhos (link no rodapé)
+            function openManage() {
+                var active = api.hasName(teacherName);
+                titleEl.textContent = 'Biometria';
+                textEl.textContent = active
+                    ? 'Ativa neste aparelho. Ao digitar seu nome, você entra com a digital ou o rosto.'
+                    : 'Ative neste aparelho para entrar sem digitar a senha.';
+                renderDevices();
+                actionsEl.innerHTML = '';
+                neverEl.style.display = 'none';
+                actionsEl.appendChild(makeButton('Fechar', 'btn-cancel', closeModal));
+                if (!active && devices.length < max) {
+                    var enable = makeButton('Ativar neste aparelho', '', function () { activate(enable); });
+                    actionsEl.appendChild(enable);
+                }
+                openModal();
+            }
+
+            document.getElementById('bioManageLink').addEventListener('click', function (event) {
+                event.preventDefault();
+                openManage();
+            });
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal) closeModal();
+            });
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') closeModal();
+            });
+
+            // Versão anterior usava um "sinalizador" único; agora o aparelho lembra o nome de cada professor.
+            api.clearLegacyFlag();
+
+            refresh().then(function () {
+                footer.style.display = '';
+
+                var justLoggedIn = false;
+                try {
+                    justLoggedIn = sessionStorage.getItem('avaliJustLoggedIn') === '1';
+                    sessionStorage.removeItem('avaliJustLoggedIn');
+                } catch (e) { /* ignore */ }
+
+                if (justLoggedIn && !api.hasName(teacherName) && api.shouldAsk(teacherName) && devices.length < max) {
+                    openPrompt();
+                }
+            }).catch(function () { /* sem biometria: não mostra nada */ });
+        });
+    </script>
+    <% } %>
     <script id="turmas-config" type="application/json">
         {
-            "evaluatorName": <%- JSON.stringify(evaluatorName) %>,
-            "activeEvaluationTurmas": <%- JSON.stringify(availableEvaluationTurmas) %>,
-            "csrfToken": <%- JSON.stringify(csrfToken) %>
+            "evaluatorName": <%- safeJson(evaluatorName) %>,
+            "activeEvaluationTurmas": <%- safeJson(availableEvaluationTurmas) %>,
+            "csrfToken": <%- safeJson(csrfToken) %>
         }
     </script>
     <script>

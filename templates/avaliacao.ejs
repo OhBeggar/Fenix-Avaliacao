@@ -18,8 +18,8 @@
     })();
     </script>
     <link rel="stylesheet" href="/theme.css">
-    <link rel="stylesheet" href="/avaliacao.css?v=7">
-    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+    <link rel="stylesheet" href="/avaliacao.css?v=8">
+    <link rel="icon" href="/images/fenix-new.png" type="image/png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 
@@ -27,7 +27,7 @@
     <main class="page-shell">
         <header class="page-header">
             <div class="header-brand">
-                <img src="/images/icons8-fenix-cute-color-70.png" alt="Icon">
+                <img src="/images/fenix-app.png?v=2" alt="Icon">
                 <div>
                     <span class="eyebrow">Professor avaliador</span>
                     <h1>
@@ -199,8 +199,8 @@
     <script src="/toast.js"></script>
     <script id="evaluator-config" type="application/json">
         {
-            "evaluatorName": <%- JSON.stringify(evaluatorName) %>,
-            "turmaId": <%- JSON.stringify(turmaId) %>
+            "evaluatorName": <%- safeJson(evaluatorName) %>,
+            "turmaId": <%- safeJson(turmaId) %>
         }
     </script>
     <script>
@@ -234,20 +234,10 @@
             refreshOnlineEvaluators();
             setInterval(refreshOnlineEvaluators, 20000);
 
-            // --- Feedback visual ---
-            function flashSavedRows() {
-                const rows = document.querySelectorAll('tbody tr');
-                rows.forEach(row => row.classList.add('just-saved'));
-                setTimeout(() => {
-                    rows.forEach(row => row.classList.remove('just-saved'));
-                }, 1800);
-            }
-
             // Compatibilidade: se ainda vier ?saved=1 (submit antigo)
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('saved') === '1') {
                 if (window.showToast) showToast('Notas salvas com sucesso!', 'success');
-                flashSavedRows();
                 const cleanUrl = window.location.protocol + '//' + window.location.host + window.location.pathname +
                     (urlParams.get('turmaId') ? '?turmaId=' + urlParams.get('turmaId') : '');
                 window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
@@ -289,7 +279,6 @@
                         if (window.showToast) {
                             showToast(data.message || 'Notas salvas com sucesso!', 'success');
                         }
-                        flashSavedRows();
 
                     } catch (err) {
                         console.error(err);
@@ -304,18 +293,6 @@
                     }
                 });
             }
-
-            // Feedback leve ao alterar uma célula (funciona em input e change no mobile)
-            document.querySelectorAll('td input[type="text"]').forEach(input => {
-                const triggerFlash = function () {
-                    this.classList.remove('cell-saved');
-                    void this.offsetWidth; // Força reflow para reiniciar a animação no mobile
-                    this.classList.add('cell-saved');
-                    setTimeout(() => this.classList.remove('cell-saved'), 1200);
-                };
-                input.addEventListener('change', triggerFlash);
-                input.addEventListener('input', triggerFlash);
-            });
 
             // Indicação de scroll horizontal
             const wrap = document.querySelector('.table-wrap');

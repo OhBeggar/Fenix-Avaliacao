@@ -12,10 +12,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@simplewebauthn/server": "^14.0.2",
     "cookie-parser": "^1.4.7",
     "ejs": "^4.0.1",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
+    "nodemailer": "^10.0.16",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4"
   }

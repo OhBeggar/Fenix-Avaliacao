@@ -98,6 +98,40 @@ function initDb() {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_teacher_reset_tokens_active
     ON teacher_reset_tokens(evaluator_id, used_at, expires_at)`);
 
+  // Chaves de login por biometria (WebAuthn/passkeys). Guarda só a chave PÚBLICA.
+  db.exec(`CREATE TABLE IF NOT EXISTS webauthn_credentials (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    evaluator_id INTEGER NOT NULL,
+    credential_id TEXT NOT NULL UNIQUE,
+    public_key BLOB NOT NULL,
+    counter INTEGER NOT NULL DEFAULT 0,
+    transports TEXT,
+    device_type TEXT,
+    backed_up INTEGER NOT NULL DEFAULT 0,
+    label TEXT NOT NULL DEFAULT 'Aparelho',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_used_at TEXT,
+    FOREIGN KEY (evaluator_id) REFERENCES evaluators(id) ON DELETE CASCADE
+  )`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_evaluator
+    ON webauthn_credentials(evaluator_id)`);
+
+  // Biometria do admin (a senha do painel é única, então não há "dono"). A coluna
+  // `fingerprint` amarra a chave ao segredo atual: trocar a senha do admin invalida as chaves.
+  db.exec(`CREATE TABLE IF NOT EXISTS webauthn_admin_credentials (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    credential_id TEXT NOT NULL UNIQUE,
+    public_key BLOB NOT NULL,
+    counter INTEGER NOT NULL DEFAULT 0,
+    transports TEXT,
+    device_type TEXT,
+    backed_up INTEGER NOT NULL DEFAULT 0,
+    label TEXT NOT NULL DEFAULT 'Aparelho',
+    fingerprint TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_used_at TEXT
+  )`);
+
   // Sistema antigo de chamadas (class_meetings/attendance_records) foi substituído
   // pelo modelo simplificado de "total de aulas x aulas presentes". Remove tabelas antigas.
   db.exec('DROP TABLE IF EXISTS attendance_records');
@@ -158,6 +192,9 @@ function initDb() {
   } catch (e) {}
   try {
     db.exec("ALTER TABLE candidates ADD COLUMN aulas_presentes INTEGER DEFAULT 0");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE teacher_reset_tokens ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0");
   } catch (e) {}
 
   seedCandidates();
@@ -220,9 +257,18 @@ function addTeacher(name, password) {
   }
 }
 
+let dummyPasswordHash = null;
+
 function verifyTeacher(name, password) {
   const teacher = db.prepare('SELECT id, name, password_hash FROM evaluators WHERE name = ?').get(String(name || '').trim());
-  if (!teacher || !verifyPassword(password, teacher.password_hash)) return false;
+  if (!teacher) {
+    // Gasta o mesmo tempo de uma verificação real: o tempo de resposta não revela
+    // se o nome está cadastrado.
+    if (!dummyPasswordHash) dummyPasswordHash = hashPassword('avali-dummy-password');
+    verifyPassword(password, dummyPasswordHash);
+    return false;
+  }
+  if (!verifyPassword(password, teacher.password_hash)) return false;
 
   if (!String(teacher.password_hash || '').startsWith(`${PASSWORD_ALGORITHM}$`)) {
     resetTeacherPassword(teacher.id, password);
@@ -239,6 +285,14 @@ function getTeacherByName(name) {
   return db.prepare('SELECT id, name FROM evaluators WHERE name = ? AND password_hash IS NOT NULL').get(String(name || '').trim()) || null;
 }
 
+// Impressão digital da senha atual do professor. Vai dentro do cookie de sessão:
+// ao trocar/redefinir a senha, as sessões antigas deixam de valer.
+function getTeacherAuthVersion(teacherId) {
+  const row = db.prepare('SELECT password_hash FROM evaluators WHERE id = ? AND password_hash IS NOT NULL').get(teacherId);
+  if (!row) return null;
+  return crypto.createHash('sha256').update(String(row.password_hash)).digest('hex').slice(0, 24);
+}
+
 function getTeacherList() {
   return db.prepare('SELECT id, name FROM evaluators ORDER BY name').all();
 }
@@ -248,8 +302,15 @@ function resetTeacherPassword(teacherId, newPassword) {
   db.prepare('UPDATE evaluators SET password_hash = ? WHERE id = ?').run(hash, teacherId);
 }
 
-function hashResetToken(pin) {
-  return crypto.createHash('sha256').update(String(pin)).digest('hex');
+const MAX_RESET_ATTEMPTS = 5;
+
+function hashResetToken(pin, evaluatorId) {
+  // HMAC com o segredo do servidor + id do professor: o hash de um código de 5 dígitos
+  // não pode ser revertido por dicionário sem conhecer o segredo.
+  return crypto
+    .createHmac('sha256', String(config.adminCookieValue || config.adminPassword || 'avali-reset'))
+    .update(`reset:${evaluatorId}:${String(pin)}`)
+    .digest('hex');
 }
 
 function generateResetPin(teacherId) {
@@ -264,7 +325,7 @@ function generateResetPin(teacherId) {
       SET used_at = datetime('now')
       WHERE evaluator_id = ? AND used_at IS NULL`).run(teacher.id);
     db.prepare(`INSERT INTO teacher_reset_tokens (evaluator_id, token_hash, expires_at)
-      VALUES (?, ?, ?)`).run(teacher.id, hashResetToken(pin), expiresAt);
+      VALUES (?, ?, ?)`).run(teacher.id, hashResetToken(pin, teacher.id), expiresAt);
   });
 
   return { pin, expiresAt };
@@ -277,12 +338,25 @@ function resetPasswordWithPin(teacherName, pin, newPassword) {
     throw new Error('Código inválido ou expirado.');
   }
 
-  const row = db.prepare(`SELECT id, token_hash, expires_at
+  const row = db.prepare(`SELECT id, token_hash, expires_at, attempts
     FROM teacher_reset_tokens
     WHERE evaluator_id = ? AND used_at IS NULL
     ORDER BY id DESC LIMIT 1`).get(teacher.id);
 
-  if (!row || new Date(row.expires_at) < new Date() || row.token_hash !== hashResetToken(normalizedPin)) {
+  if (!row || new Date(row.expires_at) < new Date() || (row.attempts || 0) >= MAX_RESET_ATTEMPTS) {
+    throw new Error('Código inválido ou expirado.');
+  }
+
+  const expected = Buffer.from(String(row.token_hash));
+  const provided = Buffer.from(hashResetToken(normalizedPin, teacher.id));
+  const matches = expected.length === provided.length && crypto.timingSafeEqual(expected, provided);
+
+  if (!matches) {
+    // Após MAX_RESET_ATTEMPTS erros o código é invalidado (impede força bruta dos 100 mil códigos).
+    const attempts = (row.attempts || 0) + 1;
+    db.prepare(`UPDATE teacher_reset_tokens
+      SET attempts = ?, used_at = CASE WHEN ? >= ? THEN datetime('now') ELSE used_at END
+      WHERE id = ?`).run(attempts, attempts, MAX_RESET_ATTEMPTS, row.id);
     throw new Error('Código inválido ou expirado.');
   }
 
@@ -300,6 +374,8 @@ function deleteTeacher(teacherId) {
     db.prepare('UPDATE turmas SET teacher_id = NULL WHERE teacher_id = ?').run(id);
     // Remove presença de sessão deste avaliador (evaluator_session_presence tem FOREIGN KEY em evaluators)
     db.prepare('DELETE FROM evaluator_session_presence WHERE evaluator_id = ?').run(id);
+    // Remove as chaves de biometria deste professor
+    db.prepare('DELETE FROM webauthn_credentials WHERE evaluator_id = ?').run(id);
     // Remove as notas deste avaliador
     db.prepare('DELETE FROM scores WHERE evaluator_id = ?').run(id);
     // Remove o professor
@@ -311,10 +387,10 @@ function deleteTeacher(teacherId) {
 
 function createTurma(name, teacherId, ritmosAvaliados = '') {
   db.prepare('INSERT INTO turmas (name, teacher_id, access_password_hash, ritmos_avaliados) VALUES (?, ?, ?, ?)').run(
-    String(name || '').trim(),
+    String(name || '').trim().slice(0, 100),
     teacherId,
     null,
-    String(ritmosAvaliados || '').trim()
+    String(ritmosAvaliados || '').trim().slice(0, 200)
   );
 }
 
@@ -365,12 +441,23 @@ function updateTurmaName(turmaId, newName) {
 
 // --- Sessão e Códigos de Acesso ---
 
-function generateSessionCode(turmaId) {
-  // Gera PIN de 4 dígitos
-  let code = Math.floor(1000 + Math.random() * 9000).toString();
-  while (db.prepare('SELECT id FROM sessions WHERE code = ?').get(code)) {
-    code = Math.floor(1000 + Math.random() * 9000).toString();
+function generateUniqueSessionCode() {
+  // PIN de 4 dígitos gerado com gerador criptográfico
+  for (let attempt = 0; attempt < 500; attempt += 1) {
+    const code = String(crypto.randomInt(1000, 10000));
+    const active = db.prepare("SELECT id FROM sessions WHERE code = ? AND status = 'active'").get(code);
+    if (active) continue;
+
+    // A coluna `code` é UNIQUE em todo o histórico: "aposenta" o código de sessões já
+    // encerradas para que ele possa ser reutilizado (senão o sistema esgota os 9 mil PINs).
+    db.prepare("UPDATE sessions SET code = code || '#' || id WHERE code = ? AND status != 'active'").run(code);
+    return code;
   }
+  throw new Error('Não foi possível gerar um PIN livre. Encerre sessões antigas e tente novamente.');
+}
+
+function generateSessionCode(turmaId) {
+  const code = generateUniqueSessionCode();
 
   const now = new Date();
   const expiresAt = new Date(now.getTime() + (6 * 60 * 60 * 1000)); // +6 horas
@@ -594,10 +681,10 @@ function getEvaluatorScores(evaluatorId, turmaId = null) {
 
 function createCandidate(payload) {
   db.prepare('INSERT INTO candidates (name, gender, presence, status, turma_id) VALUES (?, ?, ?, ?, ?)').run(
-    String(payload.name || '').trim(),
+    String(payload.name || '').trim().slice(0, 120),
     normalizeGender(payload.gender),
-    String(payload.presence || '0%').trim(),
-    String(payload.status || 'Bolsista').trim(),
+    String(payload.presence || '0%').trim().slice(0, 10),
+    normalizeStatus(payload.status),
     payload.turma_id || null
   );
 }
@@ -692,9 +779,10 @@ function deleteCandidate(candidateId) {
 function removeCandidateFromTurma(candidateId, turmaId) {
   const id = Number.parseInt(candidateId, 10);
   const turma = Number.parseInt(turmaId, 10);
-  const candidate = db.prepare('SELECT id FROM candidates WHERE id = ? AND turma_id = ?').get(id, turma);
+  const candidate = db.prepare('SELECT id, name FROM candidates WHERE id = ? AND turma_id = ?').get(id, turma);
   if (!candidate) throw new Error('Aluno não encontrado nesta turma.');
   db.prepare('UPDATE candidates SET turma_id = NULL WHERE id = ? AND turma_id = ?').run(id, turma);
+  return candidate;
 }
 
 function deleteTurma(turmaId) {
@@ -1224,6 +1312,13 @@ function getCandidateGenderById(candidateId) {
   return getCandidateGender(candidateId);
 }
 
+const CANDIDATE_STATUSES = ['Bolsista', 'Auxiliar', 'Assistente', 'Monitor', 'Professor'];
+
+function normalizeStatus(status) {
+  const normalized = String(status || '').trim().toLowerCase();
+  return CANDIDATE_STATUSES.find((item) => item.toLowerCase() === normalized) || 'Bolsista';
+}
+
 function normalizeGender(gender) {
   return gender === 'female' ? 'female' : 'male';
 }
@@ -1242,6 +1337,7 @@ module.exports = {
   getTeacherById,
   getTeacherByName,
   getTeacherList,
+  getTeacherAuthVersion,
   resetTeacherPassword,
   generateResetPin,
   resetPasswordWithPin,

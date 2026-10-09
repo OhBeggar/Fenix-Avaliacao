@@ -25,6 +25,7 @@
 body {
     margin: 0;
     min-height: 100vh;
+    min-height: 100dvh;
     font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
     color: var(--ink);
     background:
@@ -36,26 +37,28 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 24px;
+    padding: 24px 16px;
+    box-sizing: border-box;
 }
 
-html[data-theme="dark"] body {
-    background:
-        radial-gradient(circle 300px at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(129, 140, 248, 0.12), transparent 50%),
-        radial-gradient(circle at top right, rgba(251, 191, 36, 0.08), transparent 40%),
-        linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+html[data-theme="dark"] body,
+[data-theme="dark"] body,
+body.dark {
+    background: #000000;
 }
 
 .container {
     position: relative;
-    width: min(480px, 100%);
-    padding: 48px 40px;
+    width: min(440px, 100%);
+    margin: auto;
+    padding: 28px 28px;
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     animation: fadeInUp 0.6s ease-out;
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 .container::before {
@@ -72,14 +75,15 @@ html[data-theme="dark"] body {
 .header-logo {
     display: flex;
     justify-content: center;
-    margin-bottom: 28px;
+    margin-bottom: 14px;
     animation: fadeInDown 0.5s ease-out 0.1s both;
 }
 
 .logo {
-    height: 72px;
+    height: 56px;
     width: auto;
-    filter: drop-shadow(0 4px 12px rgba(79, 70, 229, 0.2));
+    object-fit: contain;
+    filter: drop-shadow(0 6px 14px rgba(139, 30, 30, 0.15));
     transition: transform 0.3s ease;
 }
 
@@ -90,8 +94,8 @@ html[data-theme="dark"] body {
 .eyebrow {
     display: block;
     text-align: center;
-    margin-bottom: 12px;
-    font-size: 0.78rem;
+    margin-bottom: 6px;
+    font-size: 0.76rem;
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -101,8 +105,8 @@ html[data-theme="dark"] body {
 
 h1 {
     text-align: center;
-    margin: 0 0 16px;
-    font-size: clamp(1.8rem, 4vw, 2.4rem);
+    margin: 0 0 10px;
+    font-size: clamp(1.5rem, 3.5vw, 2.1rem);
     font-weight: 800;
     line-height: 1.2;
     letter-spacing: -0.02em;
@@ -115,18 +119,18 @@ h1 {
 
 .intro {
     text-align: center;
-    margin: 0 0 32px;
+    margin: 0 0 20px;
     color: var(--muted);
-    font-size: 1rem;
-    line-height: 1.6;
+    font-size: 0.92rem;
+    line-height: 1.5;
     animation: fadeIn 0.5s ease-out 0.3s both;
 }
 
 /* ===== FORM ===== */
 .card {
     display: grid;
-    gap: 16px;
-    padding: 28px;
+    gap: 14px;
+    padding: 22px 24px;
     border-radius: var(--radius);
     border: 1.5px solid var(--line);
     background: var(--panel);
@@ -211,8 +215,8 @@ button::after {
 /* ===== ACTIONS ===== */
 .actions {
     display: grid;
-    gap: 12px;
-    margin-top: 28px;
+    gap: 10px;
+    margin-top: 18px;
     animation: fadeInUp 0.5s ease-out 0.45s both;
 }
 
@@ -221,10 +225,10 @@ button::after {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 44px;
-    padding: 0 20px;
+    min-height: 42px;
+    padding: 0 18px;
     border-radius: var(--radius-sm);
-    font-size: 0.92rem;
+    font-size: 0.88rem;
     font-weight: 600;
     text-decoration: none;
     color: var(--ink);
@@ -254,12 +258,12 @@ button::after {
 .infra-badge {
     display: block;
     width: fit-content;
-    margin: 24px auto 0;
-    padding: 8px 16px;
+    margin: 16px auto 0;
+    padding: 6px 14px;
     border-radius: 999px;
     background: rgba(79, 70, 229, 0.08);
     color: var(--primary);
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 600;
     text-decoration: none;
     transition: all 0.25s ease;
@@ -526,62 +530,142 @@ button:disabled::after {
     color: #0d9488;
 }
 
-/* ===== DARK MODE OVERRIDES PARA HOME ===== */
-html[data-theme="dark"] .container {
-    background: #1e293b;
-    border-color: #334155;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+/* ===== DARK MODE OVERRIDES PARA HOME (OLED) ===== */
+html[data-theme="dark"] .container,
+[data-theme="dark"] .container,
+body.dark .container {
+    background: #0a0a0a;
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.95);
 }
 
-html[data-theme="dark"] .card {
-    background: #0f172a;
-    border-color: #334155;
+html[data-theme="dark"] .card,
+[data-theme="dark"] .card,
+body.dark .card {
+    background: #0f0f0f;
+    border-color: rgba(255, 255, 255, 0.08);
 }
 
 html[data-theme="dark"] .header-logo img,
-html[data-theme="dark"] .logo {
-    filter: brightness(0) invert(1) drop-shadow(0 4px 12px rgba(255, 255, 255, 0.15));
+html[data-theme="dark"] .logo,
+[data-theme="dark"] .logo {
+    filter: drop-shadow(0 0 10px rgba(196, 60, 60, 0.4));
 }
 
-html[data-theme="dark"] .input-wrapper input {
-    background: #0f172a;
-    border-color: #334155;
+html[data-theme="dark"] .input-wrapper input,
+[data-theme="dark"] .input-wrapper input,
+body.dark .input-wrapper input {
+    background: #111111;
+    border-color: rgba(255, 255, 255, 0.12);
     color: #f1f5f9;
 }
 
-html[data-theme="dark"] .input-wrapper input:focus {
-    border-color: var(--primary);
-    background: #1e293b;
+html[data-theme="dark"] .input-wrapper input:focus,
+[data-theme="dark"] .input-wrapper input:focus,
+body.dark .input-wrapper input:focus {
+    border-color: #c43c3c;
+    background: #161616;
+    box-shadow: 0 0 0 3px rgba(196, 60, 60, 0.2);
 }
 
-html[data-theme="dark"] .action-link.admin {
-    background: #1e293b;
-    border-color: #334155;
+html[data-theme="dark"] button[type="submit"],
+[data-theme="dark"] button[type="submit"],
+body.dark button[type="submit"] {
+    background: #8b1e1e;
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(139, 30, 30, 0.4);
+}
+
+html[data-theme="dark"] button[type="submit"]:hover,
+[data-theme="dark"] button[type="submit"]:hover,
+body.dark button[type="submit"]:hover {
+    background: #a52828;
+}
+
+html[data-theme="dark"] .action-link.admin,
+[data-theme="dark"] .action-link.admin,
+body.dark .action-link.admin {
+    background: #111111;
+    border-color: rgba(255, 255, 255, 0.12);
     color: #f1f5f9;
 }
 
-html[data-theme="dark"] .action-link.admin:hover {
-    background: #334155;
-    border-color: #64748b;
+html[data-theme="dark"] .action-link.admin:hover,
+[data-theme="dark"] .action-link.admin:hover,
+body.dark .action-link.admin:hover {
+    background: #1a1a1a;
+    border-color: rgba(255, 255, 255, 0.22);
     color: #ffffff;
 }
 
-html[data-theme="dark"] .infra-badge {
-    background: rgba(129, 140, 248, 0.15);
-    color: #a5b4fc;
+html[data-theme="dark"] .infra-badge,
+[data-theme="dark"] .infra-badge,
+body.dark .infra-badge {
+    background: rgba(196, 60, 60, 0.15);
+    color: #fca5a5;
 }
 
-html[data-theme="dark"] .toggle-password {
+html[data-theme="dark"] .toggle-password,
+[data-theme="dark"] .toggle-password {
     color: #94a3b8;
 }
 
-html[data-theme="dark"] .toggle-password:hover {
+html[data-theme="dark"] .toggle-password:hover,
+[data-theme="dark"] .toggle-password:hover {
     background: rgba(255, 255, 255, 0.1) !important;
 }
 
 html[data-theme="dark"] .infra-note,
-html[data-theme="dark"] .site-footer {
+html[data-theme="dark"] .site-footer,
+[data-theme="dark"] .infra-note,
+[data-theme="dark"] .site-footer {
     color: #64748b;
+}
+
+/* Telas compactas na vertical (laptops, janelas reduzidas <= 760px) */
+@media (max-height: 760px) {
+    body {
+        padding: 12px 16px;
+    }
+    .container {
+        padding: 22px 24px;
+    }
+    .header-logo {
+        margin-bottom: 10px;
+    }
+    .logo {
+        height: 48px;
+    }
+    .eyebrow {
+        margin-bottom: 4px;
+        font-size: 0.72rem;
+    }
+    h1 {
+        font-size: 1.45rem;
+        margin-bottom: 4px;
+    }
+    .intro {
+        margin-bottom: 14px;
+        font-size: 0.82rem;
+        line-height: 1.4;
+    }
+    .card {
+        gap: 12px;
+        padding: 18px 20px;
+        margin-bottom: 10px;
+    }
+    .actions {
+        margin-top: 10px;
+        gap: 8px;
+    }
+    .action-link {
+        font-size: 0.82rem;
+    }
+    .infra-badge {
+        margin-top: 8px;
+        padding: 4px 10px;
+        font-size: 0.72rem;
+    }
 }
 
 

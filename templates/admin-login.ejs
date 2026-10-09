@@ -15,9 +15,9 @@
       } catch (e) {}
     })();
     </script>
-    <link rel="stylesheet" href="/adm.css?v=3">
+    <link rel="stylesheet" href="/adm.css?v=12">
     <link rel="stylesheet" href="/theme.css">
-    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+    <link rel="icon" href="/images/fenix-new.png" type="image/png">
 </head>
 <body class="admin-body">
     <div class="theme-switch-floating">
@@ -58,7 +58,7 @@
     <main class="admin-login-shell">
         <div class="login-card">
             <div style="margin-bottom: 20px;">
-                <img src="/images/icons8-fenix-cute-color-96.png" alt="Icon" style="height: 64px; width: auto;">
+                <img src="/images/fenix.svg" alt="Icon" style="height: 64px; width: auto;">
             </div>
             <div class="eyebrow">Painel administrativo</div>
             <h1>Acesso restrito</h1>
@@ -78,6 +78,13 @@
             </script>
         <% } %>
 
+        <% if (typeof webauthn !== 'undefined' && webauthn.enabled) { %>
+        <div id="adminBioPanel" class="stack-form" style="display:none">
+            <button type="button" id="adminBioBtn">Entrar com biometria</button>
+            <button type="button" id="adminBioUsePassword" class="ghost-link" style="justify-content:center;">Usar a senha</button>
+        </div>
+        <% } %>
+
         <form method="POST" action="/admin/login" class="stack-form">
             <label class="password-field">
                 <div class="password-wrapper">
@@ -87,7 +94,6 @@
                         id="adminPassword"
                         name="password"
                         required
-                        autofocus
                         autocomplete="current-password"
                     >
                     <button
@@ -110,6 +116,15 @@
     <script src="/back.js"></script>
     <script>
     (function () {
+        const pw = document.getElementById('adminPassword');
+        if (pw) {
+            try {
+                pw.focus({ preventScroll: true });
+            } catch (e) {
+                pw.focus();
+            }
+        }
+
         document.querySelectorAll('.toggle-password').forEach(btn => {
             btn.addEventListener('click', function () {
                 const input = document.getElementById(this.dataset.target);
@@ -125,6 +140,63 @@
         });
     })();
     </script>
+    <% if (typeof webauthn !== 'undefined' && webauthn.enabled) { %>
+    <script src="/webauthn.js?v=3"></script>
+    <script>
+    (function () {
+        var api = window.AvaliWebAuthn;
+        var admin = api && api.admin;
+        var panel = document.getElementById('adminBioPanel');
+        var form = document.querySelector('form[action="/admin/login"]');
+        if (!admin || !panel || !form) return;
+
+        var rpID = <%- safeJson(webauthn.rpID) %>;
+        if (!api.isUsableHere(rpID)) return;
+
+        // Depois de entrar com a senha, o painel oferece ativar a biometria (aviso único)
+        form.addEventListener('submit', function () {
+            try { sessionStorage.setItem('avaliAdminJustLoggedIn', '1'); } catch (e) {}
+        });
+
+        // Só oferece a biometria em aparelho onde o admin já a ativou
+        if (!admin.hasDevice()) return;
+
+        var bioBtn = document.getElementById('adminBioBtn');
+        var usePassword = document.getElementById('adminBioUsePassword');
+
+        function showPasswordForm() {
+            panel.style.display = 'none';
+            form.style.display = '';
+            var pw = document.getElementById('adminPassword');
+            if (pw) { try { pw.focus({ preventScroll: true }); } catch (e) { pw.focus(); } }
+        }
+
+        form.style.display = 'none';
+        panel.style.display = '';
+
+        usePassword.addEventListener('click', showPasswordForm);
+
+        bioBtn.addEventListener('click', function () {
+            bioBtn.disabled = true;
+            bioBtn.textContent = 'Aguardando biometria...';
+
+            admin.login().then(function (url) {
+                try { sessionStorage.removeItem('avaliAdminJustLoggedIn'); } catch (e) {}
+                window.location.href = url;
+            }).catch(function (error) {
+                bioBtn.disabled = false;
+                bioBtn.textContent = 'Entrar com biometria';
+                // 401: a chave não vale mais (removida/revogada/senha do admin trocada). Volta para a senha.
+                if (error && error.serverSide && error.status === 401) {
+                    admin.forget();
+                    showPasswordForm();
+                }
+                if (window.showToast) showToast(api.friendlyError(error), 'error');
+            });
+        });
+    })();
+    </script>
+    <% } %>
     <script src="/theme.js"></script>
 </body>
 </html>

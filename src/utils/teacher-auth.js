@@ -1,68 +1,56 @@
-const crypto = require('crypto');
 const config = require('../config');
+const {
+    deriveKey,
+    signPayload,
+    readSignedPayload,
+    parseCookieHeader,
+    safeEqual,
+} = require('./security');
 
-const TEACHER_COOKIE_NAME = 'teacher_access'; // Hardcoded name, can be moved to config if needed
+const TEACHER_COOKIE_NAME = 'teacher_access';
 const TEACHER_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 8;
 
-// NOTE: This uses the ADMIN_COOKIE_VALUE because there is no separate teacher secret defined in config.
-// For a more robust solution, a dedicated teacher secret should be added to config.js.
-function getSigningSecret() {
-    return config.adminCookieValue || config.adminPassword || 'avali-teacher-cookie-secret'; // Fallback to admin secret or generic
-}
+// Chave exclusiva do cookie de professor, derivada do segredo principal.
+const TEACHER_KEY = deriveKey(
+    config.adminCookieValue || config.adminPassword || 'avali-teacher-cookie-secret',
+    'teacher'
+);
 
-function signValue(value) {
-    return crypto.createHmac('sha256', getSigningSecret()).update(value).digest('base64url');
+function getService() {
+    // require tardio: evita dependência circular na carga dos módulos
+    return require('../services/evaluation-service');
 }
 
 function signTeacherPayload(payload) {
-    const raw = Buffer.from(JSON.stringify(payload)).toString('base64url');
-    return `${raw}.${signValue(raw)}`;
+    return signPayload(payload, TEACHER_KEY);
 }
 
+/**
+ * Valida a assinatura, a expiração E o estado atual do professor no banco:
+ * - professor removido => sessão inválida;
+ * - senha trocada/redefinida => sessão antiga inválida (campo `pv`).
+ */
 function readTeacherPayload(token) {
-    if (!token || !token.includes('.')) return null;
-
-    const [raw, signature] = token.split('.');
-    const expected = signValue(raw);
-
-    // Ensure signatures have same byte length to prevent timing attacks
-    if (!signature || Buffer.byteLength(signature) !== Buffer.byteLength(expected)) return null;
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+    const payload = readSignedPayload(token, TEACHER_KEY);
+    if (!payload || payload.type !== 'teacher' || !payload.exp) return null;
+    if (!Number.isInteger(payload.evaluatorId) || typeof payload.pv !== 'string') return null;
 
     try {
-        const payload = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
-        // Ensure payload is for a teacher and not expired
-        if (!payload || payload.type !== 'teacher') return null;
-        if (!payload.exp || Date.now() > Number(payload.exp)) return null;
-        return payload;
+        const service = getService();
+        const teacher = service.getTeacherById(payload.evaluatorId);
+        if (!teacher || teacher.name !== payload.evaluatorName) return null;
+
+        const currentVersion = service.getTeacherAuthVersion(payload.evaluatorId);
+        if (!currentVersion || !safeEqual(currentVersion, payload.pv)) return null;
     } catch {
         return null;
     }
-}
 
-function parseCookies(req) {
-    const rawCookie = req.headers.cookie || '';
-
-    return rawCookie
-        .split(';')
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .reduce((acc, item) => {
-            const separatorIndex = item.indexOf('=');
-
-            if (separatorIndex === -1) {
-                return acc;
-            }
-
-            const key = item.slice(0, separatorIndex);
-            const value = item.slice(separatorIndex + 1);
-            acc[key] = decodeURIComponent(value);
-            return acc;
-        }, {});
+    return payload;
 }
 
 function isTeacherAuthenticated(req) {
-    const cookies = parseCookies(req);
+    const cookies = parseCookieHeader(req.headers.cookie);
     return Boolean(readTeacherPayload(cookies[TEACHER_COOKIE_NAME]));
 }
 
@@ -72,10 +60,16 @@ function getSecureAttribute(secure = false) {
 
 function setTeacherCookie(res, teacherId, teacherName, secure = false) {
     const maxAgeMs = TEACHER_COOKIE_MAX_AGE_SECONDS * 1000;
+    const pv = getService().getTeacherAuthVersion(teacherId);
+    if (!pv) {
+        throw new Error('Professor não encontrado.');
+    }
+
     const token = signTeacherPayload({
         type: 'teacher',
         evaluatorId: teacherId,
         evaluatorName: teacherName,
+        pv,
         iat: Date.now(),
         exp: Date.now() + maxAgeMs,
     });

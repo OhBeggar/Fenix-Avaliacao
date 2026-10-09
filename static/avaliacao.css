@@ -456,43 +456,6 @@ td input[type="text"]::placeholder {
     color: #cbd5e1;
 }
 
-/* ===== FEEDBACK AO SALVAR ===== */
-tbody tr.just-saved,
-tbody tr.just-saved td,
-tbody tr.just-saved td:nth-child(1),
-tbody tr.just-saved td:nth-child(2) {
-    background: #ecfdf5 !important;
-    transition: background 0.4s ease;
-}
-
-tbody tr.just-saved td input[type="text"] {
-    background: #d1fae5 !important;
-    border-color: #059669 !important;
-    color: #065f46 !important;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.35) !important;
-    transition: all 0.3s ease;
-}
-
-/* Animação suave de “salvo” no input ao alterar */
-@keyframes savedFlash {
-    0% {
-        background: #a7f3d0 !important;
-        border-color: #059669 !important;
-        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.35) !important;
-    }
-    50% {
-        background: #d1fae5 !important;
-        border-color: #10b981 !important;
-    }
-    100% {
-        background: #ffffff !important;
-    }
-}
-
-td input[type="text"].cell-saved {
-    animation: savedFlash 1.2s ease-out !important;
-}
-
 /* Presence cell */
 td:nth-child(3) {
     font-weight: 700;

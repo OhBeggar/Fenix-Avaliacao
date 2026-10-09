@@ -117,10 +117,20 @@ h3 {
 }
 
 /* ===== SHARED LAYOUT ===== */
-.admin-shell,
-.admin-login-shell {
+.admin-shell {
     width: min(1240px, calc(100% - 32px));
     margin: 24px auto 56px;
+}
+
+.admin-login-shell {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .admin-app {
@@ -158,7 +168,7 @@ h3 {
     width: 46px;
     height: 46px;
     object-fit: contain;
-    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.26));
+    filter: drop-shadow(0 0 10px rgba(255, 127, 135, 0.45));
 }
 
 .brand-lockup strong,
@@ -354,13 +364,14 @@ h3 {
 /* ===== LOGIN ===== */
 .login-card {
     width: min(440px, 100%);
-    margin: 12vh auto 0;
+    margin: auto;
     padding: 40px 32px;
     text-align: center;
     background: var(--surface);
     border: 1px solid var(--border-soft);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-lg);
+    box-sizing: border-box;
 }
 
 .login-card img {
@@ -1250,10 +1261,10 @@ tr:hover td {
 }
 
 .empty-state {
-    padding: 46px 22px;
+    padding: 32px 18px;
     text-align: center;
     color: var(--muted);
-    background: #FFF8EC;
+    background: var(--surface-2);
     border: 1px dashed var(--border);
     border-radius: var(--radius);
 }
@@ -1631,15 +1642,15 @@ code {
 @media (max-width: 860px) {
     .admin-shell {
         width: calc(100% - 20px);
-        margin: 12px auto 36px;
+        margin: 12px auto 60px;
+        padding-bottom: 36px;
     }
 
     .admin-app {
-        padding: 10px;
+        padding: 10px 10px 48px;
         gap: 14px;
     }
 
-    .admin-topbar,
     .admin-header,
     .section-heading,
     .turma-hero {
@@ -1649,26 +1660,72 @@ code {
 
     .admin-topbar {
         display: grid;
-        position: relative;
+        grid-template-areas:
+            "toggle title actions"
+            "search search search";
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 12px 10px;
+        position: sticky;
+        top: 8px;
+        z-index: 30;
+        padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.94);
     }
 
-    .admin-topbar > div:first-of-type {
-        padding-left: 54px;
+    .admin-module {
+        scroll-margin-top: 124px;
     }
 
     .sidebar-toggle {
-        position: absolute;
-        top: 18px;
-        left: 20px;
+        grid-area: toggle;
+        position: static;
+        margin: 0;
+        flex-shrink: 0;
+    }
+
+    .admin-topbar > div:first-of-type {
+        grid-area: title;
+        padding-left: 6px;
+        min-width: 0;
+    }
+
+    .admin-topbar > div:first-of-type h1 {
+        font-size: 1.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .admin-topbar > div:first-of-type .breadcrumb {
+        font-size: 0.72rem;
+        margin-bottom: 2px;
+    }
+
+    .topbar-actions {
+        grid-area: actions;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        margin: 0;
+    }
+
+    .topbar-actions .ghost-link,
+    .topbar-actions button {
+        width: auto !important;
+        min-height: 32px !important;
+        padding: 5px 12px !important;
+        font-size: 0.8rem !important;
+        white-space: nowrap;
     }
 
     .global-search,
     .module-search {
+        grid-area: search;
         min-width: 100%;
-    }
-
-    .topbar-actions {
-        justify-content: space-between;
+        margin: 0;
     }
 
     .kpi-grid {
@@ -1714,14 +1771,19 @@ code {
     }
 
     .card-actions,
-    .modal-actions,
-    .topbar-actions {
+    .modal-actions {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .ghost-link,
-    button {
+    .topbar-actions {
+        flex-direction: row !important;
+        align-items: center !important;
+    }
+
+    .card-actions button,
+    .modal-actions button,
+    .form-card button[type="submit"] {
         width: 100%;
     }
 
@@ -2062,331 +2124,1674 @@ html[data-theme="dark"] .sidebar-toggle span {
     }
 }
 
-/* ===== DARK MODE OVERRIDES PARA O PAINEL ADMIN ===== */
-html[data-theme="dark"] body.admin-body,
-html[data-theme="dark"] .admin-body {
-    background: #0b1324;
-    color: #f1f5f9;
+/* ============================================
+   FÊNIX ADMIN – Polimento visual (Camada 1)
+   ============================================ */
+
+:root {
+  /* Light */
+  --bg: #f7f3ee;
+  --surface: #ffffff;
+  --surface-2: #faf8f5;
+  --panel: #ffffff;
+  --text: #1a1210;
+  --ink: #1a1210;
+  --text-muted: #6b5e58;
+  --muted: #6b5e58;
+  --border: rgba(0, 0, 0, 0.08);
+  --line: rgba(0, 0, 0, 0.08);
+  --accent: #8b1e1e;
+  --accent-hover: #a52828;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-html[data-theme="dark"] .panel,
-html[data-theme="dark"] .login-card,
-html[data-theme="dark"] .admin-topbar,
-html[data-theme="dark"] .admin-header,
-html[data-theme="dark"] .quick-action-card,
-html[data-theme="dark"] .live-session-card,
-html[data-theme="dark"] .close-semester-card,
-html[data-theme="dark"] .historico-card,
-html[data-theme="dark"] .kpi-card,
-html[data-theme="dark"] .turma-card,
-html[data-theme="dark"] .student-card,
-html[data-theme="dark"] .teacher-card,
-html[data-theme="dark"] .searchable-card,
-html[data-theme="dark"] dialog {
-    background: #1e293b;
-    border-color: #334155;
-    color: #f1f5f9;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+[data-theme="dark"],
+body.dark,
+html.dark {
+  --bg: #000000;           /* preto puro OLED */
+  --surface: #0a0a0a;
+  --surface-2: #111111;
+  --panel: #0a0a0a;
+  --text: #f5f0eb;
+  --ink: #f5f0eb;
+  --text-muted: #a89f98;
+  --muted: #a89f98;
+  --border: rgba(255, 255, 255, 0.08);
+  --line: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --accent: #c43c3c;
+  --accent-hover: #e04a4a;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.6);
 }
 
-html[data-theme="dark"] .admin-sidebar {
-    background: #0f172a;
-    border-color: #1e293b;
+/* ---------- Cards ---------- */
+.card,
+.turma-card,
+.stat-card,
+.kpi-card,
+.panel,
+.person-card,
+.management-card,
+.live-session-card,
+.close-semester-card,
+.presence-card,
+.searchable-card,
+.form-card,
+.login-card,
+.historico-card,
+.aluno-card,
+.professor-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
 }
 
-html[data-theme="dark"] .sidebar-nav a {
-    color: #94a3b8;
+.card:hover,
+.turma-card:hover,
+.stat-card:hover,
+.kpi-card:hover,
+.person-card:hover,
+.management-card:hover,
+.presence-card:hover,
+.aluno-card:hover,
+.professor-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(139, 30, 30, 0.25);
 }
 
-html[data-theme="dark"] .sidebar-nav a:hover,
-html[data-theme="dark"] .sidebar-nav a.is-active {
-    background: #1e293b;
-    color: #f8fafc;
+[data-theme="dark"] .card:hover,
+[data-theme="dark"] .turma-card:hover,
+[data-theme="dark"] .kpi-card:hover,
+[data-theme="dark"] .person-card:hover,
+[data-theme="dark"] .management-card:hover,
+[data-theme="dark"] .presence-card:hover,
+body.dark .card:hover,
+html.dark .card:hover {
+  border-color: rgba(196, 60, 60, 0.35);
 }
 
-html[data-theme="dark"] input,
-html[data-theme="dark"] select,
-html[data-theme="dark"] textarea {
-    background: #0f172a;
-    border-color: #334155;
-    color: #f1f5f9;
+/* ---------- Botões ---------- */
+.btn,
+button,
+button[type="submit"],
+.btn-primary,
+.btn-danger,
+.btn-outline,
+.btn-ver-alunos,
+.ghost-link,
+.btn-secondary,
+.btn-close-semester,
+.btn-light,
+.btn-danger-sm,
+.btn-delete-candidate {
+  transition: transform var(--transition), background var(--transition), box-shadow var(--transition), opacity var(--transition);
+  border-radius: var(--radius-sm);
 }
 
-html[data-theme="dark"] .ghost-link,
-html[data-theme="dark"] .btn-secondary,
-html[data-theme="dark"] .btn-cancel {
-    background: #334155;
-    border-color: #475569;
-    color: #f1f5f9;
+.btn:active,
+button:active,
+button[type="submit"]:active,
+.btn-primary:active,
+.btn-danger:active,
+.ghost-link:active,
+.btn-secondary:active,
+.btn-close-semester:active,
+.btn-ver-alunos:active {
+  transform: scale(0.97);
 }
 
-html[data-theme="dark"] .ghost-link:hover,
-html[data-theme="dark"] .btn-secondary:hover {
-    background: #475569;
-    color: #fff;
+.btn-primary,
+.btn-danger,
+button.btn-primary {
+  box-shadow: 0 2px 8px rgba(139, 30, 30, 0.25);
 }
 
-html[data-theme="dark"] table {
-    border-color: #334155;
+.btn-primary:hover,
+.btn-danger:hover,
+button.btn-primary:hover {
+  box-shadow: 0 4px 14px rgba(139, 30, 30, 0.35);
 }
 
-html[data-theme="dark"] thead th {
-    background: #0f172a;
-    color: #94a3b8;
-    border-color: #334155;
+/* ---------- Lista de alunos (expand) ---------- */
+.alunos-lista-simples {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.25s ease, margin 0.25s ease;
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
 }
 
-html[data-theme="dark"] tbody td {
-    border-color: #334155;
-    color: #f1f5f9;
+.alunos-lista-simples:not([hidden]),
+.alunos-lista-simples.is-open {
+  max-height: 800px; /* suficiente para a lista */
+  opacity: 1;
+  margin-top: 12px;
 }
 
-html[data-theme="dark"] tbody tr:hover {
-    background: rgba(255, 255, 255, 0.03);
+/* ---------- Toast ---------- */
+.toast,
+.toast-success,
+.toast-error {
+  animation: toastIn 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
 }
 
-html[data-theme="dark"] tr:hover td,
-html[data-theme="dark"] tbody tr:hover td {
-    background: #334155 !important;
-    color: #f8fafc !important;
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-html[data-theme="dark"] th,
-html[data-theme="dark"] thead th {
-    background: #0f172a !important;
-    color: #94a3b8 !important;
-    border-color: #334155 !important;
+/* ---------- Focus acessível ---------- */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
-html[data-theme="dark"] td strong {
-    color: #f1f5f9;
+/* ---------- Sidebar item ---------- */
+.sidebar a,
+.admin-sidebar a,
+.sidebar-nav a,
+.nav-item {
+  transition: background var(--transition), color var(--transition), padding-left var(--transition);
+  border-radius: var(--radius-sm);
 }
 
-html[data-theme="dark"] input[type="text"],
-html[data-theme="dark"] input[type="search"],
-html[data-theme="dark"] input[type="password"],
-html[data-theme="dark"] select {
-    background: #0f172a;
-    border-color: #334155;
-    color: #f1f5f9;
+.sidebar a:hover,
+.admin-sidebar a:hover,
+.sidebar-nav a:hover,
+.nav-item:hover {
+  background: rgba(139, 30, 30, 0.1);
 }
 
-html[data-theme="dark"] input[type="text"]:focus,
-html[data-theme="dark"] input[type="search"]:focus,
-html[data-theme="dark"] input[type="password"]:focus,
-html[data-theme="dark"] select:focus {
-    background: #1e293b;
-    border-color: var(--accent);
+[data-theme="dark"] .sidebar a:hover,
+[data-theme="dark"] .admin-sidebar a:hover,
+[data-theme="dark"] .sidebar-nav a:hover,
+body.dark .sidebar a:hover,
+html.dark .sidebar a:hover {
+  background: rgba(196, 60, 60, 0.15);
 }
 
-html[data-theme="dark"] .status-chip.present,
-html[data-theme="dark"] .turma-badge.is-active {
-    background: #064e3b;
-    color: #6ee7b7;
-    border-color: #047857;
+/* ---------- Modal ---------- */
+.modal,
+.confirm-modal,
+.dialog,
+dialog,
+.admin-modal {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  animation: modalIn 0.22s ease;
 }
 
-html[data-theme="dark"] .status-chip.absent {
-    background: #7f1d1d;
-    color: #fca5a5;
-    border-color: #991b1b;
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
-html[data-theme="dark"] .status-chip.pending {
-    background: #78350f;
-    color: #fde047;
-    border-color: #b45309;
+/* ---------- Inputs ---------- */
+input,
+select,
+textarea {
+  transition: border-color var(--transition), box-shadow var(--transition);
+  border-radius: var(--radius-sm);
 }
 
-html[data-theme="dark"] .attendance-pending-row td {
-    background: rgba(120, 53, 15, 0.25);
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(139, 30, 30, 0.15);
 }
 
-html[data-theme="dark"] .attendance-option {
-    background: #0f172a;
-    border-color: #334155;
-    color: #f1f5f9;
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus,
+body.dark input:focus,
+html.dark input:focus {
+  box-shadow: 0 0 0 3px rgba(196, 60, 60, 0.25);
 }
 
-html[data-theme="dark"] .accordion-summary h2,
-html[data-theme="dark"] .accordion-summary strong,
-html[data-theme="dark"] .presence-card strong {
-    color: #f1f5f9;
+/* ============================================
+   FÊNIX ADMIN – Preto Puro OLED (#000000)
+   ============================================ */
+
+[data-theme="dark"] body.admin-body,
+[data-theme="dark"] .admin-body,
+body.dark.admin-body,
+body.dark .admin-body,
+html.dark .admin-body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
 }
 
-html[data-theme="dark"] .presence-card {
-    background: #0f172a;
-    border-color: #334155;
+[data-theme="dark"] .admin-app,
+[data-theme="dark"] .admin-main,
+[data-theme="dark"] .admin-shell,
+[data-theme="dark"] .admin-login-shell {
+  background: var(--bg);
+  color: var(--text);
 }
 
-html[data-theme="dark"] .presence-card:hover {
-    background: #1e293b;
-    border-color: #475569;
+[data-theme="dark"] .admin-sidebar {
+  background: #000000;
+  border-right-color: var(--border);
 }
 
-html[data-theme="dark"] .eyebrow {
-    background: #1e1b4b;
-    color: #a5b4fc;
+[data-theme="dark"] .brand-lockup,
+[data-theme="dark"] .sidebar-status strong {
+  color: var(--text);
 }
 
-html[data-theme="dark"] .breadcrumb,
-html[data-theme="dark"] .panel-copy,
-html[data-theme="dark"] .subtle-note,
-html[data-theme="dark"] .hint-mini {
-    color: #94a3b8;
+[data-theme="dark"] .sidebar-nav a {
+  color: var(--text-muted);
 }
 
-html[data-theme="dark"] .global-search,
-html[data-theme="dark"] .module-search {
-    background: #0f172a;
-    border-color: #334155;
+[data-theme="dark"] .sidebar-nav a.is-active {
+  background: rgba(196, 60, 60, 0.18);
+  color: var(--text);
 }
 
-html[data-theme="dark"] .global-search input,
-html[data-theme="dark"] .module-search input {
-    background: transparent !important;
-    border: none !important;
-    color: #f1f5f9;
+[data-theme="dark"] .admin-topbar,
+[data-theme="dark"] .admin-header,
+[data-theme="dark"] .tab-panel.panel {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
 }
 
-html[data-theme="dark"] .kpi-icon {
-    color: #f5e6d3;
-    background: rgba(189, 148, 96, 0.2);
-    border-color: rgba(232, 214, 184, 0.28);
+[data-theme="dark"] .quick-action,
+[data-theme="dark"] .global-search,
+[data-theme="dark"] .module-search {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text);
 }
 
-html[data-theme="dark"] .quick-action {
-    background: #0f172a;
-    border-color: #334155;
-    color: #f1f5f9;
+[data-theme="dark"] .global-search input,
+[data-theme="dark"] .module-search input {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text) !important;
 }
 
-html[data-theme="dark"] .quick-action:hover {
-    background: #1e293b;
-    border-color: #475569;
-    color: #38bdf8;
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text);
 }
 
-html[data-theme="dark"] .quick-action.danger-soft,
-html[data-theme="dark"] .quick-panel .quick-actions button.quick-action {
-    background: rgba(220, 38, 38, 0.15);
-    border-color: rgba(220, 38, 38, 0.3);
-    color: #fca5a5;
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 
-html[data-theme="dark"] .quick-panel .quick-actions button.quick-action:hover:not(:disabled) {
-    background: rgba(220, 38, 38, 0.25);
-    border-color: #ef4444;
-    color: #fecaca;
+[data-theme="dark"] dialog,
+[data-theme="dark"] .modal,
+[data-theme="dark"] .confirm-modal {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
 }
 
-html[data-theme="dark"] .quick-panel .quick-actions button.quick-action.is-disabled,
-html[data-theme="dark"] .quick-panel .quick-actions button.quick-action:disabled {
-    background: #0f172a;
-    border-color: #334155;
-    color: #64748b;
+[data-theme="dark"] dialog::backdrop {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
 }
 
-html[data-theme="dark"] .back-link {
-    color: #f87171;
+[data-theme="dark"] .ghost-link,
+[data-theme="dark"] .btn-secondary,
+[data-theme="dark"] .btn-cancel {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text);
 }
 
-html[data-theme="dark"] .back-link:hover {
-    color: #fca5a5;
+[data-theme="dark"] .ghost-link:hover,
+[data-theme="dark"] .btn-secondary:hover {
+  background: #1a1a1a;
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
 }
 
-html[data-theme="dark"] code {
-    color: #fca5a5;
-    background: rgba(239, 68, 68, 0.15);
+[data-theme="dark"] .ghost-danger {
+  background: rgba(220, 38, 38, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #fca5a5 !important;
 }
 
-html[data-theme="dark"] .form-card {
-    background: #0f172a;
-    border-color: #334155;
+[data-theme="dark"] .ghost-danger:hover {
+  background: rgba(220, 38, 38, 0.3) !important;
+  color: #ffffff !important;
 }
 
-html[data-theme="dark"] label {
-    color: #cbd5e1;
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] strong {
+  color: var(--text);
 }
 
-html[data-theme="dark"] .empty-state {
-    background: #0f172a;
-    border-color: #334155;
-    color: #94a3b8;
+[data-theme="dark"] .breadcrumb,
+[data-theme="dark"] .panel-copy,
+[data-theme="dark"] .subtle-note,
+[data-theme="dark"] .hint-mini,
+[data-theme="dark"] label,
+[data-theme="dark"] .sidebar-status small {
+  color: var(--text-muted);
 }
 
-html[data-theme="dark"] .empty-state p:first-child {
-    color: #f1f5f9;
+[data-theme="dark"] table {
+  border-color: var(--border);
 }
 
-html[data-theme="dark"] .card-topline strong {
-    color: #fca5a5;
+[data-theme="dark"] thead th {
+  background: var(--surface-2) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border) !important;
 }
 
-html[data-theme="dark"] .card-link {
-    color: #38bdf8;
+[data-theme="dark"] tbody td {
+  border-color: var(--border) !important;
+  color: var(--text) !important;
 }
 
-html[data-theme="dark"] .turma-card:hover .card-link {
-    color: #7dd3fc;
+[data-theme="dark"] tbody tr:hover td {
+  background: var(--surface-2) !important;
 }
 
-html[data-theme="dark"] .ghost-danger {
-    color: #fca5a5 !important;
-    background: rgba(220, 38, 38, 0.2) !important;
-    border-color: rgba(239, 68, 68, 0.35) !important;
+[data-theme="dark"] .kpi-icon {
+  background: rgba(196, 60, 60, 0.15);
+  color: #f5f0eb;
+  border-color: rgba(196, 60, 60, 0.3);
 }
 
-html[data-theme="dark"] .ghost-danger:hover {
-    background: rgba(220, 38, 38, 0.35) !important;
-    color: #ffffff !important;
+[data-theme="dark"] .status-chip.present,
+[data-theme="dark"] .turma-badge.is-active {
+  background: #064e3b;
+  color: #6ee7b7;
+  border-color: #047857;
 }
 
-html[data-theme="dark"] .person-card,
-html[data-theme="dark"] .management-card {
-    background: #0f172a;
-    border-color: #334155;
+[data-theme="dark"] .status-chip.absent {
+  background: #7f1d1d;
+  color: #fca5a5;
+  border-color: #991b1b;
 }
 
-html[data-theme="dark"] .person-card h3,
-html[data-theme="dark"] .management-card h3 {
-    color: #f1f5f9;
+[data-theme="dark"] .status-chip.pending {
+  background: #78350f;
+  color: #fde047;
+  border-color: #b45309;
 }
 
-html[data-theme="dark"] .presence-score.risk {
-    color: #fca5a5;
-    background: rgba(220, 38, 38, 0.2);
-    border: 1px solid rgba(239, 68, 68, 0.35);
+[data-theme="dark"] .presence-score.risk {
+  color: #fca5a5;
+  background: rgba(220, 38, 38, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.35);
 }
 
-html[data-theme="dark"] .presence-score.ok {
-    color: #6ee7b7;
-    background: rgba(16, 185, 129, 0.2);
-    border: 1px solid rgba(16, 185, 129, 0.35);
+[data-theme="dark"] .presence-score.ok {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.35);
 }
 
-html[data-theme="dark"] .presence-score.pending {
-    color: #fde047;
-    background: rgba(245, 158, 11, 0.2);
-    border: 1px solid rgba(245, 158, 11, 0.35);
+[data-theme="dark"] .presence-score.pending {
+  color: #fde047;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
-html[data-theme="dark"] .accordion-indicator {
-    color: #a5b4fc;
-    background: #1e1b4b;
-    border-color: #312e81;
+[data-theme="dark"] .aluno-row {
+  border-bottom: 1px solid var(--border);
 }
 
-html[data-theme="dark"] .admin-accordion[open] .accordion-indicator {
-    color: #fca5a5;
-    background: rgba(220, 38, 38, 0.15);
-    border-color: rgba(239, 68, 68, 0.3);
+[data-theme="dark"] .aluno-row:hover {
+  background: var(--surface-2);
 }
 
+[data-theme="dark"] .aluno-nome {
+  color: var(--text);
+}
 
+[data-theme="dark"] .aluno-meta {
+  color: var(--text-muted);
+}
 
+[data-theme="dark"] .accordion-indicator {
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-color: var(--border);
+}
 
+[data-theme="dark"] .admin-accordion[open] .accordion-indicator {
+  color: #fca5a5;
+  background: rgba(196, 60, 60, 0.15);
+  border-color: rgba(196, 60, 60, 0.3);
+}
 
+/* ============================================
+   FÊNIX ADMIN – Polimento visual (Camada 2)
+   Marca · Badges · Empty states · Scrollbar · KPI
+   ============================================ */
 
+/* ---------- 1. Card de PIN / Audição com gradiente ---------- */
+.audicao-card,
+.pin-card,
+.session-active-card,
+.card-audicao-ativa,
+.live-session-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    145deg,
+    var(--surface) 0%,
+    var(--surface-2) 100%
+  );
+  border: 1px solid var(--border);
+}
 
+/* faixa de destaque superior */
+.audicao-card::before,
+.pin-card::before,
+.session-active-card::before,
+.card-audicao-ativa::before,
+.live-session-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    #8b1e1e 0%,
+    #c43c3c 50%,
+    #8b1e1e 100%
+  );
+  opacity: 0.9;
+  z-index: 1;
+}
 
+[data-theme="dark"] .audicao-card,
+[data-theme="dark"] .pin-card,
+[data-theme="dark"] .session-active-card,
+[data-theme="dark"] .card-audicao-ativa,
+[data-theme="dark"] .live-session-card,
+body.dark .audicao-card,
+body.dark .pin-card,
+body.dark .live-session-card {
+  background: linear-gradient(
+    160deg,
+    #0a0a0a 0%,
+    #111111 60%,
+    #0d0505 100%
+  );
+}
+
+/* número do PIN mais impactante */
+.pin-value,
+.pin-display,
+.audicao-pin,
+.pin-hero strong,
+#activePin {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  text-shadow: 0 0 24px rgba(196, 60, 60, 0.25);
+}
+
+[data-theme="dark"] .pin-value,
+[data-theme="dark"] .pin-display,
+[data-theme="dark"] .audicao-pin,
+[data-theme="dark"] .pin-hero strong,
+[data-theme="dark"] #activePin,
+body.dark .pin-value {
+  text-shadow: 0 0 28px rgba(196, 60, 60, 0.4);
+}
+
+/* ---------- 2. Logo / Fênix com glow no dark ---------- */
+.sidebar-logo img,
+.brand-logo,
+.logo-fenix,
+.brand-lockup img,
+.header-brand img,
+.header-logo .logo {
+  transition: filter 0.3s ease, transform 0.3s ease;
+}
+
+[data-theme="dark"] .sidebar-logo img,
+[data-theme="dark"] .brand-logo,
+[data-theme="dark"] .logo-fenix,
+[data-theme="dark"] .brand-lockup img,
+[data-theme="dark"] .header-brand img,
+[data-theme="dark"] .header-logo .logo,
+body.dark .sidebar-logo img,
+body.dark .brand-logo {
+  filter: drop-shadow(0 0 8px rgba(196, 60, 60, 0.35));
+}
+
+.sidebar-logo:hover img,
+.brand-logo:hover,
+.brand-lockup:hover img,
+.header-brand:hover img {
+  transform: scale(1.03);
+}
+
+/* ---------- 3. Badges de status refinados ---------- */
+.badge,
+.status-badge,
+.pill,
+.status-chip,
+.turma-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  border: 1px solid transparent;
+}
+
+.badge-aprovado,
+.status-aprovado,
+.pill-success,
+.status-chip.present,
+.turma-badge.is-active {
+  background: rgba(34, 160, 90, 0.12);
+  color: #1a7a45;
+  border-color: rgba(34, 160, 90, 0.25);
+}
+
+.badge-reprovado,
+.status-reprovado,
+.pill-danger,
+.status-chip.absent {
+  background: rgba(196, 60, 60, 0.12);
+  color: #b33a3a;
+  border-color: rgba(196, 60, 60, 0.25);
+}
+
+.badge-atencao,
+.status-atencao,
+.pill-warning,
+.status-chip.pending {
+  background: rgba(200, 140, 20, 0.12);
+  color: #9a6b10;
+  border-color: rgba(200, 140, 20, 0.3);
+}
+
+.badge-neutro,
+.status-neutro {
+  background: rgba(128, 128, 128, 0.1);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+/* Dark mode – badges */
+[data-theme="dark"] .badge-aprovado,
+[data-theme="dark"] .status-aprovado,
+[data-theme="dark"] .status-chip.present,
+[data-theme="dark"] .turma-badge.is-active,
+body.dark .badge-aprovado {
+  background: rgba(34, 160, 90, 0.18);
+  color: #5ddea0;
+  border-color: rgba(34, 160, 90, 0.3);
+}
+
+[data-theme="dark"] .badge-reprovado,
+[data-theme="dark"] .status-reprovado,
+[data-theme="dark"] .status-chip.absent,
+body.dark .badge-reprovado {
+  background: rgba(196, 60, 60, 0.2);
+  color: #f08080;
+  border-color: rgba(196, 60, 60, 0.35);
+}
+
+[data-theme="dark"] .badge-atencao,
+[data-theme="dark"] .status-atencao,
+[data-theme="dark"] .status-chip.pending,
+body.dark .badge-atencao {
+  background: rgba(200, 140, 20, 0.18);
+  color: #e8c060;
+  border-color: rgba(200, 140, 20, 0.35);
+}
+
+/* ---------- 4. Empty states ---------- */
+.empty-state,
+.empty-list,
+.state-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.empty-state::before,
+.empty-list::before {
+  content: "";
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  opacity: 0.7;
+}
+
+.empty-state strong,
+.empty-list strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.empty-state span,
+.empty-list span {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 320px;
+  line-height: 1.4;
+}
+
+/* ---------- 5. Scrollbar discreta ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 30, 30, 0.35) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(139, 30, 30, 0.35);
+  border-radius: 99px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 30, 30, 0.55);
+}
+
+[data-theme="dark"] *,
+body.dark * {
+  scrollbar-color: rgba(196, 60, 60, 0.4) transparent;
+}
+
+[data-theme="dark"] *::-webkit-scrollbar-thumb,
+body.dark *::-webkit-scrollbar-thumb {
+  background: rgba(196, 60, 60, 0.4);
+}
+
+[data-theme="dark"] *::-webkit-scrollbar-thumb:hover,
+body.dark *::-webkit-scrollbar-thumb:hover {
+  background: rgba(196, 60, 60, 0.6);
+}
+
+/* ---------- 6. KPI / números do dashboard ---------- */
+.kpi-value,
+.stat-value,
+.dashboard-number,
+.stat-card .number,
+.kpi-card .value,
+.kpi-card strong {
+  font-size: 1.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.kpi-label,
+.stat-label,
+.stat-card .label,
+.kpi-card small {
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* card de “Sessões ativas” com destaque quando > 0 */
+.kpi-card.alert,
+.stat-card.has-active {
+  border-color: rgba(196, 60, 60, 0.4);
+}
+
+.kpi-card.alert .kpi-value,
+.stat-card.has-active .stat-value,
+.kpi-card.alert strong {
+  color: var(--accent);
+}
+
+/* ---------- 7. Topbar / header mais limpo ---------- */
+.topbar,
+.admin-topbar,
+.admin-header,
+.page-header {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .admin-topbar,
+[data-theme="dark"] .admin-header,
+body.dark .topbar,
+body.dark .admin-topbar {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+/* ---------- 8. Tabela de resultados (histórico) ---------- */
+.results-table th,
+.historico-table th,
+table th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.results-table td,
+.historico-table td,
+table td {
+  font-variant-numeric: tabular-nums;
+}
+
+.results-table tr:hover td,
+.historico-table tr:hover td,
+table tr:hover td {
+  background: rgba(139, 30, 30, 0.04);
+}
+
+[data-theme="dark"] .results-table tr:hover td,
+[data-theme="dark"] .historico-table tr:hover td,
+[data-theme="dark"] table tr:hover td,
+body.dark .results-table tr:hover td {
+  background: rgba(196, 60, 60, 0.08);
+}
+
+/* ---------- 9. Botão “Copiar PIN” com feedback visual ---------- */
+.btn-copy-pin.copied,
+.btn-copiar.copied,
+[data-copy-pin].copied {
+  background: #1a7a45 !important;
+  border-color: #1a7a45 !important;
+  color: #fff !important;
+  transition: background 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   FÊNIX ADMIN – Polimento visual (Camada 3)
+   Modais · Listas & Seleções · Pulso Live · Skeletons · Tabelas
+   ============================================ */
+
+/* ---------- 1. Modais & Diálogos Administrativos Refinados ---------- */
+.admin-modal,
+dialog {
+  border-radius: var(--radius-lg, 16px);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  transition: transform var(--transition), opacity var(--transition);
+}
+
+.admin-modal::backdrop,
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: opacity 0.25s ease;
+}
+
+/* faixa rubro-fênix sutil no topo dos modais */
+.admin-modal::before,
+dialog::before {
+  content: "";
+  display: block;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg, #8b1e1e 0%, #c43c3c 50%, #8b1e1e 100%);
+}
+
+.admin-modal .modal-header {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.admin-modal .modal-header h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 0;
+}
+
+.admin-modal .modal-header.danger h3 {
+  color: var(--accent);
+}
+
+.admin-modal .modal-close {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.admin-modal .modal-close:hover {
+  background: rgba(196, 60, 60, 0.12);
+  color: var(--accent);
+  border-color: rgba(196, 60, 60, 0.25);
+  transform: rotate(90deg);
+}
+
+.admin-modal .modal-body {
+  padding: 20px 22px;
+  color: var(--text);
+}
+
+.admin-modal .modal-lead {
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.admin-modal .modal-checklist {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.admin-modal .modal-turmas {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 10px);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.admin-modal .modal-label {
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.admin-modal .modal-turmas li {
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.admin-modal .modal-turmas span {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.admin-modal .modal-warning {
+  background: rgba(200, 140, 20, 0.12);
+  border: 1px solid rgba(200, 140, 20, 0.3);
+  color: #c98814;
+  border-radius: var(--radius-sm, 10px);
+}
+
+.admin-modal .modal-footer {
+  padding: 16px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* Modais no Dark Mode OLED */
+[data-theme="dark"] .admin-modal,
+[data-theme="dark"] dialog,
+body.dark .admin-modal,
+body.dark dialog {
+  background: #0a0a0a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.95);
+  color: var(--text);
+}
+
+[data-theme="dark"] .admin-modal::backdrop,
+[data-theme="dark"] dialog::backdrop,
+body.dark .admin-modal::backdrop,
+body.dark dialog::backdrop {
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .admin-modal .modal-header,
+[data-theme="dark"] .admin-modal .modal-footer,
+body.dark .admin-modal .modal-header,
+body.dark .admin-modal .modal-footer {
+  background: #0a0a0a;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .admin-modal .modal-turmas,
+body.dark .admin-modal .modal-turmas {
+  background: #111111;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .admin-modal .modal-warning,
+body.dark .admin-modal .modal-warning {
+  background: rgba(200, 140, 20, 0.16);
+  border-color: rgba(200, 140, 20, 0.35);
+  color: #e5b342;
+}
+
+[data-theme="dark"] .admin-modal .btn-cancel,
+body.dark .admin-modal .btn-cancel {
+  background: #141414;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+[data-theme="dark"] .admin-modal .btn-cancel:hover,
+body.dark .admin-modal .btn-cancel:hover {
+  background: #202020;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* ---------- 2. Listas de Atribuição e Seleção (Vincular Alunos) ---------- */
+.assign-option,
+.selection-option {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 10px);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.assign-option:hover,
+.selection-option:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.assign-option span,
+.selection-copy span {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.assign-checkbox,
+.selection-checkbox {
+  accent-color: var(--accent);
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+[data-theme="dark"] .assign-option,
+[data-theme="dark"] .selection-option,
+body.dark .assign-option,
+body.dark .selection-option {
+  background: #0d0d0d;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .assign-option:hover,
+[data-theme="dark"] .selection-option:hover,
+body.dark .assign-option:hover,
+body.dark .selection-option:hover {
+  background: #141414;
+  border-color: rgba(196, 60, 60, 0.45);
+}
+
+[data-theme="dark"] .assign-option span,
+[data-theme="dark"] .selection-copy span,
+body.dark .assign-option span {
+  color: #eaeaea;
+}
+
+/* ---------- 3. Accordions & Listas Expansíveis de Alunos ---------- */
+.accordion-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-accordion[open] .accordion-indicator,
+.accordion-summary[aria-expanded="true"] .accordion-indicator {
+  transform: rotate(180deg);
+}
+
+.aluno-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.aluno-row:last-child {
+  border-bottom: none;
+}
+
+.aluno-row:hover {
+  background: rgba(139, 30, 30, 0.03);
+}
+
+[data-theme="dark"] .aluno-row:hover,
+body.dark .aluno-row:hover {
+  background: rgba(196, 60, 60, 0.07);
+}
+
+/* ---------- 4. Indicadores de Status em Tempo Real (Pulso SSE) ---------- */
+.status-dot {
+  position: relative;
+}
+
+.status-dot.online {
+  background: #22a05a;
+  box-shadow: 0 0 0 4px rgba(34, 160, 90, 0.2);
+  animation: pulseGreen 2.2s infinite ease-in-out;
+}
+
+@keyframes pulseGreen {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 160, 90, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(34, 160, 90, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 160, 90, 0);
+  }
+}
+
+.status-dot.live,
+.status-dot.danger {
+  background: #c43c3c;
+  box-shadow: 0 0 0 4px rgba(196, 60, 60, 0.2);
+  animation: pulseRed 2s infinite ease-in-out;
+}
+
+@keyframes pulseRed {
+  0% {
+    box-shadow: 0 0 0 0 rgba(196, 60, 60, 0.65);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(196, 60, 60, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(196, 60, 60, 0);
+  }
+}
+
+/* ---------- 5. Estados de Carregamento & Skeletons ---------- */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    rgba(255, 255, 255, 0.3) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite;
+  border-radius: var(--radius-sm, 10px);
+}
+
+[data-theme="dark"] .skeleton,
+body.dark .skeleton {
+  background: linear-gradient(
+    90deg,
+    #0f0f0f 25%,
+    #1c1c1c 50%,
+    #0f0f0f 75%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Botões com estado de loading */
+button.is-loading,
+.btn.is-loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+button.is-loading::after,
+.btn.is-loading::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  right: 14px;
+  margin-top: -8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spinLoader 0.6s linear infinite;
+}
+
+@keyframes spinLoader {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- 6. Zebra Striping e Refinamento de Tabelas ---------- */
+.results-table tbody tr:nth-child(even) td,
+.historico-table tbody tr:nth-child(even) td,
+table.admin-table tbody tr:nth-child(even) td {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="dark"] .results-table tbody tr:nth-child(even) td,
+[data-theme="dark"] .historico-table tbody tr:nth-child(even) td,
+[data-theme="dark"] table.admin-table tbody tr:nth-child(even) td,
+body.dark .results-table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.results-table td,
+.historico-table td,
+table.admin-table td {
+  border-bottom: 1px solid var(--border);
+}
+
+/* ============================================
+   FÊNIX ADMIN – Polimento visual (Camada 3.1)
+   Skeleton · Transição de Abas · Mobile · Extra Fino
+   ============================================ */
+
+/* ---------- 1. Skeleton Loading ---------- */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+  color: transparent !important;
+  pointer-events: none;
+  user-select: none;
+}
+
+@keyframes skeletonShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+[data-theme="dark"] .skeleton,
+body.dark .skeleton {
+  background: linear-gradient(
+    90deg,
+    #0a0a0a 25%,
+    #161616 50%,
+    #0a0a0a 75%
+  );
+  background-size: 200% 100%;
+}
+
+/* Variantes úteis */
+.skeleton-line {
+  height: 14px;
+  margin: 6px 0;
+  width: 100%;
+}
+.skeleton-line.short { width: 40%; }
+.skeleton-line.medium { width: 70%; }
+.skeleton-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.skeleton-card {
+  height: 88px;
+  width: 100%;
+}
+
+.skeleton-wrap {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ---------- 2. Troca de abas ---------- */
+.admin-panel,
+.tab-panel,
+[data-tab-panel] {
+  animation: panelFadeIn 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes panelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Evita animar no carregamento inicial se preferir */
+.admin-panel.no-anim,
+.tab-panel.no-anim,
+[data-tab-panel].no-anim {
+  animation: none;
+}
+
+/* ---------- 3. Mobile / espaçamento ---------- */
+@media (max-width: 1100px) {
+  .admin-main,
+  .content-area,
+  .page-content {
+    padding: 16px 14px 28px;
+  }
+
+  .kpi-grid,
+  .stats-grid,
+  .dashboard-kpis {
+    gap: 10px;
+  }
+
+  .kpi-value,
+  .stat-value {
+    font-size: 1.55rem;
+  }
+
+  .turma-card,
+  .person-card,
+  .management-card {
+    padding: 14px;
+  }
+
+  .alunos-lista-simples {
+    max-height: 60vh; /* evita lista enorme em tela pequena */
+    overflow-y: auto;
+  }
+
+  /* Botões de ação mais fáceis de tocar */
+  .btn,
+  .btn-ver-alunos,
+  .btn-danger-sm {
+    min-height: 40px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  .kpi-grid,
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .page-title,
+  .admin-title {
+    font-size: 1.35rem;
+  }
+
+  .topbar .search,
+  .admin-search {
+    max-width: none;
+    width: 100%;
+  }
+}
+
+/* Respiro geral entre seções */
+.section + .section,
+.panel + .panel,
+.management-block + .management-block {
+  margin-top: 20px;
+}
+
+/* ---------- 4. Extra fino ---------- */
+/* Suaviza a troca light/dark sem flash brusco */
+html {
+  color-scheme: light dark;
+}
+body {
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Evita seleção acidental em labels de KPI */
+.kpi-card,
+.stat-card {
+  user-select: none;
+}
+
+/* Lista de alunos: hover mais discreto na linha */
+.aluno-row {
+  border-radius: var(--radius-sm);
+  padding: 8px 6px;
+  transition: background 0.15s ease;
+}
+.aluno-row:hover {
+  background: rgba(139, 30, 30, 0.05);
+}
+[data-theme="dark"] .aluno-row:hover,
+body.dark .aluno-row:hover {
+  background: rgba(196, 60, 60, 0.1);
+}
+
+/* ============================================
+   FÊNIX ADMIN – Bug fixes (pós Camada 3.1)
+   Dark mode table + btn-danger-sm layout
+   ============================================ */
+
+/* ---------- Fix 1: Dark mode table wrapper, th, hover ---------- */
+[data-theme="dark"] .admin-table-wrap,
+[data-theme="dark"] .table-wrap,
+body.dark .admin-table-wrap,
+body.dark .table-wrap {
+  background: #0a0a0a !important;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] th,
+body.dark th {
+  background: #111111 !important;
+  color: #c43c3c !important;
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] td,
+body.dark td {
+  color: var(--text) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+[data-theme="dark"] tr:hover td,
+body.dark tr:hover td {
+  background: rgba(196, 60, 60, 0.07) !important;
+}
+
+/* scores-table: inputs in dark mode */
+[data-theme="dark"] .scores-table input,
+body.dark .scores-table input {
+  background: #141414;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f5f0eb;
+}
+
+/* ---------- Fix 2: Aluno list row layout & names ---------- */
+.aluno-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  padding: 8px 6px !important;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.aluno-row:last-child {
+  border-bottom: none;
+}
+
+.aluno-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.aluno-nome {
+  font-weight: 750 !important;
+  font-size: 0.92rem !important;
+  color: var(--text) !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+[data-theme="dark"] .aluno-nome,
+body.dark .aluno-nome {
+  color: #f5f0eb !important;
+}
+
+.aluno-meta {
+  font-size: 0.78rem !important;
+  color: var(--text-muted) !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+[data-theme="dark"] .aluno-meta,
+body.dark .aluno-meta {
+  color: #9c948e !important;
+}
+
+.btn-danger-sm,
+.aluno-row .btn-danger-sm {
+  min-height: 28px !important;
+  height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 0.78rem !important;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 26px !important;
+  border-radius: 6px !important;
+}
+
+/* Empty state in dark mode */
+[data-theme="dark"] .empty-state,
+body.dark .empty-state {
+  background: #080808 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .empty-state strong,
+body.dark .empty-state strong {
+  color: #f5f0eb !important;
+}
+
+[data-theme="dark"] .empty-state span,
+body.dark .empty-state span {
+  color: #8a8078 !important;
+}
+
+[data-theme="dark"] .empty-state::before,
+body.dark .empty-state::before {
+  background: #141414 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ============================================
+   FÊNIX ADMIN – Fix: topbar sticky opaca + card de sessão no modo claro
+   ============================================ */
+
+/* Barra sticky opaca: o conteúdo não pode aparecer por trás dela ao rolar */
+.admin-topbar {
+  background: #FFFDF8;
+}
+
+[data-theme="dark"] .admin-topbar,
+body.dark .admin-topbar,
+html.dark .admin-topbar {
+  background: #0a0a0a;
+}
+
+/* Card "Audição em andamento": no modo claro a Camada 2 deixou o fundo claro,
+   mas o texto é branco. Restaura o gradiente escuro original. */
+.live-session-card {
+  background:
+    linear-gradient(135deg, rgba(119, 78, 81, 0.96), rgba(31, 10, 13, 0.98)),
+    radial-gradient(circle at 84% 16%, rgba(189, 148, 96, 0.55), transparent 18rem);
+  border: 1px solid rgba(232, 214, 184, 0.28);
+  color: #fff;
+}
+
+.live-session-card label {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.live-session-card .eyebrow,
+.live-session-card h2,
+.live-session-card h3,
+.live-session-card strong {
+  color: #fff;
+}
+
+/* Modal "Código de reset": o modal é claro, então o código não pode ser branco */
+.admin-modal .pin-hero strong {
+  color: #8a0f1c;
+  text-shadow: none;
+}
+
+[data-theme="dark"] .admin-modal .pin-hero strong,
+body.dark .admin-modal .pin-hero strong {
+  color: #fff;
+  text-shadow: 0 0 28px rgba(196, 60, 60, 0.4);
+}
+
+/* Biometria do admin: link discreto na barra lateral e lista de aparelhos no modal */
+.sidebar-bio-link {
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.sidebar-bio-link:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  transform: none;
+}
+
+.admin-bio-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+
+.admin-bio-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  font-size: 0.9rem;
+}
+
+.admin-bio-list small {
+  display: block;
+  opacity: 0.7;
+}
+
+.admin-bio-never {
+  display: block;
+  margin: 14px auto 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 6px 10px;
+  color: inherit;
+  opacity: 0.65;
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.admin-bio-never:hover {
+  background: none;
+  transform: none;
+  box-shadow: none;
+  opacity: 1;
+}

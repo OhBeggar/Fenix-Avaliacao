@@ -14,20 +14,64 @@ const { isTeacherAuthenticated, setTeacherCookie, clearTeacherCookie, readTeache
 const { buildResultsPdf, buildAttachmentDisposition, getDynamicTitle } = require('./src/services/pdf-service');
 const { buildResultsExcel } = require('./src/services/export-excel');
 const config = require('./src/config');
+const {
+  safeEqual,
+  deriveKey,
+  signPayload,
+  readSignedPayload,
+  safeJson,
+  cleanText,
+  validatePassword,
+  getClientIp,
+} = require('./src/utils/security');
+const {
+  AttemptTracker,
+  lockedForAny,
+  failAll,
+  clearAll,
+  tooManyAttemptsMessage,
+  requestLimiter,
+} = require('./src/utils/rate-limit');
+const webauthnService = require('./src/services/webauthn-service');
+const { registerWebauthnRoutes } = require('./src/routes/webauthn-routes');
 
 function validateSecurityConfig() {
   if (process.env.NODE_ENV !== 'production') return;
 
   const weakValues = new Set(['', 'troque-esta-senha', 'troque-este-segredo', 'avali-admin-cookie-secret']);
-  if (weakValues.has(config.adminPassword) || weakValues.has(process.env.ADMIN_COOKIE_SECRET || '')) {
+  const cookieSecret = process.env.ADMIN_COOKIE_SECRET || '';
+
+  if (weakValues.has(config.adminPassword) || weakValues.has(cookieSecret)) {
     throw new Error('Configure ADMIN_PASSWORD e ADMIN_COOKIE_SECRET fortes em produção.');
+  }
+  if (config.adminPassword.length < 6) {
+    throw new Error('ADMIN_PASSWORD deve ter pelo menos 6 caracteres em produção.');
+  }
+  if (cookieSecret.length < 32) {
+    throw new Error('ADMIN_COOKIE_SECRET deve ter pelo menos 32 caracteres em produção.');
   }
 }
 
 validateSecurityConfig();
 
 const app = express();
+app.disable('x-powered-by');
 app.set('trust proxy', 1);
+app.locals.safeJson = safeJson;
+
+// --- Proteção contra força bruta (em memória; instância única) ---
+const FIFTEEN_MIN = 15 * 60 * 1000;
+const adminLoginByIp = new AttemptTracker({ maxAttempts: 5, windowMs: FIFTEEN_MIN, lockMs: FIFTEEN_MIN });
+const adminLoginGlobal = new AttemptTracker({ maxAttempts: 30, windowMs: FIFTEEN_MIN, lockMs: FIFTEEN_MIN });
+const teacherLoginByIpName = new AttemptTracker({ maxAttempts: 6, windowMs: FIFTEEN_MIN, lockMs: FIFTEEN_MIN });
+const teacherLoginByIp = new AttemptTracker({ maxAttempts: 25, windowMs: FIFTEEN_MIN, lockMs: FIFTEEN_MIN });
+const teacherLoginByName = new AttemptTracker({ maxAttempts: 40, windowMs: 60 * 60 * 1000, lockMs: FIFTEEN_MIN });
+const resetByIp = new AttemptTracker({ maxAttempts: 10, windowMs: FIFTEEN_MIN, lockMs: 30 * 60 * 1000 });
+const resetByName = new AttemptTracker({ maxAttempts: 10, windowMs: 30 * 60 * 1000, lockMs: 30 * 60 * 1000 });
+const pinByTeacher = new AttemptTracker({ maxAttempts: 10, windowMs: 10 * 60 * 1000, lockMs: 10 * 60 * 1000 });
+const pinByIp = new AttemptTracker({ maxAttempts: 40, windowMs: 10 * 60 * 1000, lockMs: 10 * 60 * 1000 });
+const checkTeacherLimiter = requestLimiter({ windowMs: 60 * 1000, max: 120 });
+const generalLimiter = requestLimiter({ windowMs: 60 * 1000, max: 1500 });
 
 const TEACHER_COOKIE_NAME = 'teacher_access';
 const ACCESS_COOKIE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
@@ -38,6 +82,13 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  if (isSecureRequest(req)) {
+    res.setHeader('Strict-Transport-Security', 'max-age=15552000');
+  }
   res.setHeader(
     'Content-Security-Policy',
     [
@@ -48,6 +99,7 @@ app.use((req, res, next) => {
       "img-src 'self' data:",
       "connect-src 'self'",
       "frame-ancestors 'none'",
+      "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
     ].join('; ')
@@ -60,6 +112,11 @@ app.use((req, res, next) => {
     || req.path.startsWith('/results')
     || req.path.startsWith('/export_pdf')
     || req.path.startsWith('/export_excel')
+    || req.path.startsWith('/api')
+    || req.path.startsWith('/events')
+    || req.path.startsWith('/login')
+    || req.path.startsWith('/professor')
+    || req.path.startsWith('/teacher')
   ) {
     res.setHeader('Cache-Control', 'no-store');
   }
@@ -70,6 +127,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'static')));
+app.use(generalLimiter);
 
 // View engine
 app.set('view engine', 'ejs');
@@ -145,6 +203,7 @@ function getAdminLocals(message = null, extra = {}) {
 
   return {
     teachers: evaluationService.getTeacherList(),
+    webauthnCounts: webauthnService.countByTeacher(),
     turmas: evaluationService.getTurmas(),
     allCandidates: evaluationService.getCandidatesByTurma('all'),
     activeStatus: evaluationService.getActiveEvaluatorStatus(),
@@ -159,27 +218,29 @@ function getAdminLocals(message = null, extra = {}) {
   };
 }
 
-const ACCESS_SECRET = config.adminCookieValue || config.adminPassword || 'avali-local-secret';
+// Chaves separadas por finalidade: um token de CSRF nunca vale como cookie de avaliação, etc.
+const ACCESS_MASTER = config.adminCookieValue || config.adminPassword || 'avali-local-secret';
+const EVALUATION_KEY = deriveKey(ACCESS_MASTER, 'evaluation');
+const CSRF_KEY = deriveKey(ACCESS_MASTER, 'csrf');
+
+function isAjaxRequest(req) {
+  return Boolean(req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest' || req.is('application/json'));
+}
+
+// Erro de validação nas rotas do painel admin: JSON para chamadas fetch, página para formulários.
+function respondAdminError(req, res, message, status = 400) {
+  if (isAjaxRequest(req)) {
+    return res.status(status).json({ ok: false, message });
+  }
+  return res.status(status).render('adm', getAdminLocals({ type: 'error', text: message }));
+}
 
 function signAccessPayload(payload) {
-  const raw = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const signature = crypto.createHmac('sha256', ACCESS_SECRET).update(raw).digest('base64url');
-  return `${raw}.${signature}`;
+  return signPayload(payload, EVALUATION_KEY);
 }
 
 function readAccessPayload(token) {
-  if (!token || !token.includes('.')) return null;
-  const [raw, signature] = token.split('.');
-  const expected = crypto.createHmac('sha256', ACCESS_SECRET).update(raw).digest('base64url');
-  if (Buffer.byteLength(signature) !== Buffer.byteLength(expected)) return null;
-  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
-    if (payload.exp && Date.now() > Number(payload.exp)) return null;
-    return payload;
-  } catch {
-    return null;
-  }
+  return readSignedPayload(token, EVALUATION_KEY);
 }
 
 function setAccessCookie(req, res, name, payload) {
@@ -203,17 +264,29 @@ function clearAccessCookie(req, res, name) {
   });
 }
 
-function createCsrfToken() {
-  return signAccessPayload({
-    type: 'csrf',
-    iat: Date.now(),
-    exp: Date.now() + CSRF_TOKEN_MAX_AGE_MS,
-  });
+// O token CSRF fica amarrado à sessão (cookies de admin/professor da requisição):
+// um token obtido em outra sessão não serve para atacar esta.
+function csrfBinding(req) {
+  const cookies = req.cookies || {};
+  return crypto
+    .createHash('sha256')
+    .update(`${cookies[config.adminCookieName] || ''}|${cookies[TEACHER_COOKIE_NAME] || ''}`)
+    .digest('base64url');
 }
 
-function verifyCsrfToken(token) {
-  const payload = readAccessPayload(token);
-  return Boolean(payload && payload.type === 'csrf');
+function createCsrfToken(req) {
+  return signPayload({
+    type: 'csrf',
+    b: csrfBinding(req),
+    iat: Date.now(),
+    exp: Date.now() + CSRF_TOKEN_MAX_AGE_MS,
+  }, CSRF_KEY);
+}
+
+function verifyCsrfToken(token, req) {
+  const payload = readSignedPayload(token, CSRF_KEY);
+  if (!payload || payload.type !== 'csrf' || typeof payload.b !== 'string') return false;
+  return safeEqual(payload.b, csrfBinding(req));
 }
 
 function csrfTokenFromRequest(req) {
@@ -221,7 +294,7 @@ function csrfTokenFromRequest(req) {
 }
 
 function requireCsrf(req, res, next) {
-  if (verifyCsrfToken(csrfTokenFromRequest(req))) {
+  if (verifyCsrfToken(csrfTokenFromRequest(req), req)) {
     return next();
   }
 
@@ -233,7 +306,8 @@ function requireCsrf(req, res, next) {
 }
 
 app.use((req, res, next) => {
-  res.locals.csrfToken = createCsrfToken();
+  res.locals.csrfToken = createCsrfToken(req);
+  res.locals.webauthn = webauthnService.publicConfig();
   next();
 });
 
@@ -249,6 +323,10 @@ function clearTeacherAccessCookiesAndRelatedCookies(req, res) {
 }
 
 function hasEvaluationAccess(req, turmaId, evaluatorName) {
+  // O cookie de avaliação só vale para o professor que está logado agora.
+  const teacherPayload = readTeacherPayload(req.cookies[TEACHER_COOKIE_NAME]);
+  if (!teacherPayload || teacherPayload.evaluatorName !== evaluatorName) return false;
+
   const payload = readAccessPayload(req.cookies[evaluationCookieName(turmaId)]);
   if (!payload || payload.type !== 'evaluation') return false;
   if (String(payload.evaluatorName) !== String(evaluatorName) || String(payload.turmaId) !== String(turmaId)) return false;
@@ -301,19 +379,29 @@ app.get('/professor/redefinir-senha', (req, res) => {
 });
 
 app.post('/professor/redefinir-senha', requireCsrf, (req, res) => {
-  const { name, code, password, password2 } = req.body;
+  const { password, password2 } = req.body;
+  const name = String(req.body.name || '').trim().slice(0, 200);
+  const code = String(req.body.code || '').trim();
+  const resetPairs = [[resetByIp, getClientIp(req)], [resetByName, name.toLowerCase()]];
+  const resetWait = lockedForAny(resetPairs);
+  if (resetWait) {
+    return res.status(429).render('teacher-reset', { message: tooManyAttemptsMessage(resetWait) });
+  }
   if (password !== password2) {
     return res.render('teacher-reset', { message: 'As senhas não coincidem.' });
   }
 
-  if (!password || String(password).length < 4) {
-    return res.render('teacher-reset', { message: 'A nova senha deve ter pelo menos 4 caracteres.' });
+  const passwordError = validatePassword(password, { name });
+  if (passwordError) {
+    return res.render('teacher-reset', { message: passwordError });
   }
 
   try {
     evaluationService.resetPasswordWithPin(name, code, password);
+    clearAll(resetPairs);
     return res.redirect(`/avaliacao?message=${encodeURIComponent('Senha atualizada. Faça login.')}`);
   } catch (error) {
+    failAll(resetPairs);
     return res.render('teacher-reset', { message: error.message });
   }
 });
@@ -323,11 +411,26 @@ app.post('/login', async (req, res) => {
   const { name, password } = req.body;
 
   // 1. Verificar Professor
-  const teacher = evaluationService.verifyTeacher(name, password);
+  const loginName = String(name || '').trim().slice(0, 200);
+  const loginPassword = typeof password === 'string' ? password : '';
+  const loginIp = getClientIp(req);
+  const loginPairs = [
+    [teacherLoginByIpName, `${loginIp}|${loginName.toLowerCase()}`],
+    [teacherLoginByIp, loginIp],
+    [teacherLoginByName, loginName.toLowerCase()],
+  ];
+  const loginWait = lockedForAny(loginPairs);
+  if (loginWait) {
+    return res.status(429).render('home', { message: tooManyAttemptsMessage(loginWait) });
+  }
+
+  const teacher = evaluationService.verifyTeacher(loginName, loginPassword);
   if (!teacher) {
+    failAll(loginPairs);
     return res.render('home', { message: 'Professor ou senha inválidos.' });
   }
 
+  clearAll([loginPairs[0]]);
   setTeacherCookie(res, teacher.id, teacher.name, isSecureRequest(req));
 
   // 2. Redirecionar para seleção de turmas
@@ -335,7 +438,7 @@ app.post('/login', async (req, res) => {
 });
 
 // API: Verificar se professor está cadastrado (para validação em tempo real no login)
-app.post('/api/check-teacher', (req, res) => {
+app.post('/api/check-teacher', checkTeacherLimiter, (req, res) => {
   const { name } = req.body;
   if (!name || typeof name !== 'string') {
     return res.json({ exists: false });
@@ -350,7 +453,7 @@ app.post('/teacher/logout', requireCsrf, (req, res) => {
 
 // Página de Seleção de Turmas
 app.get('/turmas/:name', (req, res) => {
-  const evaluatorName = decodeURIComponent(req.params.name);
+  const evaluatorName = req.params.name; // o Express já decodifica os parâmetros
   const teacher = readTeacherPayload(req.cookies['teacher_access']);
   if (!teacher) return res.redirect('/avaliacao?message=Faça login para acessar suas turmas.');
 
@@ -383,7 +486,7 @@ app.get('/turmas/:name', (req, res) => {
 
 // Sala da Turma com reconhecimento de professor e verificação de acesso sem senha
 app.get('/turmas/:name/:turmaId', (req, res) => {
-  const evaluatorName = decodeURIComponent(req.params.name);
+  const evaluatorName = req.params.name; // o Express já decodifica os parâmetros
   const turmaId = parseInt(req.params.turmaId, 10);
   const teacher = readTeacherPayload(req.cookies['teacher_access']);
   if (!teacher) return res.redirect('/avaliacao?message=Faça login para acessar suas turmas.');
@@ -411,7 +514,7 @@ app.get('/turmas/:name/:turmaId', (req, res) => {
 });
 
 app.post('/turmas/:name/:turmaId/aulas', requireCsrf, (req, res) => {
-  const evaluatorName = decodeURIComponent(req.params.name);
+  const evaluatorName = req.params.name; // o Express já decodifica os parâmetros
   const turmaId = parseInt(req.params.turmaId, 10);
   const turma = evaluationService.getTurmaById(turmaId);
   const teacher = readTeacherPayload(req.cookies['teacher_access']);
@@ -437,7 +540,7 @@ app.post('/turmas/:name/:turmaId/aulas', requireCsrf, (req, res) => {
 });
 
 app.post('/turmas/:name/:turmaId/ritmos', requireCsrf, (req, res) => {
-  const evaluatorName = decodeURIComponent(req.params.name);
+  const evaluatorName = req.params.name; // o Express já decodifica os parâmetros
   const turmaId = parseInt(req.params.turmaId, 10);
   const turma = evaluationService.getTurmaById(turmaId);
   const teacher = readTeacherPayload(req.cookies['teacher_access']);
@@ -465,17 +568,31 @@ app.post('/turmas/:name/:turmaId/ritmos', requireCsrf, (req, res) => {
 
 // API: Verificar Código PIN da avaliação
 app.post('/turmas/evaluate-access', requireCsrf, (req, res) => {
-  const { turmaId, code } = req.body;
+  const turmaId = Number.parseInt(req.body.turmaId, 10);
+  const code = String(req.body.code ?? '').trim();
   const teacher = getTeacherSession(req);
   if (!teacher) {
     return res.status(401).json({ success: false, message: 'Faça login novamente para acessar a avaliação.' });
   }
   
+  if (!Number.isInteger(turmaId) || turmaId <= 0) {
+    return res.status(400).json({ success: false, message: 'Turma inválida.' });
+  }
+
+  // Limite de tentativas: o PIN tem só 4 dígitos
+  const pinPairs = [[pinByTeacher, String(teacher.id)], [pinByIp, getClientIp(req)]];
+  const pinWait = lockedForAny(pinPairs);
+  if (pinWait) {
+    return res.status(429).json({ success: false, message: tooManyAttemptsMessage(pinWait) });
+  }
+
   // 1. Verificar se o código existe e está ativo
   const session = evaluationService.verifySessionCode(code, turmaId);
   if (!session) {
+    failAll(pinPairs);
     return res.json({ success: false, message: 'PIN inválido, expirado ou fora da data de avaliação.' });
   }
+  clearAll([pinPairs[0]]);
 
   setAccessCookie(req, res, evaluationCookieName(turmaId), {
     type: 'evaluation',
@@ -490,7 +607,7 @@ app.post('/turmas/evaluate-access', requireCsrf, (req, res) => {
 
 // Avaliação (Corrigido para carregar notas salvas)
 app.get('/evaluate/:name', (req, res) => {
-  const evaluatorName = decodeURIComponent(req.params.name);
+  const evaluatorName = req.params.name; // o Express já decodifica os parâmetros
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
   const teacher = readTeacherPayload(req.cookies['teacher_access']);
   if (!teacher) return res.redirect('/avaliacao?message=Faça login para acessar suas turmas.');
@@ -531,7 +648,7 @@ app.get('/evaluate/:name', (req, res) => {
 });
 
 app.post('/evaluate/:name', requireCsrf, (req, res) => {
-  const evaluatorName = decodeURIComponent(req.params.name);
+  const evaluatorName = req.params.name; // o Express já decodifica os parâmetros
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
   const teacher = readTeacherPayload(req.cookies['teacher_access']);
   const isAjax = req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest';
@@ -565,7 +682,19 @@ app.post('/evaluate/:name', requireCsrf, (req, res) => {
   }
 });
 
-app.get('/api/evaluators/status', (req, res) => {
+// Endpoints de tempo real: exigem sessão de admin ou de professor.
+function requireLiveAuth(req, res, next) {
+  if (isAdminAuthenticated(req) || isTeacherAuthenticated(req)) return next();
+  return res.status(401).json({ ok: false, message: 'Faça login para continuar.' });
+}
+
+const SSE_MAX_PER_IP = 20;
+const SSE_MAX_TOTAL = 300;
+const SSE_HEARTBEAT_MS = 25 * 1000;
+const sseConnections = new Map();
+let sseTotal = 0;
+
+app.get('/api/evaluators/status', requireLiveAuth, (req, res) => {
   const turmaId = req.query.turmaId ? parseInt(req.query.turmaId, 10) : null;
   const { hasLiveSession } = getLiveSessionState(turmaId);
 
@@ -727,14 +856,22 @@ app.get('/admin/login', (req, res) => {
 });
 
 app.post('/admin/login', (req, res) => {
-  const { password } = req.body;
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
+  const adminIp = getClientIp(req);
+  const adminPairs = [[adminLoginByIp, adminIp], [adminLoginGlobal, 'admin']];
+  const adminWait = lockedForAny(adminPairs);
+  if (adminWait) {
+    return res.status(429).render('admin-login', { message: tooManyAttemptsMessage(adminWait) });
+  }
   
-  if (password === config.adminPassword) {
+  if (config.adminPassword && safeEqual(password, config.adminPassword)) {
+    clearAll(adminPairs);
     setAdminCookie(res, isSecureRequest(req));
     return res.redirect('/admin');
   }
   
-  res.render('admin-login', { message: 'Senha incorreta.' });
+  failAll(adminPairs);
+  res.status(401).render('admin-login', { message: 'Senha incorreta.' });
 });
 
 app.post('/admin/logout', adminAuthMiddleware, requireCsrf, (req, res) => {
@@ -748,11 +885,24 @@ app.get('/admin', adminAuthMiddleware, (req, res) => {
 });
 
 // SSE endpoint para clientes ouvirem eventos do servidor (PINs / sessões)
-app.get('/events', (req, res) => {
+app.get('/events', requireLiveAuth, (req, res) => {
+  const sseIp = getClientIp(req);
+  if (sseTotal >= SSE_MAX_TOTAL || (sseConnections.get(sseIp) || 0) >= SSE_MAX_PER_IP) {
+    return res.status(429).json({ ok: false, message: 'Muitas conexões abertas.' });
+  }
+  sseConnections.set(sseIp, (sseConnections.get(sseIp) || 0) + 1);
+  sseTotal += 1;
+
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders && res.flushHeaders();
+
+  // batimento periódico: mantém a conexão viva atrás do túnel e detecta clientes mortos
+  const heartbeat = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch (e) { /* ignore */ }
+  }, SSE_HEARTBEAT_MS);
+  if (typeof heartbeat.unref === 'function') heartbeat.unref();
 
   const send = (data) => {
     try {
@@ -770,6 +920,11 @@ app.get('/events', (req, res) => {
   serverEvents.on('session', handler);
 
   req.on('close', () => {
+    clearInterval(heartbeat);
+    sseTotal = Math.max(0, sseTotal - 1);
+    const remaining = (sseConnections.get(sseIp) || 1) - 1;
+    if (remaining <= 0) sseConnections.delete(sseIp);
+    else sseConnections.set(sseIp, remaining);
     serverEvents.removeListener('session', handler);
     try { res.end(); } catch (e) {}
   });
@@ -858,9 +1013,19 @@ app.post('/admin/reopen-semester', adminAuthMiddleware, requireCsrf, (req, res) 
 // Adicionar Professor
 app.post('/admin/teacher/add', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { name, password } = req.body;
-  evaluationService.addTeacher(name, password);
+  const teacherName = cleanText(name, 100);
+  if (!teacherName) {
+    return respondAdminError(req, res, 'Informe o nome do professor.');
+  }
+  const teacherPasswordError = validatePassword(password, { name: teacherName });
+  if (teacherPasswordError) {
+    return respondAdminError(req, res, teacherPasswordError);
+  }
+  if (!evaluationService.addTeacher(teacherName, password)) {
+    return respondAdminError(req, res, 'Já existe um professor com esse nome.');
+  }
 
-  res.render('adm', getAdminLocals({ type: 'success', text: `Professor ${name} cadastrado.` }));
+  res.render('adm', getAdminLocals({ type: 'success', text: `Professor ${teacherName} cadastrado.` }));
 });
 
 app.post('/admin/teacher/reset-code', adminAuthMiddleware, requireCsrf, (req, res) => {
@@ -880,6 +1045,10 @@ app.post('/admin/teacher/reset-code', adminAuthMiddleware, requireCsrf, (req, re
 // Redefinir Senha Professor
 app.post('/admin/teacher/reset-password', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { teacherId, newPassword } = req.body;
+  const newPasswordError = validatePassword(newPassword);
+  if (newPasswordError) {
+    return respondAdminError(req, res, newPasswordError);
+  }
   evaluationService.resetTeacherPassword(teacherId, newPassword);
 
   res.render('adm', getAdminLocals({ type: 'success', text: 'Senha redefinida com sucesso.' }));
@@ -896,7 +1065,15 @@ app.post('/admin/teacher/delete', adminAuthMiddleware, requireCsrf, (req, res) =
 // Criar Turma
 app.post('/admin/turma/add', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { name, teacherId, ritmosAvaliados } = req.body;
-  evaluationService.createTurma(name, teacherId, ritmosAvaliados);
+  const turmaName = cleanText(name, 100);
+  const turmaTeacherId = Number.parseInt(teacherId, 10);
+  if (!turmaName) {
+    return respondAdminError(req, res, 'Informe o nome da turma.');
+  }
+  if (!evaluationService.getTeacherById(turmaTeacherId)) {
+    return respondAdminError(req, res, 'Professor responsável inválido.');
+  }
+  evaluationService.createTurma(turmaName, turmaTeacherId, cleanText(ritmosAvaliados, 200));
 
   res.render('adm', getAdminLocals({ type: 'success', text: 'Turma criada com sucesso.' }));
 });
@@ -922,7 +1099,11 @@ app.post('/admin/turma/ritmos', adminOrTeacherAuthMiddleware, requireCsrf, (req,
 
 // Adicionar Aluno (Admin)
 app.post('/admin/candidate/add', adminAuthMiddleware, requireCsrf, (req, res) => {
-  const { name, gender, status, turmaId } = req.body;
+  const { gender, status, turmaId } = req.body;
+  const name = cleanText(req.body.name, 120);
+  if (!name) {
+    return respondAdminError(req, res, 'Informe o nome do aluno.');
+  }
   
   evaluationService.createCandidate({ 
     name, 
@@ -939,8 +1120,9 @@ app.post('/admin/candidate/bulk', adminAuthMiddleware, requireCsrf, (req, res) =
   const isAjax = req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest';
   const { turmaId, gender, status, names } = req.body;
   const list = (Array.isArray(names) ? names : String(names || '').split(/\r?\n/))
-    .map(name => String(name).trim())
-    .filter(Boolean);
+    .map(name => cleanText(name, 120))
+    .filter(Boolean)
+    .slice(0, 500);
 
   if (!turmaId || !list.length) {
     const message = 'Informe a turma e ao menos um nome.';
@@ -983,8 +1165,9 @@ app.get('/admin/turma/:id/students-simple', adminAuthMiddleware, (req, res) => {
 app.post('/admin/turma/candidate/remove', adminAuthMiddleware, requireCsrf, (req, res) => {
   const { candidateId, turmaId } = req.body;
   try {
-    evaluationService.removeCandidateFromTurma(candidateId, turmaId);
-    res.redirect(`/admin/turma/${turmaId}?type=success&message=${encodeURIComponent('Aluno desvinculado da turma.')}`);
+    const candidate = evaluationService.removeCandidateFromTurma(candidateId, turmaId);
+    const name = candidate?.name || 'Aluno';
+    res.redirect(`/admin/turma/${turmaId}?type=success&message=${encodeURIComponent(`“${name}” desvinculado da turma.`)}`);
   } catch (error) {
     res.redirect(`/admin/turma/${turmaId}?type=error&message=${encodeURIComponent(error.message || 'Erro ao desvincular aluno.')}`);
   }
@@ -1079,7 +1262,7 @@ app.post('/admin/candidate/delete', adminAuthMiddleware, requireCsrf, (req, res)
 app.post('/admin/turma/rename', adminAuthMiddleware, requireCsrf, (req, res) => {
     const { turmaId, newName } = req.body;
     try {
-        evaluationService.updateTurmaName(turmaId, newName);
+        evaluationService.updateTurmaName(turmaId, cleanText(newName, 100));
         // Redireciona de volta para a página de detalhes da turma com mensagem de sucesso
         res.redirect(`/admin/turma/${turmaId}?type=success&message=${encodeURIComponent('Nome da turma atualizado com sucesso.')}`);
     } catch (error) {
@@ -1129,6 +1312,39 @@ app.get('/results/history/:eventId', adminAuthMiddleware, (req, res) => {
     canExportPdf: true,
     dynamicTitle: getDynamicTitle(report),
   });
+});
+
+// --- Login por biometria (WebAuthn) ---
+registerWebauthnRoutes(app, {
+  requireCsrf,
+  getTeacherSession,
+  adminAuthMiddleware,
+  setTeacherCookie,
+  isSecureRequest,
+  isAdminAuthenticated,
+  setAdminCookie,
+});
+
+// --- Página não encontrada e tratador de erros (nunca vaza stack trace) ---
+app.use((req, res) => {
+  if (req.accepts(['html', 'json']) === 'json') {
+    return res.status(404).json({ ok: false, message: 'Não encontrado.' });
+  }
+  return res.status(404).send('Página não encontrada.');
+});
+
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+
+  const status = Number(err.status || err.statusCode);
+  const safeStatus = status >= 400 && status < 500 ? status : 500;
+  if (safeStatus === 500) console.error('Erro não tratado:', err);
+
+  const message = safeStatus === 500 ? 'Erro interno. Tente novamente.' : 'Requisição inválida.';
+  if (req.is('application/json') || req.accepts(['html', 'json']) === 'json') {
+    return res.status(safeStatus).json({ ok: false, success: false, message });
+  }
+  return res.status(safeStatus).send(message);
 });
 
 // Iniciar servidor

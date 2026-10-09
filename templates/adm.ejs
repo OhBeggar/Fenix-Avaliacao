@@ -16,8 +16,8 @@
     })();
     </script>
     <link rel="stylesheet" href="/theme.css">
-    <link rel="stylesheet" href="/adm.css?v=3">
-    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+    <link rel="stylesheet" href="/adm.css?v=12">
+    <link rel="icon" href="/images/fenix-new.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
@@ -35,7 +35,7 @@
     <div class="admin-app">
         <aside class="admin-sidebar" id="adminSidebar" aria-label="Navegação administrativa">
             <a href="#dashboard" class="brand-lockup">
-                <img src="/images/icons8-fenix-cute-color-96.png" alt="Fênix Dança">
+                <img src="/images/fenix-app.png?v=2" alt="Fênix Dança">
                 <span>
                     <strong>Fênix Dança</strong>
                     <small>Secretaria</small>
@@ -51,6 +51,9 @@
                 <a href="#historico" data-tab="historico"><span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></span>Histórico</a>
             </nav>
 
+            <% if (typeof webauthn !== 'undefined' && webauthn.enabled) { %>
+            <button type="button" class="sidebar-bio-link" id="adminBioLink" style="display:none">Biometria deste aparelho</button>
+            <% } %>
             <div class="sidebar-status">
                 <span class="status-dot <%= totalActiveSessions ? 'online' : '' %>"></span>
                 <div>
@@ -122,7 +125,7 @@
                         <strong><%= totalTeachers %></strong>
                         <small>Professores</small>
                     </article>
-                    <article class="kpi-card live" onclick="window.location.hash='#audicao'" style="cursor:pointer;">
+                    <article class="kpi-card live <%= totalActiveSessions > 0 ? 'alert' : '' %>" onclick="window.location.hash='#audicao'" style="cursor:pointer;">
                         <span class="kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 9 17H3L12 3z"/><path d="M12 9v5M12 17h.01"/></svg></span>
                         <strong><%= totalActiveSessions %></strong>
                         <small>Sessões ativas</small>
@@ -182,7 +185,7 @@
                                 <small><%= latestActiveSession.turma_name || currentTurmaName %></small>
                             </div>
                             <div class="hero-actions">
-                                <button type="button" class="btn-light" data-copy-pin="<%= latestActiveSession.code || sessionCode %>">Copiar PIN</button>
+                                <button type="button" class="btn-light btn-copy-pin" data-copy-pin="<%= latestActiveSession.code || sessionCode %>">Copiar PIN</button>
                                 <a href="/results?turmaId=<%= latestActiveSession.turma_id || currentTurmaId %>" class="btn-light">Ver ao vivo</a>
                             </div>
                         <% } else { %>
@@ -309,8 +312,8 @@
 
                 <% if (turmas.length === 0) { %>
                     <div class="empty-state">
-                        <p>Nenhuma turma cadastrada ainda.</p>
-                        <p>Crie uma turma primeiro na seção Turmas.</p>
+                        <strong>Ainda não há turmas</strong>
+                        <span>Crie a primeira em “Nova turma”.</span>
                     </div>
                 <% } else { %>
                     <div class="turmas-grid searchable-group">
@@ -329,7 +332,11 @@
                                     Ver alunos
                                 </button>
                                 <div class="alunos-lista-simples" id="lista-alunos-<%= t.id %>" hidden>
-                                    <div class="lista-loading">Carregando...</div>
+                                    <div class="lista-loading skeleton-wrap">
+                                        <div class="skeleton skeleton-line medium"></div>
+                                        <div class="skeleton skeleton-line"></div>
+                                        <div class="skeleton skeleton-line short"></div>
+                                    </div>
                                 </div>
                             </article>
                         <% }) %>
@@ -354,7 +361,7 @@
                     </label>
                     <label>
                         Senha inicial
-                        <input type="password" name="password" required placeholder="Defina uma senha" autocomplete="new-password">
+                        <input type="password" name="password" required minlength="6" placeholder="Mínimo de 6 caracteres" autocomplete="new-password">
                     </label>
                     <button type="submit">Adicionar professor</button>
                 </form>
@@ -370,6 +377,12 @@
                             <button type="button" class="ghost-link" data-reset-teacher="<%= t.id %>" data-reset-name="<%= t.name %>">
                                 Gerar código de reset
                             </button>
+<% const passkeyCount = (typeof webauthnCounts !== 'undefined' && webauthnCounts && webauthnCounts[t.id]) || 0; %>
+                            <% if (passkeyCount > 0) { %>
+                                <button type="button" class="ghost-link" data-revoke-passkeys="<%= t.id %>" data-revoke-name="<%= t.name %>">
+                                    Revogar biometria (<%= passkeyCount %>)
+                                </button>
+                            <% } %>
                                                         <form action="/admin/teacher/delete" method="POST" class="js-confirm-form"
                                                                     data-confirm-title="Remover professor"
                                                                     data-confirm-message="Tem certeza que deseja remover o professor <%= t.name %>?">
@@ -485,8 +498,8 @@
                 <% const historyList = (typeof history !== 'undefined' && history) ? history.slice(0, 8) : []; %>
                 <% if (historyList.length === 0) { %>
                     <div class="empty-state">
-                        <p>Nenhuma audição arquivada ainda.</p>
-                        <p>Feche um semestre em <a href="#audicao" data-tab="audicao">Audição</a> para gerar histórico.</p>
+                        <strong>Nenhuma avaliação arquivada</strong>
+                        <span>Quando fechar um semestre, os resultados aparecem aqui.</span>
                     </div>
                 <% } else { %>
                     <div class="history-list">
@@ -572,6 +585,18 @@
         </form>
     </dialog>
 
+    <% if (typeof webauthn !== 'undefined' && webauthn.enabled) { %>
+    <dialog id="adminBioModal" class="admin-modal">
+        <div class="modal-header">
+            <h3 id="adminBioTitle">Biometria</h3>
+        </div>
+        <p id="adminBioText" class="modal-body-text"></p>
+        <ul id="adminBioList" class="admin-bio-list"></ul>
+        <div class="modal-actions" id="adminBioActions"></div>
+        <button type="button" class="admin-bio-never" id="adminBioNever" style="display:none">Não perguntar mais neste aparelho</button>
+    </dialog>
+    <% } %>
+
     <dialog id="resetCodeModal" class="admin-modal">
         <div class="modal-header">
             <h3>Código de reset</h3>
@@ -585,6 +610,174 @@
         </div>
     </dialog>
 
+    <% if (typeof webauthn !== 'undefined' && webauthn.enabled) { %>
+    <script src="/webauthn.js?v=3"></script>
+    <script>
+        // Biometria do admin: aviso único após entrar com a senha + gerenciamento discreto na barra lateral.
+        (function () {
+            var api = window.AvaliWebAuthn;
+            var admin = api && api.admin;
+            var modal = document.getElementById('adminBioModal');
+            var link = document.getElementById('adminBioLink');
+            if (!admin || !modal || !link) return;
+
+            var rpID = <%- safeJson(webauthn.rpID) %>;
+            if (!api.isUsableHere(rpID)) return;
+
+            var csrfInput = document.querySelector('input[name="_csrf"]');
+            var csrf = csrfInput ? csrfInput.value : '';
+            var titleEl = document.getElementById('adminBioTitle');
+            var textEl = document.getElementById('adminBioText');
+            var listEl = document.getElementById('adminBioList');
+            var actionsEl = document.getElementById('adminBioActions');
+            var neverEl = document.getElementById('adminBioNever');
+            var devices = [];
+            var max = 5;
+
+            function toast(message, type) {
+                if (window.showToast) showToast(message, type || 'info');
+            }
+
+            function formatDate(value) {
+                if (!value) return '';
+                var date = new Date(String(value).replace(' ', 'T') + 'Z');
+                return isNaN(date.getTime()) ? '' : date.toLocaleDateString('pt-BR');
+            }
+
+            function makeButton(label, className, handler) {
+                var button = document.createElement('button');
+                button.type = 'button';
+                if (className) button.className = className;
+                button.textContent = label;
+                button.addEventListener('click', handler);
+                return button;
+            }
+
+            function openModal() { if (!modal.open) modal.showModal(); }
+            function closeModal() { if (modal.open) modal.close(); }
+
+            function refresh() {
+                return admin.listDevices().then(function (data) {
+                    max = data.max || max;
+                    devices = data.credentials || [];
+                    // o servidor não tem mais nenhuma chave (ex.: senha do admin trocada): volta a usar só a senha
+                    if (!devices.length) admin.forget();
+                });
+            }
+
+            function activate(button) {
+                button.disabled = true;
+                button.textContent = 'Aguardando biometria...';
+                admin.register(csrf).then(function (list) {
+                    devices = list;
+                    closeModal();
+                    toast('Biometria ativada neste aparelho.', 'success');
+                }).catch(function (error) {
+                    button.disabled = false;
+                    button.textContent = 'Ativar biometria';
+                    if (error && error.name === 'InvalidStateError') {
+                        // A chave já existe neste aparelho, mas ele perdeu a lembrança dela: confirma a biometria para reconhecer.
+                        toast('Este aparelho já tem biometria do admin. Confirme para reconhecê-lo.', 'info');
+                        admin.login().then(function () {
+                            closeModal();
+                            toast('Aparelho reconhecido.', 'success');
+                        }).catch(function (loginError) {
+                            toast(api.friendlyError(loginError), 'error');
+                        });
+                        return;
+                    }
+                    toast(api.friendlyError(error), 'error');
+                });
+            }
+
+            function renderDevices() {
+                listEl.innerHTML = '';
+                devices.forEach(function (device) {
+                    var li = document.createElement('li');
+                    var info = document.createElement('div');
+                    var label = document.createElement('span');
+                    label.textContent = device.label;
+                    var meta = document.createElement('small');
+                    var used = device.lastUsedAt ? 'usado em ' + formatDate(device.lastUsedAt) : 'ainda não usado';
+                    meta.textContent = 'cadastrado em ' + formatDate(device.createdAt) + ' · ' + used;
+                    info.appendChild(label);
+                    info.appendChild(meta);
+
+                    var remove = makeButton('Remover', 'ghost-link', function () {
+                        if (!window.confirm('Remover "' + device.label + '"? Esse aparelho volta a precisar da senha do admin.')) return;
+                        remove.disabled = true;
+                        admin.removeDevice(device.id, csrf).then(function (remaining) {
+                            devices = remaining;
+                            if (!remaining.length) admin.forget();
+                            toast('Aparelho removido.', 'success');
+                            openManage();
+                        }).catch(function (error) {
+                            remove.disabled = false;
+                            toast(api.friendlyError(error), 'error');
+                        });
+                    });
+
+                    li.appendChild(info);
+                    li.appendChild(remove);
+                    listEl.appendChild(li);
+                });
+            }
+
+            function openPrompt() {
+                titleEl.textContent = 'Entrar mais rápido?';
+                textEl.textContent = 'Da próxima vez, você entra no painel com a digital ou o rosto, sem digitar a senha do admin.';
+                listEl.innerHTML = '';
+                actionsEl.innerHTML = '';
+                actionsEl.appendChild(makeButton('Agora não', 'ghost-link', function () {
+                    admin.snoozeAsk();
+                    closeModal();
+                }));
+                var enable = makeButton('Ativar biometria', '', function () { activate(enable); });
+                actionsEl.appendChild(enable);
+                neverEl.style.display = '';
+                neverEl.onclick = function () {
+                    admin.neverAsk();
+                    closeModal();
+                    toast('Tudo bem. Você pode ativar depois em "Biometria deste aparelho".', 'info');
+                };
+                openModal();
+            }
+
+            function openManage() {
+                var active = admin.hasDevice();
+                titleEl.textContent = 'Biometria do admin';
+                textEl.textContent = active
+                    ? 'Ativa neste aparelho. Na tela de login do painel você entra com a digital ou o rosto.'
+                    : 'Ative neste aparelho para entrar no painel sem digitar a senha.';
+                renderDevices();
+                actionsEl.innerHTML = '';
+                neverEl.style.display = 'none';
+                actionsEl.appendChild(makeButton('Fechar', 'ghost-link', closeModal));
+                if (!active && devices.length < max) {
+                    var enable = makeButton('Ativar neste aparelho', '', function () { activate(enable); });
+                    actionsEl.appendChild(enable);
+                }
+                openModal();
+            }
+
+            link.addEventListener('click', function () { openManage(); });
+
+            refresh().then(function () {
+                link.style.display = '';
+
+                var justLoggedIn = false;
+                try {
+                    justLoggedIn = sessionStorage.getItem('avaliAdminJustLoggedIn') === '1';
+                    sessionStorage.removeItem('avaliAdminJustLoggedIn');
+                } catch (e) { /* ignore */ }
+
+                if (justLoggedIn && !admin.hasDevice() && admin.shouldAsk() && devices.length < max) {
+                    openPrompt();
+                }
+            }).catch(function () { /* sem biometria: não mostra nada */ });
+        })();
+    </script>
+    <% } %>
     <script src="/transitions.js?v=2"></script>
     <script src="/toast.js?v=2"></script>
     <script>
@@ -656,7 +849,11 @@
                             redirect: 'follow',
                         });
 
-                        if (!response.ok) throw new Error('Falha ao salvar');
+                        if (!response.ok) {
+                            let serverMessage = '';
+                            try { serverMessage = (await response.json()).message || ''; } catch (e) {}
+                            throw new Error(serverMessage || 'Falha ao salvar');
+                        }
                         if (window.showToast) showToast(ok, 'success');
                         try {
                             sessionStorage.setItem('adminActiveTab', tab);
@@ -666,7 +863,7 @@
                         window.setTimeout(() => window.location.reload(), 450);
                     } catch (error) {
                         console.error(error);
-                        if (window.showToast) showToast('Não foi possível salvar. Tente de novo.', 'error');
+                        if (window.showToast) showToast(error.message && error.message !== 'Falha ao salvar' ? error.message : 'Não foi possível salvar. Tente de novo.', 'error');
                         if (button) button.disabled = false;
                     }
                 });
@@ -728,6 +925,23 @@
                         const value = card.dataset.search || card.textContent.toLowerCase();
                         card.hidden = term && !value.includes(term);
                     });
+
+                    document.querySelectorAll('.searchable-group').forEach(group => {
+                        let emptyEl = group.querySelector('.search-empty-state');
+                        const visibleCards = Array.from(group.querySelectorAll('.searchable-card')).filter(c => !c.hidden);
+                        if (term && visibleCards.length === 0) {
+                            if (!emptyEl) {
+                                emptyEl = document.createElement('div');
+                                emptyEl.className = 'empty-state search-empty-state';
+                                emptyEl.style.gridColumn = '1 / -1';
+                                emptyEl.innerHTML = '<strong>Nada encontrado</strong><span>Tente outro nome ou limpe a busca.</span>';
+                                group.appendChild(emptyEl);
+                            }
+                            emptyEl.style.display = 'flex';
+                        } else if (emptyEl) {
+                            emptyEl.style.display = 'none';
+                        }
+                    });
                 });
             }
 
@@ -736,7 +950,14 @@
                     const pin = button.dataset.copyPin;
                     try {
                         await navigator.clipboard.writeText(pin);
-                        if (window.showToast) showToast('PIN copiado.', 'success');
+                        button.classList.add('copied');
+                        const originalText = button.textContent;
+                        button.textContent = 'Copiado!';
+                        setTimeout(() => {
+                            button.classList.remove('copied');
+                            button.textContent = originalText;
+                        }, 1800);
+                        if (window.showToast) showToast('PIN copiado. Envie aos professores.', 'success');
                     } catch (error) {
                         if (window.showToast) showToast('Não foi possível copiar o PIN.', 'error');
                     }
@@ -871,7 +1092,7 @@
                 const remaining = lista ? lista.querySelectorAll('.aluno-row').length : 0;
                 const countElement = card.querySelector('.turma-count, .count, [data-count]');
                 if (countElement) countElement.textContent = `${remaining} ${remaining === 1 ? 'aluno' : 'alunos'}`;
-                if (lista && remaining === 0) lista.innerHTML = '<p class="empty-list">Nenhum aluno nesta turma.</p>';
+                if (lista && remaining === 0) lista.innerHTML = '<div class="empty-state"><strong>Nenhum aluno nesta turma</strong><span>Cadastre na aba Alunos ou vincule pela turma.</span></div>';
             }
 
             document.querySelectorAll('.btn-ver-alunos').forEach((button) => {
@@ -881,14 +1102,26 @@
                     if (!container) return;
 
                     if (!container.hidden && container.dataset.loaded === '1') {
-                        container.hidden = true;
+                        container.classList.remove('is-open');
                         button.textContent = 'Ver alunos';
+                        setTimeout(() => {
+                            container.hidden = true;
+                        }, 280);
                         return;
                     }
 
                     container.hidden = false;
+                    requestAnimationFrame(() => {
+                        container.classList.add('is-open');
+                    });
                     button.textContent = 'Ocultar alunos';
-                    container.innerHTML = '<div class="lista-loading">Carregando...</div>';
+                    container.innerHTML = `
+                        <div class="lista-loading skeleton-wrap">
+                            <div class="skeleton skeleton-line medium"></div>
+                            <div class="skeleton skeleton-line"></div>
+                            <div class="skeleton skeleton-line short"></div>
+                        </div>
+                    `;
 
                     try {
                         const response = await fetch(`/admin/turma/${turmaId}/students-simple`, {
@@ -899,22 +1132,27 @@
                         if (!response.ok || !data.ok) throw new Error(data.error || 'Erro ao carregar alunos.');
 
                         if (!data.students.length) {
-                            container.innerHTML = '<p class="empty-list">Nenhum aluno nesta turma.</p>';
+                            container.innerHTML = '<div class="empty-state"><strong>Nenhum aluno nesta turma</strong><span>Cadastre na aba Alunos ou vincule pela turma.</span></div>';
                         } else {
                             container.innerHTML = data.students.map((student) => `
                                 <div class="aluno-row" data-id="${student.id}">
-                                    <span class="aluno-nome">${escapeHtml(student.name)}</span>
-                                    <span class="aluno-meta">${escapeHtml(formatGender(student.gender))} · ${escapeHtml(student.status || '')}</span>
+                                    <div class="aluno-info">
+                                        <span class="aluno-nome">${escapeHtml(student.name)}</span>
+                                        <span class="aluno-meta">${escapeHtml(formatGender(student.gender))} · ${escapeHtml(student.status || '')}</span>
+                                    </div>
                                     <button type="button" class="btn-danger-sm btn-delete-candidate"
-                                            data-id="${student.id}" data-name="${escapeHtml(student.name)}">
-                                        Remover do sistema
+                                            data-id="${student.id}" data-name="${escapeHtml(student.name)}"
+                                            title="Remover do sistema">
+                                        Remover
                                     </button>
                                 </div>
                             `).join('');
                         }
                         container.dataset.loaded = '1';
+                        container.classList.add('is-open');
                     } catch (error) {
                         container.innerHTML = `<p class="error-list">${escapeHtml(error.message)}</p>`;
+                        container.classList.add('is-open');
                     }
                 });
             });
@@ -944,7 +1182,7 @@
                             if (!response.ok || !data.ok) throw new Error(data.error || 'Falha ao remover aluno.');
                             button.closest('.aluno-row')?.remove();
                             if (turmaCard) updateTurmaCount(turmaCard);
-                            if (window.showToast) showToast(`${data.name || button.dataset.name} removido do sistema.`, 'success');
+                            if (window.showToast) showToast(`“${data.name || button.dataset.name}” removido do sistema.`, 'success');
                         } catch (error) {
                             if (window.showToast) showToast(error.message, 'error');
                         }
@@ -961,6 +1199,35 @@
             if (!modal || !teacherEl || !pinEl) return;
 
             let currentPin = '';
+
+            // Revogar a biometria de um professor (ex.: celular perdido)
+            document.querySelectorAll('[data-revoke-passkeys]').forEach((button) => {
+                button.addEventListener('click', async () => {
+                    const name = button.dataset.revokeName || 'este professor';
+                    if (!window.confirm(`Revogar a biometria de ${name}? Os aparelhos dele voltam a precisar da senha.`)) return;
+                    button.disabled = true;
+                    try {
+                        const csrf = document.querySelector('input[name="_csrf"]')?.value || '';
+                        const response = await fetch('/admin/teacher/webauthn/revoke', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-Token': csrf,
+                            },
+                            body: new URLSearchParams({ teacherId: button.dataset.revokePasskeys, _csrf: csrf }),
+                            credentials: 'same-origin',
+                        });
+                        const data = await response.json();
+                        if (!response.ok || !data.ok) throw new Error(data.message || 'Não foi possível revogar.');
+                        button.remove();
+                        if (window.showToast) showToast('Biometria revogada.', 'success');
+                    } catch (error) {
+                        button.disabled = false;
+                        if (window.showToast) showToast(error.message, 'error');
+                    }
+                });
+            });
             document.querySelectorAll('[data-reset-teacher]').forEach((button) => {
                 button.addEventListener('click', async () => {
                     button.disabled = true;
@@ -983,6 +1250,7 @@
                         pinEl.textContent = data.pin;
                         if (typeof modal.showModal === 'function') modal.showModal();
                         else modal.setAttribute('open', '');
+                        if (window.showToast) showToast('Código gerado. Válido por 30 minutos.', 'success');
                     } catch (error) {
                         if (window.showToast) showToast(error.message, 'error');
                     } finally {
@@ -1028,8 +1296,13 @@
                 panels.forEach(panel => {
                     const active = panel.dataset.tabPanel === tabId;
                     panel.classList.toggle('is-active', active);
-                    if (active) panel.removeAttribute('hidden');
-                    else panel.setAttribute('hidden', '');
+                    if (active) {
+                        panel.removeAttribute('hidden');
+                        panel.classList.remove('no-anim');
+                        void panel.offsetWidth;
+                    } else {
+                        panel.setAttribute('hidden', '');
+                    }
                 });
 
                 const titleEl = document.getElementById('adminPageTitle');
