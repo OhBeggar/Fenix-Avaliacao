@@ -16,7 +16,7 @@
     })();
     </script>
     <link rel="stylesheet" href="/theme.css?v=3">
-    <link rel="stylesheet" href="/home.css?v=5">
+    <link rel="stylesheet" href="/home.css?v=6">
     <link rel="icon" href="/images/fenix-new.png" type="image/png">
 </head>
 <body>
@@ -67,16 +67,10 @@
         </p>
 
         <% if (typeof message !== 'undefined' && message) { %>
-            <div id="toast-data" data-message="<%= message %>" data-type="error" data-forgot="<%= /inv[aá]lidos|Muitas tentativas/i.test(String(message)) ? '1' : '' %>" style="display:none"></div>
+            <div id="toast-data" data-message="<%= message %>" data-type="error" style="display:none"></div>
             <script>
                 document.addEventListener('DOMContentLoaded', () => {
                     const dataEl = document.getElementById('toast-data');
-                    // Login falhou (página recarregada pelo servidor): mostra "Esqueci a senha"
-                    if (dataEl && dataEl.dataset.forgot === '1') {
-                        const forgot = document.getElementById('forgotLink');
-                        if (forgot) forgot.style.display = '';
-                        try { sessionStorage.setItem('avaliForgot', '1'); } catch (e) {}
-                    }
                     if (window.showToast && dataEl) {
                         showToast(dataEl.dataset.message, dataEl.dataset.type);
                     }
@@ -141,7 +135,7 @@
 
         <div class="actions">
             
-            <a href="/professor/redefinir-senha" class="action-link" id="forgotLink" style="display:none">Esqueci a senha</a>
+            <a href="/avaliacao/esqueci-senha" class="action-link" id="forgotLink" <% if (typeof showForgot === 'undefined' || !showForgot) { %>hidden<% } %>>Esqueci a senha</a>
             <!-- <a href="/admin/login" class="action-link">Painel ao vivo</a> -->
             <a href="/admin" class="action-link admin">Acessar painel administrativo</a>
         </div>
@@ -296,17 +290,6 @@
             }, 500);
         });
 
-        // "Esqueci a senha" fica escondido até o professor errar o login pelo menos uma vez.
-        // O aviso lembra da tentativa falha durante a aba (sessionStorage).
-        const forgotEl = document.getElementById('forgotLink');
-        function revealForgot() {
-            if (forgotEl) forgotEl.style.display = '';
-            try { sessionStorage.setItem('avaliForgot', '1'); } catch (e) {}
-        }
-        try {
-            if (sessionStorage.getItem('avaliForgot') === '1') revealForgot();
-        } catch (e) {}
-
         // --- Login por biometria: só aparece se ESTE aparelho já tem a chave do professor digitado ---
         const bioPanel = document.getElementById('bioPanel');
         const bioLoginBtn = document.getElementById('bioLoginBtn');
@@ -384,7 +367,6 @@
                 // Se o servidor redirecionou (302), seguimos manualmente
                 const redirectUrl = res.headers.get('Location');
                 if (res.status === 0 || res.status === 302 || res.redirected || redirectUrl) {
-                    try { sessionStorage.removeItem('avaliForgot'); } catch (e) {}
                     try { sessionStorage.setItem('avaliJustLoggedIn', '1'); } catch (e) {}
                     // Tenta pegar o Location header ou faz redirect baseado no nome
                     if (redirectUrl) {
@@ -401,12 +383,13 @@
                 if (res.status === 429) {
                     loginBtn.disabled = false;
                     loginBtn.textContent = 'Entrar na Avaliação';
-                    revealForgot();
                     if (window.showToast) showToast('Muitas tentativas. Aguarde alguns minutos e tente novamente.', 'error');
                 } else if (html.includes('Professor ou senha inválidos') || res.status === 200) {
                     loginBtn.disabled = false;
                     loginBtn.textContent = 'Entrar na Avaliação';
-                    revealForgot();
+                    // Só depois de um erro de senha o "Esqueci a senha" aparece
+                    const forgotLink = document.getElementById('forgotLink');
+                    if (forgotLink) forgotLink.hidden = false;
                     if (window.showToast) showToast('Professor ou senha inválidos.', 'error');
                 }
             } catch (err) {

@@ -93,6 +93,15 @@
                 </div>
             </header>
 
+            <% if (typeof adminAuthMode !== 'undefined' && adminAuthMode === 'emergency') { %>
+                <div class="admin-emergency-banner" role="status">
+                    Sessão de emergência · expira em até 6 h ou ao sair
+                    <% if (adminEmergencyUntil) { %>
+                        <span>Até <%= new Date(adminEmergencyUntil).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' }) %></span>
+                    <% } %>
+                </div>
+            <% } %>
+
             <% if (typeof message !== 'undefined' && message) { %>
                 <div id="toast-data"
                      data-message="<%= message.text %>"
@@ -360,8 +369,12 @@
                         <input type="text" name="name" required placeholder="Nome do professor">
                     </label>
                     <label>
+                        E-mail
+                        <input type="email" name="email" required maxlength="254" placeholder="professor@exemplo.com" autocomplete="email">
+                    </label>
+                    <label>
                         Senha inicial
-                        <input type="password" name="password" required minlength="6" placeholder="Mínimo de 6 caracteres" autocomplete="new-password">
+                        <input type="password" name="password" placeholder="Padrão 1532 se vazio" autocomplete="new-password">
                     </label>
                     <button type="submit">Adicionar professor</button>
                 </form>
@@ -373,7 +386,21 @@
                                 <span class="avatar-chip"><%= t.name.charAt(0).toUpperCase() %></span>
                                 <h3><%= t.name %></h3>
                                 <p>Professor avaliador</p>
+                                <p><%= t.email || 'E-mail não informado' %></p>
                             </div>
+                            <form action="/admin/teacher/update" method="POST" class="mini-form teacher-edit-form">
+                                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                                <input type="hidden" name="teacherId" value="<%= t.id %>">
+                                <label>
+                                    E-mail
+                                    <input type="email" name="email" value="<%= t.email || '' %>" required maxlength="254" autocomplete="email">
+                                </label>
+                                <label>
+                                    Nova senha (opcional)
+                                    <input type="password" name="password" placeholder="Vazio mantém a atual" autocomplete="new-password">
+                                </label>
+                                <button type="submit">Salvar dados</button>
+                            </form>
                             <button type="button" class="ghost-link" data-reset-teacher="<%= t.id %>" data-reset-name="<%= t.name %>">
                                 Gerar código de reset
                             </button>

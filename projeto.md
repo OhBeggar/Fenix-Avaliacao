@@ -133,7 +133,8 @@ Um avaliador é considerado **online** se teve atividade na sessão nos últimos
 - Página da turma: presença, status (Bolsista/Auxiliar), renomear turma, desvínculo de aluno
 - Fechamento de semestre e reabertura (gera novo PIN)
 - Histórico oficial (snapshot) com exportação em PDF e Excel
-- Reset de senha de professor (código de 5 dígitos, 30 min, uso único)
+- Cadastro de professor com e-mail e senha inicial opcional (`1532` se vazia)
+- Reset de senha de professor por e-mail ou PIN manual gerado pela secretaria
 - Exclusão definitiva de aluno (aba Alunos) vs. desvínculo da turma (página da turma)
 
 ### 2. Professor avaliador
@@ -143,13 +144,35 @@ Um avaliador é considerado **online** se teve atividade na sessão nos últimos
 - **PIN:** informa o PIN gerado pela secretaria para liberar a avaliação
 - **Avaliação:** lança notas em `/evaluate/:nome`, com salvamento sem recarregar a página
 - **Professor responsável pela turma:** também edita presença (total de aulas e aulas presentes) e os ritmos avaliados
-- **Redefinição de senha:** em `/professor/redefinir-senha`, com o código gerado pela secretaria
+- **Esqueci a senha:** `/avaliacao/esqueci-senha` solicita código por e-mail; `/avaliacao/redefinir-senha` redefine com o código recebido
+- **Primeiro acesso com `1532`:** troca obrigatória em `/avaliacao/alterar-senha` antes de entrar nas turmas
 
 ### 3. Consolidação e histórico
 
 - **Ao vivo:** `/results?turmaId=` (médias por critério, nota final, maioria), restrito ao admin. Sem sessão ativa, redireciona para o histórico.
 - **Fechamento:** ao fechar o semestre, o sistema grava o snapshot em `/results/history`, promove os aprovados e zera notas e presença da turma para o próximo ciclo.
 - **Exportação:** PDF e Excel a partir dos resultados ao vivo ou do snapshot histórico.
+
+## Autenticação
+
+### Professor
+1. Admin cadastra nome, e-mail e senha (padrão `1532` se vazia).
+2. Primeiro login com `1532` abre “Defina sua nova senha” e bloqueia turmas até a troca.
+3. “Esqueci a senha” solicita nome + e-mail e envia código por SMTP para redefinir a senha.
+4. O PIN gerado no admin permanece como fallback manual.
+
+### Admin
+1. Login normal com `ADMIN_PASSWORD` (`.env`).
+2. No fluxo de emergência, `ADMIN_EMAIL` recebe um código de 5 dígitos.
+3. Login com código cria sessão de até 6 h ou até logout; o código não pode ser reutilizado.
+4. A senha do `.env` não é alterada; o código concede acesso temporário assinado no cookie.
+
+### Concluído (autenticação)
+- E-mail no cadastro de professor + `must_change_password`
+- Troca obrigatória no primeiro acesso
+- Reset de professor por e-mail e PIN manual
+- Reset emergencial admin de uso único, com sessão de até 6 h
+- Serviço de e-mail compartilhado com template Fênix
 
 ---
 
@@ -162,8 +185,16 @@ PORT=5000
 HOST=0.0.0.0
 ADMIN_PASSWORD=troque-esta-senha
 ADMIN_COOKIE_SECRET=troque-este-segredo
+ADMIN_EMAIL=admin@exemplo.com
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=seu@gmail.com
+SMTP_PASS=senha-de-app
+MAIL_FROM="Fênix Dança <seu@gmail.com>"
 EVALUATOR_ONLINE_WINDOW_MINUTES=30
 ```
+
+Para Gmail, use senha de app em `SMTP_PASS`, não a senha normal da conta. Comentários no `.env` começam com `#`.
 
 Opcionais: `PUBLIC_BASE_URL` (URL pública mostrada no terminal/QR Code) e `EVALUATIONS_DB_PATH` (caminho do banco; padrão `./evaluations.db`).
 
@@ -223,13 +254,12 @@ Acesso por IP local (`http://192.168.x.x:5000`) continua válido na LAN.
 - Deploy público via Cloudflare Tunnel + domínio `.us.kg` (DigitalPlat), com execução via PM2
 - Endurecimento de segurança: limite de tentativas, CSRF amarrado à sessão, chaves de cookie separadas, sessão do professor invalidada ao trocar a senha, política de senha e cabeçalhos extras
 - Login por biometria (WebAuthn/passkeys) para professores e para o admin, com revogação pelo admin (`@simplewebauthn/server`)
-- 78 testes automatizados passando (`npm test`)
+- Testes automatizados cobrindo autenticação, recuperação de senha, avaliações e exportações (`npm test`)
 
 ### Melhorias futuras (opcional)
 
 - Backup automático do banco `evaluations.db`
 - Logs de auditoria (quem alterou o quê e quando)
-- Entrega automática do código de reset por e-mail/WhatsApp
 
 ---
 

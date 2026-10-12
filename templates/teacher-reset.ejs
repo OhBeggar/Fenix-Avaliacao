@@ -27,7 +27,7 @@
             </script>
         <% } %>
 
-        <form class="card" method="POST" action="/professor/redefinir-senha">
+        <form class="card" method="POST" action="/avaliacao/redefinir-senha">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <label>
                 Nome completo
@@ -49,6 +49,7 @@
         </form>
 
         <div class="actions">
+            <a href="/avaliacao/esqueci-senha" class="action-link">Solicitar outro código</a>
             <a href="/avaliacao" class="action-link">Voltar para o login</a>
         </div>
     </main>

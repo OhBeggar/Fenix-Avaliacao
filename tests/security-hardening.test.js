@@ -244,6 +244,52 @@ test('reset code is invalidated after too many wrong attempts', () => {
     assert.ok(service.verifyTeacher('Professor Reset', 'nova-senha-forte'));
 });
 
+test('teacher email reset matches name and email, invalidates prior code and consumes the latest code once', async () => {
+    service.addTeacher({ name: 'Professora Email Reset', email: 'reset@example.com', password: '' });
+    const teacher = service.getTeacherByName('Professora Email Reset');
+    const before = db.prepare('SELECT COUNT(*) AS count FROM teacher_reset_tokens WHERE evaluator_id = ?').get(teacher.id).count;
+
+    let sentCode = '';
+    let sentCount = 0;
+    const fakeMailer = async ({ to, nome, codigo }) => {
+        assert.equal(to, 'reset@example.com');
+        assert.equal(nome, 'Professora Email Reset');
+        sentCode = codigo;
+        sentCount += 1;
+    };
+
+    const wrong = await service.requestTeacherResetByEmail('Professora Email Reset', 'wrong@example.com', fakeMailer);
+    assert.deepEqual(wrong, { ok: true, sent: false });
+    assert.equal(sentCount, 0);
+    assert.equal(db.prepare('SELECT COUNT(*) AS count FROM teacher_reset_tokens WHERE evaluator_id = ?').get(teacher.id).count, before);
+
+    let expiredCode = '';
+    await service.requestTeacherResetByEmail('Professora Email Reset', 'reset@example.com', async ({ codigo }) => { expiredCode = codigo; });
+    db.prepare(`UPDATE teacher_reset_tokens SET expires_at = ? WHERE evaluator_id = ? AND used_at IS NULL`)
+        .run(new Date(Date.now() - 1000).toISOString(), teacher.id);
+    assert.throws(() => service.resetPasswordWithPin('Professora Email Reset', expiredCode, 'SenhaNova@2026'), /inválido ou expirado/);
+
+    const requested = await service.requestTeacherResetByEmail('  PROFESSORA EMAIL RESET ', ' RESET@example.com ', fakeMailer);
+    assert.equal(requested.sent, true);
+    assert.match(sentCode, /^\d{5}$/);
+
+    const firstCode = sentCode;
+    await service.requestTeacherResetByEmail('Professora Email Reset', 'reset@example.com', fakeMailer);
+    const latestCode = sentCode;
+    assert.notEqual(latestCode, '');
+
+    assert.throws(() => service.resetPasswordWithPin('Professora Email Reset', firstCode, 'SenhaNova@2026'), /inválido ou expirado/);
+    assert.throws(() => service.resetPasswordWithPin('Professora Email Reset', latestCode, '1532'), /diferente da padrão/);
+    service.resetPasswordWithPin('Professora Email Reset', latestCode, 'SenhaNova@2026');
+    assert.equal(service.getTeacherById(teacher.id).must_change_password, 0);
+    assert.ok(service.verifyTeacher('Professora Email Reset', 'SenhaNova@2026'));
+    assert.throws(() => service.resetPasswordWithPin('Professora Email Reset', latestCode, 'OutraSenha@2026'), /inválido ou expirado/);
+
+    const usedAt = db.prepare(`SELECT used_at FROM teacher_reset_tokens
+        WHERE evaluator_id = ? ORDER BY id DESC LIMIT 1`).get(teacher.id).used_at;
+    assert.ok(usedAt);
+});
+
 test('password reset route enforces the password policy', async () => {
     const server = http.createServer(app).listen(0);
     try {
@@ -257,7 +303,7 @@ test('password reset route enforces the password policy', async () => {
             password: '1234',
             password2: '1234',
         }, { 'X-Forwarded-For': '198.51.100.30' });
-        assert.equal(weak.res.statusCode, 200);
+        assert.equal(weak.res.statusCode, 400);
         assert.match(weak.text, /pelo menos 6 caracteres/);
     } finally {
         server.close();
@@ -286,7 +332,7 @@ test('PIN check is rate limited per teacher', async () => {
     }
 });
 
-test('admin routes reject weak teacher passwords and empty names', async () => {
+test('admin teacher management requires a valid unique email and flags the default password', async () => {
     const server = http.createServer(app).listen(0);
     try {
         const cookie = adminCookie();
@@ -294,21 +340,138 @@ test('admin routes reject weak teacher passwords and empty names', async () => {
         const token = extractCsrfToken(page.text);
         const headers = { Cookie: cookie, 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': token };
 
-        const weak = await post(server, '/admin/teacher/add', { name: 'Professor Fraco', password: '123' }, headers);
+        const missingEmail = await post(server, '/admin/teacher/add', { name: 'Professor Sem Email', password: '' }, headers);
+        assert.equal(missingEmail.res.statusCode, 400);
+        assert.match(JSON.parse(missingEmail.text).message, /e-mail válido/i);
+
+        const invalidEmail = await post(server, '/admin/teacher/add', { name: 'Professor Email Ruim', email: 'invalido', password: '' }, headers);
+        assert.equal(invalidEmail.res.statusCode, 400);
+
+        const weak = await post(server, '/admin/teacher/add', { name: 'Professor Fraco', email: 'fraco@example.com', password: '123' }, headers);
         assert.equal(weak.res.statusCode, 400);
         assert.match(JSON.parse(weak.text).message, /pelo menos 6/);
         assert.equal(service.getTeacherByName('Professor Fraco'), null);
 
-        const empty = await post(server, '/admin/teacher/add', { name: '   ', password: 'senha-forte-1' }, headers);
+        const empty = await post(server, '/admin/teacher/add', { name: '   ', email: 'empty@example.com', password: 'senha-forte-1' }, headers);
         assert.equal(empty.res.statusCode, 400);
 
-        const good = await post(server, '/admin/teacher/add', { name: 'Professor Forte', password: 'senha-forte-1' }, headers);
+        const good = await post(server, '/admin/teacher/add', { name: 'Professor Forte', email: '  FORTE@EXAMPLE.COM  ', password: '' }, headers);
         assert.equal(good.res.statusCode, 200);
-        assert.ok(service.getTeacherByName('Professor Forte'));
+        const teacher = service.getTeacherByName('Professor Forte');
+        assert.ok(teacher);
+        assert.equal(service.getTeacherById(teacher.id).email, 'forte@example.com');
+        assert.equal(service.getTeacherById(teacher.id).must_change_password, 1);
+        assert.ok(service.verifyTeacher('Professor Forte', '1532'));
 
-        const duplicate = await post(server, '/admin/teacher/add', { name: 'Professor Forte', password: 'senha-forte-1' }, headers);
+        const duplicateName = await post(server, '/admin/teacher/add', { name: 'Professor Forte', email: 'outro@example.com', password: 'senha-forte-1' }, headers);
+        assert.equal(duplicateName.res.statusCode, 400);
+        assert.match(JSON.parse(duplicateName.text).message, /nome/i);
+
+        const duplicateEmail = await post(server, '/admin/teacher/add', { name: 'Outra Professora', email: 'FORTE@example.com', password: 'senha-forte-1' }, headers);
+        assert.equal(duplicateEmail.res.statusCode, 400);
+        assert.match(JSON.parse(duplicateEmail.text).message, /e-mail/i);
+
+        const changeEmail = await post(server, '/admin/teacher/update', {
+            teacherId: teacher.id,
+            email: 'nova@example.com',
+            password: 'senha-personalizada',
+        }, headers);
+        assert.equal(changeEmail.res.statusCode, 200);
+        assert.equal(service.getTeacherById(teacher.id).email, 'nova@example.com');
+        assert.equal(service.getTeacherById(teacher.id).must_change_password, 0);
+
+        const setDefaultPassword = await post(server, '/admin/teacher/update', {
+            teacherId: teacher.id,
+            email: 'nova@example.com',
+            password: '1532',
+        }, headers);
+        assert.equal(setDefaultPassword.res.statusCode, 200);
+        assert.equal(service.getTeacherById(teacher.id).must_change_password, 1);
+        assert.ok(service.verifyTeacher('Professor Forte', '1532'));
+
+        service.addTeacher({ name: 'Professora Outra', email: 'outro@example.com', password: 'senha-personalizada' });
+        const duplicate = await post(server, '/admin/teacher/update', {
+            teacherId: teacher.id,
+            email: 'outro@example.com',
+            password: '',
+        }, headers);
         assert.equal(duplicate.res.statusCode, 400);
-        assert.match(JSON.parse(duplicate.text).message, /Já existe/);
+        assert.match(JSON.parse(duplicate.text).message, /e-mail/i);
+        assert.equal(service.getTeacherById(teacher.id).email, 'nova@example.com');
+    } finally {
+        server.close();
+    }
+});
+
+test('teacher with default password must change it before accessing turmas', async () => {
+    const server = http.createServer(app).listen(0);
+    try {
+        service.addTeacher({ name: 'Professor Troca Obrigatória', email: 'troca@example.com', password: '' });
+        const teacher = service.getTeacherByName('Professor Troca Obrigatória');
+        assert.equal(service.getTeacherById(teacher.id).must_change_password, 1);
+
+        const login = await post(server, '/login', {
+            name: 'Professor Troca Obrigatória',
+            password: '1532',
+        }, { 'X-Forwarded-For': '198.51.100.41' });
+        assert.equal(login.res.statusCode, 302);
+        assert.equal(login.res.headers.location, '/avaliacao/alterar-senha');
+        let cookie = login.res.headers['set-cookie'].find(value => value.startsWith('teacher_access=')).split(';')[0];
+
+        const blockedRoom = await get(server, `/turmas/${encodeURIComponent(teacher.name)}`, { Cookie: cookie });
+        assert.equal(blockedRoom.res.statusCode, 302);
+        assert.equal(blockedRoom.res.headers.location, '/avaliacao/alterar-senha');
+
+        const blockedEvaluation = await get(server, `/evaluate/${encodeURIComponent(teacher.name)}?turmaId=1`, { Cookie: cookie });
+        assert.equal(blockedEvaluation.res.statusCode, 302);
+        assert.equal(blockedEvaluation.res.headers.location, '/avaliacao/alterar-senha');
+
+        const blockedPinAccess = await post(server, '/turmas/evaluate-access', {
+            turmaId: '1',
+            code: '1234',
+        }, { Cookie: cookie });
+        assert.equal(blockedPinAccess.res.statusCode, 302);
+        assert.equal(blockedPinAccess.res.headers.location, '/avaliacao/alterar-senha');
+
+        const changePage = await get(server, '/avaliacao/alterar-senha', { Cookie: cookie });
+        assert.equal(changePage.res.statusCode, 200);
+        const token = extractCsrfToken(changePage.text);
+
+        const defaultRejected = await post(server, '/avaliacao/alterar-senha', {
+            _csrf: token,
+            password: '1532',
+            password2: '1532',
+        }, { Cookie: cookie });
+        assert.equal(defaultRejected.res.statusCode, 400);
+        assert.match(defaultRejected.text, /diferente da padrão 1532/);
+
+        const mismatch = await post(server, '/avaliacao/alterar-senha', {
+            _csrf: token,
+            password: 'Trilha@2026',
+            password2: 'Trilha@2025',
+        }, { Cookie: cookie });
+        assert.equal(mismatch.res.statusCode, 400);
+        assert.match(mismatch.text, /não coincidem/);
+
+        const changed = await post(server, '/avaliacao/alterar-senha', {
+            _csrf: token,
+            password: 'Trilha@2026',
+            password2: 'Trilha@2026',
+        }, { Cookie: cookie });
+        assert.equal(changed.res.statusCode, 302);
+        assert.equal(changed.res.headers.location, `/turmas/${encodeURIComponent(teacher.name)}`);
+        cookie = changed.res.headers['set-cookie'].find(value => value.startsWith('teacher_access=')).split(';')[0];
+        assert.equal(service.getTeacherById(teacher.id).must_change_password, 0);
+
+        const allowedRoom = await get(server, `/turmas/${encodeURIComponent(teacher.name)}`, { Cookie: cookie });
+        assert.equal(allowedRoom.res.statusCode, 200);
+
+        const secondLogin = await post(server, '/login', {
+            name: teacher.name,
+            password: 'Trilha@2026',
+        }, { 'X-Forwarded-For': '198.51.100.42' });
+        assert.equal(secondLogin.res.statusCode, 302);
+        assert.equal(secondLogin.res.headers.location, `/turmas/${encodeURIComponent(teacher.name)}`);
     } finally {
         server.close();
     }
@@ -364,23 +527,26 @@ test('helpers: safeJson, validatePassword and cleanText', () => {
     assert.equal(cleanText('x'.repeat(500), 10).length, 10);
 });
 
-test('"Esqueci a senha" starts hidden and is revealed only after a failed login', async () => {
-    service.addTeacher('Professor Esqueci', 'senha-forte-e');
+test('teacher login hides the forgot-password link until a password error and responds generically', async () => {
     const server = http.createServer(app).listen(0);
 
     try {
         const clean = await get(server, '/avaliacao');
         assert.equal(clean.res.statusCode, 200);
-        assert.match(clean.text, /id="forgotLink"[^>]*display:\s*none/);
-        assert.doesNotMatch(clean.text, /data-forgot="1"/);
+        assert.match(clean.text, /href="\/avaliacao\/esqueci-senha"[^>]*id="forgotLink"\s+hidden/);
 
-        const failed = await post(server, '/login', { name: 'Professor Esqueci', password: 'errada' }, { 'X-Forwarded-For': '192.0.2.77' });
-        assert.equal(failed.res.statusCode, 200);
-        assert.match(failed.text, /data-forgot="1"/);
-
-        // Mensagens que não são falha de login (ex.: senha atualizada) não revelam o link
-        const updated = await get(server, `/avaliacao?message=${encodeURIComponent('Senha atualizada. Faça login.')}`);
-        assert.doesNotMatch(updated.text, /data-forgot="1"/);
+        const forgot = await get(server, '/avaliacao/esqueci-senha');
+        assert.equal(forgot.res.statusCode, 200);
+        const csrf = extractCsrfToken(forgot.text);
+        const tokenCountBefore = db.prepare('SELECT COUNT(*) AS count FROM teacher_reset_tokens').get().count;
+        const response = await post(server, '/avaliacao/esqueci-senha', {
+            _csrf: csrf,
+            name: 'Nome desconhecido',
+            email: 'wrong@example.com',
+        }, { 'X-Forwarded-For': '192.0.2.77' });
+        assert.equal(response.res.statusCode, 200);
+        assert.match(response.text, /Se os dados estiverem corretos, enviamos um código para o e-mail cadastrado/);
+        assert.equal(db.prepare('SELECT COUNT(*) AS count FROM teacher_reset_tokens').get().count, tokenCountBefore);
     } finally {
         server.close();
     }

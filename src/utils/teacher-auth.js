@@ -35,9 +35,10 @@ function readTeacherPayload(token) {
     if (!payload || payload.type !== 'teacher' || !payload.exp) return null;
     if (!Number.isInteger(payload.evaluatorId) || typeof payload.pv !== 'string') return null;
 
+    let teacher;
     try {
         const service = getService();
-        const teacher = service.getTeacherById(payload.evaluatorId);
+        teacher = service.getTeacherById(payload.evaluatorId);
         if (!teacher || teacher.name !== payload.evaluatorName) return null;
 
         const currentVersion = service.getTeacherAuthVersion(payload.evaluatorId);
@@ -46,7 +47,10 @@ function readTeacherPayload(token) {
         return null;
     }
 
-    return payload;
+    return {
+        ...payload,
+        mustChangePassword: Number(teacher.must_change_password) === 1,
+    };
 }
 
 function isTeacherAuthenticated(req) {
@@ -58,7 +62,7 @@ function getSecureAttribute(secure = false) {
     return secure ? '; Secure' : '';
 }
 
-function setTeacherCookie(res, teacherId, teacherName, secure = false) {
+function setTeacherCookie(res, teacherId, teacherName, secure = false, options = {}) {
     const maxAgeMs = TEACHER_COOKIE_MAX_AGE_SECONDS * 1000;
     const pv = getService().getTeacherAuthVersion(teacherId);
     if (!pv) {
@@ -69,6 +73,7 @@ function setTeacherCookie(res, teacherId, teacherName, secure = false) {
         type: 'teacher',
         evaluatorId: teacherId,
         evaluatorName: teacherName,
+        mustChangePassword: Boolean(options.mustChangePassword),
         pv,
         iat: Date.now(),
         exp: Date.now() + maxAgeMs,

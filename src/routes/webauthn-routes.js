@@ -126,8 +126,13 @@ function registerWebauthnRoutes(app, deps) {
                 req.body && req.body.credential
             );
             clearAll(pairs);
-            setTeacherCookie(res, teacher.id, teacher.name, isSecureRequest(req));
-            return res.json({ ok: true, name: teacher.name, redirectUrl: `/turmas/${encodeURIComponent(teacher.name)}` });
+            setTeacherCookie(res, teacher.id, teacher.name, isSecureRequest(req), {
+                mustChangePassword: Number(teacher.must_change_password) === 1,
+            });
+            const redirectUrl = Number(teacher.must_change_password) === 1
+                ? '/avaliacao/alterar-senha'
+                : `/turmas/${encodeURIComponent(teacher.name)}`;
+            return res.json({ ok: true, name: teacher.name, redirectUrl });
         } catch (error) {
             failAll(pairs);
             return sendError(res, error);

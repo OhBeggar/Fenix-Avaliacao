@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recuperar acesso admin | Fênix</title>
+    <link rel="stylesheet" href="/theme.css">
+    <link rel="stylesheet" href="/adm.css">
+    <link rel="icon" href="/images/icons8-fenix-cute-color-70.png" type="image/png">
+</head>
+<body class="admin-body">
+    <main class="admin-login-shell">
+        <section class="login-card">
+            <img src="/images/fenix.svg" alt="Fênix" width="64" height="64">
+            <p class="eyebrow">Painel administrativo</p>
+            <h1>Esqueci a senha</h1>
+            <p class="panel-copy">Informe o e-mail de recuperação para solicitar um código de acesso único.</p>
+            <% if (message) { %><p class="admin-recovery-message" role="status"><%= message %></p><% } %>
+            <form method="POST" action="/admin/forgot" class="stack-form">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <label>E-mail administrativo
+                    <input type="email" name="email" required maxlength="254" autocomplete="email" autofocus>
+                </label>
+                <button type="submit">Enviar código</button>
+            </form>
+            <a href="/admin/login" class="back-link">Voltar ao login</a>
+        </section>
+    </main>
+</body>
+</html>

@@ -19,37 +19,54 @@ function signAdminPayload(payload) {
     return signPayload(payload, ADMIN_KEY);
 }
 
-function readAdminPayload(token) {
-    const payload = readSignedPayload(token, ADMIN_KEY);
+function readAdminPayload(token, allowExpired = false) {
+    const payload = readSignedPayload(token, ADMIN_KEY, { allowExpired });
     if (!payload || payload.type !== 'admin') return null;
     if (!payload.exp) return null;
     return payload;
 }
 
-function isAdminAuthenticated(req) {
+function getAdminPayload(req, includeExpired = false) {
     if (!config.adminPassword) {
-        return false;
+        return null;
     }
 
     const cookies = parseCookieHeader(req.headers.cookie);
-    return Boolean(readAdminPayload(cookies[ADMIN_COOKIE_NAME]));
+    const payload = readAdminPayload(cookies[ADMIN_COOKIE_NAME], includeExpired);
+    if (!payload) return null;
+    if (!includeExpired && payload.adminAuthMode === 'emergency') {
+        const emergencyUntil = Date.parse(payload.adminEmergencyUntil || '');
+        if (!Number.isFinite(emergencyUntil) || emergencyUntil <= Date.now()) return null;
+    }
+    return payload;
+}
+
+function isAdminAuthenticated(req) {
+    return Boolean(getAdminPayload(req));
 }
 
 function getSecureAttribute(secure = false) {
     return secure ? '; Secure' : '';
 }
 
-function setAdminCookie(res, secure = false) {
-    const maxAgeMs = ADMIN_COOKIE_MAX_AGE_SECONDS * 1000;
+function setAdminCookie(res, secure = false, options = {}) {
+    const emergencyUntil = options.adminAuthMode === 'emergency' ? Number(options.adminEmergencyUntil) : null;
+    const maxAgeMs = emergencyUntil && Number.isFinite(emergencyUntil)
+        ? Math.max(0, emergencyUntil - Date.now())
+        : ADMIN_COOKIE_MAX_AGE_SECONDS * 1000;
     const token = signAdminPayload({
         type: 'admin',
         iat: Date.now(),
         exp: Date.now() + maxAgeMs,
+        ...(options.adminAuthMode === 'emergency' ? {
+            adminAuthMode: 'emergency',
+            adminEmergencyUntil: new Date(emergencyUntil).toISOString(),
+        } : {}),
     });
 
     res.setHeader(
         'Set-Cookie',
-        `${ADMIN_COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=${ADMIN_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${getSecureAttribute(secure)}`
+        `${ADMIN_COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=${Math.floor(maxAgeMs / 1000)}; SameSite=Lax${getSecureAttribute(secure)}`
     );
 }
 
@@ -63,6 +80,7 @@ function clearAdminCookie(res, secure = false) {
 module.exports = {
     ADMIN_COOKIE_NAME,
     isAdminAuthenticated,
+    getAdminPayload,
     setAdminCookie,
     clearAdminCookie,
     signAdminPayload,

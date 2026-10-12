@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Esqueci a senha | Fênix</title>
+    <script>
+    (function () {
+      try {
+        var theme = localStorage.getItem('fenix-theme');
+        if (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) theme = 'dark';
+        if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (error) {}
+    })();
+    </script>
+    <link rel="stylesheet" href="/theme.css?v=3">
+    <link rel="stylesheet" href="/home.css?v=5">
+    <link rel="icon" href="/images/fenix-new.png" type="image/png">
+</head>
+<body>
+    <main class="container">
+        <div class="header-logo">
+            <img src="/images/fenix.svg?v=2" alt="Logo Fênix" class="logo">
+        </div>
+        <div class="eyebrow">Acesso de professores</div>
+        <h1>Esqueci a senha</h1>
+        <p class="intro">Informe seu nome e o e-mail cadastrado. A resposta será sempre a mesma para proteger sua conta.</p>
+
+        <% if (message) { %>
+            <div id="toast-data" data-message="<%= message %>" data-type="success" style="display:none"></div>
+            <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const data = document.getElementById('toast-data');
+                    if (window.showToast && data) showToast(data.dataset.message, data.dataset.type);
+                });
+            </script>
+        <% } %>
+
+        <form class="card" method="POST" action="/avaliacao/esqueci-senha">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label>
+                Nome completo
+                <input type="text" name="name" required maxlength="200" autocomplete="name" autofocus>
+            </label>
+            <label>
+                E-mail cadastrado
+                <input type="email" name="email" required maxlength="254" autocomplete="email">
+            </label>
+            <button type="submit">Enviar código</button>
+        </form>
+
+        <div class="actions">
+            <a href="/avaliacao/redefinir-senha" class="action-link">Já tenho o código</a>
+            <a href="/avaliacao" class="action-link">Voltar para o login</a>
+        </div>
+    </main>
+    <script src="/toast.js"></script>
+    <script src="/theme.js"></script>
+</body>
+</html>

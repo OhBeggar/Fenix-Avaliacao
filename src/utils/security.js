@@ -26,7 +26,7 @@ function signPayload(payload, key) {
     return `${raw}.${signature}`;
 }
 
-function readSignedPayload(token, key) {
+function readSignedPayload(token, key, options = {}) {
     if (typeof token !== 'string') return null;
 
     const parts = token.split('.');
@@ -41,7 +41,7 @@ function readSignedPayload(token, key) {
     try {
         const payload = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
         if (!payload || typeof payload !== 'object') return null;
-        if (payload.exp !== undefined && Date.now() > Number(payload.exp)) return null;
+        if (!options.allowExpired && payload.exp !== undefined && Date.now() > Number(payload.exp)) return null;
         return payload;
     } catch {
         return null;

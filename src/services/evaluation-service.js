@@ -18,9 +18,11 @@ const {
   roundOneDecimal,
 } = require('./scoring-rules');
 const crypto = require('crypto');
+const { sendResetEmail } = require('./mail-service');
 
 const SCORE_PATTERN = /^\d+$/;
 const PASSWORD_ALGORITHM = 'scrypt';
+const DEFAULT_TEACHER_PASSWORD = '1532';
 
 // --- Inicialização do Banco de Dados ---
 
@@ -98,6 +100,17 @@ function initDb() {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_teacher_reset_tokens_active
     ON teacher_reset_tokens(evaluator_id, used_at, expires_at)`);
 
+  db.exec(`CREATE TABLE IF NOT EXISTS admin_reset_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_hash TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_admin_reset_active
+    ON admin_reset_tokens(token_hash)
+    WHERE used_at IS NULL`);
+
   // Chaves de login por biometria (WebAuthn/passkeys). Guarda só a chave PÚBLICA.
   db.exec(`CREATE TABLE IF NOT EXISTS webauthn_credentials (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -168,6 +181,8 @@ function initDb() {
     FOREIGN KEY (candidate_id) REFERENCES candidates(id)
   )`);
 
+  ensureEvaluatorEmailColumns(db);
+
   // Garante que a coluna turma_id exista em candidates (para atualizações de DB antigos)
   try {
     db.exec("ALTER TABLE candidates ADD COLUMN turma_id INTEGER");
@@ -198,6 +213,21 @@ function initDb() {
   } catch (e) {}
 
   seedCandidates();
+}
+
+function ensureEvaluatorEmailColumns(database) {
+  const columns = database.prepare('PRAGMA table_info(evaluators)').all().map(column => column.name);
+
+  if (!columns.includes('email')) {
+    database.exec('ALTER TABLE evaluators ADD COLUMN email TEXT');
+  }
+  if (!columns.includes('must_change_password')) {
+    database.exec('ALTER TABLE evaluators ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0');
+  }
+
+  database.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluators_email
+    ON evaluators(email)
+    WHERE email IS NOT NULL AND email != ''`);
 }
 
 // --- Seed Inicial ---
@@ -247,20 +277,39 @@ function verifyPassword(password, storedHash) {
   return crypto.timingSafeEqual(Buffer.from(derived), Buffer.from(hash));
 }
 
-function addTeacher(name, password) {
-  const hash = hashPassword(password);
-  try {
-    db.prepare('INSERT INTO evaluators (name, password_hash) VALUES (?, ?)').run(name, hash);
-    return true;
-  } catch (e) {
-    return false; // Já existe
+function normalizeTeacherEmail(email, required = false) {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized && !required) return null;
+  if (!normalized || normalized.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    throw new Error('Informe um e-mail válido para o professor.');
   }
+  return normalized;
+}
+
+function addTeacher(nameOrData, legacyPassword) {
+  const usesObject = nameOrData && typeof nameOrData === 'object';
+  const name = String(usesObject ? nameOrData.name : nameOrData || '').trim();
+  const email = normalizeTeacherEmail(usesObject ? nameOrData.email : null, usesObject);
+  const rawPassword = usesObject ? nameOrData.password : legacyPassword;
+  const password = String(rawPassword || '').trim() || DEFAULT_TEACHER_PASSWORD;
+  if (!name) throw new Error('Informe o nome do professor.');
+
+  const existingName = db.prepare('SELECT id FROM evaluators WHERE lower(trim(name)) = lower(trim(?))').get(name);
+  if (existingName) throw new Error('Já existe um professor com esse nome.');
+  if (email && db.prepare('SELECT id FROM evaluators WHERE lower(email) = ?').get(email)) {
+    throw new Error('Já existe um professor com esse e-mail.');
+  }
+
+  const mustChangePassword = password === DEFAULT_TEACHER_PASSWORD ? 1 : 0;
+  db.prepare(`INSERT INTO evaluators (name, email, password_hash, must_change_password)
+    VALUES (?, ?, ?, ?)`).run(name, email, hashPassword(password), mustChangePassword);
+  return true;
 }
 
 let dummyPasswordHash = null;
 
 function verifyTeacher(name, password) {
-  const teacher = db.prepare('SELECT id, name, password_hash FROM evaluators WHERE name = ?').get(String(name || '').trim());
+  const teacher = db.prepare('SELECT id, name, password_hash, must_change_password FROM evaluators WHERE name = ?').get(String(name || '').trim());
   if (!teacher) {
     // Gasta o mesmo tempo de uma verificação real: o tempo de resposta não revela
     // se o nome está cadastrado.
@@ -270,15 +319,22 @@ function verifyTeacher(name, password) {
   }
   if (!verifyPassword(password, teacher.password_hash)) return false;
 
+  let mustChangePassword = Number(teacher.must_change_password) === 1;
   if (!String(teacher.password_hash || '').startsWith(`${PASSWORD_ALGORITHM}$`)) {
     resetTeacherPassword(teacher.id, password);
+    mustChangePassword = String(password || '').trim() === DEFAULT_TEACHER_PASSWORD;
   }
 
-  return { id: teacher.id, name: teacher.name };
+  return {
+    id: teacher.id,
+    name: teacher.name,
+    mustChangePassword,
+  };
 }
 
 function getTeacherById(teacherId) {
-  return db.prepare('SELECT id, name FROM evaluators WHERE id = ? AND password_hash IS NOT NULL').get(teacherId) || null;
+  return db.prepare(`SELECT id, name, email, must_change_password
+    FROM evaluators WHERE id = ? AND password_hash IS NOT NULL`).get(teacherId) || null;
 }
 
 function getTeacherByName(name) {
@@ -294,12 +350,99 @@ function getTeacherAuthVersion(teacherId) {
 }
 
 function getTeacherList() {
-  return db.prepare('SELECT id, name FROM evaluators ORDER BY name').all();
+  return db.prepare('SELECT id, name, email FROM evaluators ORDER BY name').all();
 }
 
 function resetTeacherPassword(teacherId, newPassword) {
   const hash = hashPassword(newPassword);
-  db.prepare('UPDATE evaluators SET password_hash = ? WHERE id = ?').run(hash, teacherId);
+  const mustChangePassword = String(newPassword || '').trim() === DEFAULT_TEACHER_PASSWORD ? 1 : 0;
+  db.prepare('UPDATE evaluators SET password_hash = ?, must_change_password = ? WHERE id = ?')
+    .run(hash, mustChangePassword, teacherId);
+}
+
+function changeTeacherPassword(teacherId, newPassword) {
+  const id = Number.parseInt(teacherId, 10);
+  const password = String(newPassword || '');
+  if (!Number.isInteger(id) || id <= 0) throw new Error('Professor não encontrado.');
+  if (!password || password.trim() === DEFAULT_TEACHER_PASSWORD) {
+    throw new Error('Escolha uma senha diferente da padrão 1532.');
+  }
+  if (!db.prepare('SELECT id FROM evaluators WHERE id = ?').get(id)) {
+    throw new Error('Professor não encontrado.');
+  }
+
+  const hash = hashPassword(password);
+  db.prepare('UPDATE evaluators SET password_hash = ?, must_change_password = 0 WHERE id = ?').run(hash, id);
+}
+
+function updateTeacherProfile(teacherId, email, password = '') {
+  const id = Number.parseInt(teacherId, 10);
+  const normalizedEmail = normalizeTeacherEmail(email, true);
+  const teacher = getTeacherById(id);
+  if (!teacher) throw new Error('Professor não encontrado.');
+
+  const normalizedPassword = String(password || '').trim();
+  runInTransaction(() => {
+    const duplicate = db.prepare('SELECT id FROM evaluators WHERE lower(email) = ? AND id != ?').get(normalizedEmail, id);
+    if (duplicate) throw new Error('Já existe um professor com esse e-mail.');
+
+    if (normalizedPassword) resetTeacherPassword(id, normalizedPassword);
+    db.prepare('UPDATE evaluators SET email = ? WHERE id = ?').run(normalizedEmail, id);
+  });
+  return { id, email: normalizedEmail };
+}
+
+function hashAdminResetCode(code) {
+  return crypto.createHmac('sha256', String(config.adminCookieValue || config.adminPassword || 'avali-admin-reset'))
+    .update(`admin-reset:${String(code)}`)
+    .digest('hex');
+}
+
+async function requestAdminResetCode(email, mailer = sendResetEmail) {
+  const expectedEmail = String(config.adminEmail || '').trim().toLowerCase();
+  const requestedEmail = String(email || '').trim().toLowerCase();
+  if (!expectedEmail || requestedEmail !== expectedEmail) return { ok: true, sent: false };
+
+  const code = String(crypto.randomInt(0, 100_000)).padStart(5, '0');
+  const tokenHash = hashAdminResetCode(code);
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
+  runInTransaction(() => {
+    db.prepare(`UPDATE admin_reset_tokens SET used_at = datetime('now') WHERE used_at IS NULL`).run();
+    db.prepare(`INSERT INTO admin_reset_tokens (token_hash, expires_at) VALUES (?, ?)`).run(tokenHash, expiresAt);
+  });
+
+  try {
+    await mailer({ to: expectedEmail, nome: 'Administrador', codigo: code });
+  } catch (error) {
+    db.prepare(`UPDATE admin_reset_tokens SET used_at = datetime('now') WHERE token_hash = ? AND used_at IS NULL`).run(tokenHash);
+    throw error;
+  }
+
+  return { ok: true, sent: true };
+}
+
+function consumeAdminResetCode(email, code) {
+  const expectedEmail = String(config.adminEmail || '').trim().toLowerCase();
+  const requestedEmail = String(email || '').trim().toLowerCase();
+  const normalizedCode = String(code || '').trim();
+  if (!expectedEmail || requestedEmail !== expectedEmail || !/^\d{5}$/.test(normalizedCode)) return { ok: false };
+
+  const tokenHash = hashAdminResetCode(normalizedCode);
+  return runInTransaction(() => {
+    const row = db.prepare(`SELECT id, expires_at FROM admin_reset_tokens
+      WHERE token_hash = ? AND used_at IS NULL ORDER BY id DESC LIMIT 1`).get(tokenHash);
+    if (!row || new Date(row.expires_at).getTime() < Date.now()) return { ok: false };
+
+    const consumed = db.prepare(`UPDATE admin_reset_tokens SET used_at = datetime('now')
+      WHERE id = ? AND used_at IS NULL`).run(row.id);
+    if (consumed.changes !== 1) return { ok: false };
+
+    return {
+      ok: true,
+      sessionExpiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+    };
+  });
 }
 
 const MAX_RESET_ATTEMPTS = 5;
@@ -320,15 +463,46 @@ function generateResetPin(teacherId) {
   const pin = String(crypto.randomInt(0, 100_000)).padStart(5, '0');
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
+  storeTeacherResetPin(teacher.id, pin, expiresAt);
+
+  return { pin, expiresAt };
+}
+
+function storeTeacherResetPin(teacherId, pin, expiresAt) {
   runInTransaction(() => {
     db.prepare(`UPDATE teacher_reset_tokens
       SET used_at = datetime('now')
-      WHERE evaluator_id = ? AND used_at IS NULL`).run(teacher.id);
+      WHERE evaluator_id = ? AND used_at IS NULL`).run(teacherId);
     db.prepare(`INSERT INTO teacher_reset_tokens (evaluator_id, token_hash, expires_at)
-      VALUES (?, ?, ?)`).run(teacher.id, hashResetToken(pin, teacher.id), expiresAt);
+      VALUES (?, ?, ?)`).run(teacherId, hashResetToken(pin, teacherId), expiresAt);
   });
+}
 
-  return { pin, expiresAt };
+async function requestTeacherResetByEmail(name, email, mailer = sendResetEmail) {
+  const normalizedName = String(name || '').trim().slice(0, 200);
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedName || !normalizedEmail) return { ok: true, sent: false };
+
+  const teacher = db.prepare(`SELECT id, name, email FROM evaluators
+    WHERE lower(trim(name)) = lower(?)
+      AND email IS NOT NULL
+      AND lower(trim(email)) = ?
+      AND password_hash IS NOT NULL`).get(normalizedName, normalizedEmail);
+  if (!teacher) return { ok: true, sent: false };
+
+  const pin = String(crypto.randomInt(0, 100_000)).padStart(5, '0');
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  storeTeacherResetPin(teacher.id, pin, expiresAt);
+
+  try {
+    await mailer({ to: teacher.email, nome: teacher.name, codigo: pin });
+  } catch (error) {
+    db.prepare(`UPDATE teacher_reset_tokens SET used_at = datetime('now')
+      WHERE evaluator_id = ? AND used_at IS NULL`).run(teacher.id);
+    throw error;
+  }
+
+  return { ok: true, sent: true };
 }
 
 function resetPasswordWithPin(teacherName, pin, newPassword) {
@@ -336,6 +510,9 @@ function resetPasswordWithPin(teacherName, pin, newPassword) {
   const normalizedPin = String(pin || '').trim();
   if (!teacher || !/^\d{5}$/.test(normalizedPin)) {
     throw new Error('Código inválido ou expirado.');
+  }
+  if (String(newPassword || '').trim() === DEFAULT_TEACHER_PASSWORD) {
+    throw new Error('Escolha uma senha diferente da padrão 1532.');
   }
 
   const row = db.prepare(`SELECT id, token_hash, expires_at, attempts
@@ -1339,7 +1516,12 @@ module.exports = {
   getTeacherList,
   getTeacherAuthVersion,
   resetTeacherPassword,
+  changeTeacherPassword,
+  updateTeacherProfile,
+  requestAdminResetCode,
+  consumeAdminResetCode,
   generateResetPin,
+  requestTeacherResetByEmail,
   resetPasswordWithPin,
   deleteTeacher,
   

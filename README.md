@@ -12,7 +12,9 @@ Os professores lançam notas em tempo real pelo celular, tablet ou computador. A
 - Landing page institucional
 - Login com nome + senha
 - Login por biometria (digital, rosto ou PIN do celular) depois de ativar no aparelho
-- Redefinição de senha por código de 5 dígitos, gerado pela secretaria (validade de 30 min, uso único)
+- Troca obrigatória da senha padrão `1532` no primeiro acesso
+- Esqueci a senha: nome + e-mail cadastrado → código de 5 dígitos por e-mail (30 min, uso único)
+- Fallback da secretaria: gerar código de reset no admin e enviar manualmente
 - Seleção de turma e acesso à avaliação mediante PIN de sessão
 - Lançamento de notas inteiras de 1 a 10 (ou `X` para item não avaliado), com salvamento sem recarregar a página
 - Indicador de avaliadores online (atividade nos últimos 30 min, configurável)
@@ -26,7 +28,8 @@ Os professores lançam notas em tempo real pelo celular, tablet ou computador. A
 - Resultados ao vivo durante a audição
 - Fechamento de semestre com histórico oficial (snapshot congelado)
 - Exportação em PDF e Excel (resultados ao vivo e histórico)
-- Redefinição de senha de professor (código temporário)
+- Cadastro de professor com nome, e-mail e senha inicial opcional (`1532` se vazia)
+- Reset emergencial do admin por e-mail, com sessão temporária de até 6 horas
 - Tema claro/escuro (preto puro OLED) e interface responsiva
 
 ---
@@ -67,6 +70,14 @@ PORT=5000
 HOST=0.0.0.0
 ADMIN_PASSWORD=troque-esta-senha
 ADMIN_COOKIE_SECRET=troque-este-segredo
+# E-mail administrativo que recebe códigos de emergência
+ADMIN_EMAIL=admin@exemplo.com
+# SMTP para reset de senha de professores e admin
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=seu@gmail.com
+SMTP_PASS=senha-de-app
+MAIL_FROM="Fênix Dança <seu@gmail.com>"
 EVALUATOR_ONLINE_WINDOW_MINUTES=30
 ```
 
@@ -85,6 +96,8 @@ EVALUATIONS_DB_PATH=./evaluations.db
 ```
 
 Com `NODE_ENV=production`, o servidor **não inicia** se `ADMIN_PASSWORD` tiver menos de 6 caracteres, `ADMIN_COOKIE_SECRET` tiver menos de 32, ou se qualquer um estiver vazio ou com o valor de exemplo.
+
+Para Gmail, use uma **senha de app** em `SMTP_PASS`, não a senha normal da conta. Linhas comentadas no `.env` devem começar com `#`.
 
 3. Inicie:
 
@@ -106,6 +119,28 @@ npm run check  # verificação de sintaxe do app.js
 ```
 
 O projeto inclui `ecosystem.config.js` para rodar com PM2.
+
+## Autenticação e recuperação de senha
+
+### Professores
+- Cadastro no admin: **nome + e-mail + senha** (se a senha ficar vazia, usa `1532`).
+- Com senha padrão `1532`, o primeiro login obriga a definir uma nova senha antes de acessar turmas ou avaliações.
+- **Esqueci a senha:** nome + e-mail cadastrado → código de 5 dígitos por e-mail (válido por 30 minutos, uso único).
+- Fallback: a secretaria pode gerar um PIN de reset no painel e enviar manualmente (WhatsApp ou presencialmente).
+
+### Administrador
+- Login normal com a senha definida em `ADMIN_PASSWORD` no `.env`.
+- **Esqueci a senha:** o e-mail precisa corresponder a `ADMIN_EMAIL` no `.env`.
+- O código de 5 dígitos enviado por e-mail é válido por 30 minutos e só pode ser usado uma vez.
+- A sessão de emergência dura até 6 horas ou até clicar em **Sair**.
+- A senha do `.env` não é alterada; o código concede apenas acesso temporário assinado no cookie.
+
+### Rotas de recuperação
+- `/avaliacao/esqueci-senha` — solicitar código de recuperação (professor)
+- `/avaliacao/redefinir-senha` — redefinir senha com código
+- `/avaliacao/alterar-senha` — troca obrigatória no primeiro acesso
+- `/admin/forgot` — solicitar código de emergência (admin)
+- `/admin/emergency-login` — entrar com código de emergência
 
 ---
 

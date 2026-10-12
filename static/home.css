@@ -237,6 +237,11 @@ button::after {
     transition: all 0.2s ease;
 }
 
+/* "Esqueci a senha" começa oculto; sem isso o display do .action-link anula o atributo hidden */
+.action-link[hidden] {
+    display: none !important;
+}
+
 .action-link:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-sm);

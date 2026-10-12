@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const cookieParser = require('cookie-parser');
 const evaluationService = require('./src/services/evaluation-service');
 const { commonCriteria, maleCriteria, femaleCriteria } = require('./src/constants');
-const { isAdminAuthenticated, setAdminCookie, clearAdminCookie } = require('./src/utils/admin-auth');
+const { isAdminAuthenticated, getAdminPayload, setAdminCookie, clearAdminCookie } = require('./src/utils/admin-auth');
 const { isTeacherAuthenticated, setTeacherCookie, clearTeacherCookie, readTeacherPayload } = require('./src/utils/teacher-auth');
 const { buildResultsPdf, buildAttachmentDisposition, getDynamicTitle } = require('./src/services/pdf-service');
 const { buildResultsExcel } = require('./src/services/export-excel');
@@ -68,10 +68,24 @@ const teacherLoginByIp = new AttemptTracker({ maxAttempts: 25, windowMs: FIFTEEN
 const teacherLoginByName = new AttemptTracker({ maxAttempts: 40, windowMs: 60 * 60 * 1000, lockMs: FIFTEEN_MIN });
 const resetByIp = new AttemptTracker({ maxAttempts: 10, windowMs: FIFTEEN_MIN, lockMs: 30 * 60 * 1000 });
 const resetByName = new AttemptTracker({ maxAttempts: 10, windowMs: 30 * 60 * 1000, lockMs: 30 * 60 * 1000 });
+const teacherResetRequestLimiter = requestLimiter({
+  windowMs: FIFTEEN_MIN,
+  max: 5,
+  keyFn: req => getClientIp(req),
+  message: 'Se os dados estiverem corretos, enviamos um código para o e-mail cadastrado. Válido por 30 minutos.',
+});
 const pinByTeacher = new AttemptTracker({ maxAttempts: 10, windowMs: 10 * 60 * 1000, lockMs: 10 * 60 * 1000 });
 const pinByIp = new AttemptTracker({ maxAttempts: 40, windowMs: 10 * 60 * 1000, lockMs: 10 * 60 * 1000 });
 const checkTeacherLimiter = requestLimiter({ windowMs: 60 * 1000, max: 120 });
 const generalLimiter = requestLimiter({ windowMs: 60 * 1000, max: 1500 });
+const adminResetRequestLimiter = requestLimiter({
+  windowMs: FIFTEEN_MIN,
+  max: 5,
+  keyFn: req => getClientIp(req),
+  message: 'Se o e-mail estiver cadastrado, enviaremos um código válido por 30 minutos.',
+});
+const adminEmergencyLoginByIp = new AttemptTracker({ maxAttempts: 5, windowMs: FIFTEEN_MIN, lockMs: FIFTEEN_MIN });
+const adminEmergencyLoginGlobal = new AttemptTracker({ maxAttempts: 25, windowMs: FIFTEEN_MIN, lockMs: FIFTEEN_MIN });
 
 const TEACHER_COOKIE_NAME = 'teacher_access';
 const ACCESS_COOKIE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
@@ -129,6 +143,19 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'static')));
 app.use(generalLimiter);
 
+app.use((req, res, next) => {
+  if (isAdminAuthenticated(req)) return next();
+
+  const teacher = readTeacherPayload(req.cookies[TEACHER_COOKIE_NAME]);
+  if (!teacher?.mustChangePassword) return next();
+
+  const allowedWhileChangingPassword = req.path === '/avaliacao/alterar-senha'
+    || (req.path === '/teacher/logout' && req.method === 'POST');
+  if (allowedWhileChangingPassword) return next();
+
+  return res.redirect('/avaliacao/alterar-senha');
+});
+
 // View engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'templates'));
@@ -144,7 +171,10 @@ app.locals.serverEvents = serverEvents;
 // Middleware de autenticação admin
 function adminAuthMiddleware(req, res, next) {
   if (!isAdminAuthenticated(req)) {
-    return res.redirect('/admin/login');
+    const payload = getAdminPayload(req, true);
+    const expiredEmergency = payload?.adminAuthMode === 'emergency'
+      && Date.parse(payload.adminEmergencyUntil || '') <= Date.now();
+    return res.redirect(expiredEmergency ? '/admin/login?erro=sessao_expirada' : '/admin/login');
   }
   next();
 }
@@ -189,7 +219,14 @@ function getAuthDetails(req) {
       user = { type: 'teacher', id: teacherPayload.evaluatorId, name: teacherPayload.evaluatorName };
     }
   }
-  return { user, isAdmin, isTeacher };
+  const adminPayload = isAdmin ? getAdminPayload(req) : null;
+  return {
+    user,
+    isAdmin,
+    isTeacher,
+    adminAuthMode: adminPayload?.adminAuthMode || 'normal',
+    adminEmergencyUntil: adminPayload?.adminEmergencyUntil || null,
+  };
 }
 
 function getAdminLocals(message = null, extra = {}) {
@@ -371,29 +408,92 @@ app.get('/em-breve', (req, res) => {
 
 // Home - Login da avaliação
 app.get('/avaliacao', (req, res) => {
-  res.render('home', { message: req.query.message || null });
+  res.render('home', { 
+    message: req.query.message || null,
+    showForgot: false
+  });
 });
 
-app.get('/professor/redefinir-senha', (req, res) => {
-  res.render('teacher-reset', { message: null });
+app.get('/avaliacao/alterar-senha', (req, res) => {
+  const teacher = readTeacherPayload(req.cookies[TEACHER_COOKIE_NAME]);
+  if (!teacher) return res.redirect('/avaliacao?message=Faça login para continuar.');
+  if (!teacher.mustChangePassword) return res.redirect(`/turmas/${encodeURIComponent(teacher.evaluatorName)}`);
+  res.render('teacher-change-password', { message: null });
 });
 
-app.post('/professor/redefinir-senha', requireCsrf, (req, res) => {
+app.post('/avaliacao/alterar-senha', requireCsrf, (req, res) => {
+  const teacher = readTeacherPayload(req.cookies[TEACHER_COOKIE_NAME]);
+  if (!teacher) return res.redirect('/avaliacao?message=Faça login para continuar.');
+  if (!teacher.mustChangePassword) return res.redirect(`/turmas/${encodeURIComponent(teacher.evaluatorName)}`);
+
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
+  const password2 = typeof req.body.password2 === 'string' ? req.body.password2 : '';
+  if (password !== password2) {
+    return res.status(400).render('teacher-change-password', { message: 'As senhas não coincidem.' });
+  }
+  if (password.trim() === '1532') {
+    return res.status(400).render('teacher-change-password', { message: 'Escolha uma senha diferente da padrão 1532.' });
+  }
+  const passwordError = validatePassword(password, { name: teacher.evaluatorName });
+  if (passwordError) {
+    return res.status(400).render('teacher-change-password', { message: passwordError });
+  }
+
+  try {
+    evaluationService.changeTeacherPassword(teacher.evaluatorId, password);
+    setTeacherCookie(res, teacher.evaluatorId, teacher.evaluatorName, isSecureRequest(req), { mustChangePassword: false });
+    return res.redirect(`/turmas/${encodeURIComponent(teacher.evaluatorName)}`);
+  } catch (error) {
+    return res.status(400).render('teacher-change-password', { message: error.message || 'Não foi possível atualizar a senha.' });
+  }
+});
+
+const teacherResetMessage = 'Se os dados estiverem corretos, enviamos um código para o e-mail cadastrado. Válido por 30 minutos.';
+
+function renderTeacherForgot(req, res, message = null, status = 200) {
+  return res.status(status).render('teacher-forgot', { message });
+}
+
+app.get(['/avaliacao/esqueci-senha', '/professor/esqueci-senha'], (req, res) => {
+  renderTeacherForgot(req, res);
+});
+
+app.post(['/avaliacao/esqueci-senha', '/professor/esqueci-senha'], requireCsrf, teacherResetRequestLimiter, async (req, res) => {
+  try {
+    await evaluationService.requestTeacherResetByEmail(req.body.name, req.body.email);
+  } catch (error) {
+    console.error('Falha ao solicitar reset de senha do professor:', error.message);
+  }
+  renderTeacherForgot(req, res, teacherResetMessage);
+});
+
+function renderTeacherReset(req, res, message = null, status = 200) {
+  return res.status(status).render('teacher-reset', { message });
+}
+
+app.get(['/avaliacao/redefinir-senha', '/professor/redefinir-senha'], (req, res) => {
+  renderTeacherReset(req, res);
+});
+
+app.post(['/avaliacao/redefinir-senha', '/professor/redefinir-senha'], requireCsrf, (req, res) => {
   const { password, password2 } = req.body;
   const name = String(req.body.name || '').trim().slice(0, 200);
   const code = String(req.body.code || '').trim();
   const resetPairs = [[resetByIp, getClientIp(req)], [resetByName, name.toLowerCase()]];
   const resetWait = lockedForAny(resetPairs);
   if (resetWait) {
-    return res.status(429).render('teacher-reset', { message: tooManyAttemptsMessage(resetWait) });
+    return renderTeacherReset(req, res, tooManyAttemptsMessage(resetWait), 429);
   }
   if (password !== password2) {
-    return res.render('teacher-reset', { message: 'As senhas não coincidem.' });
+    return renderTeacherReset(req, res, 'As senhas não coincidem.', 400);
   }
 
   const passwordError = validatePassword(password, { name });
   if (passwordError) {
-    return res.render('teacher-reset', { message: passwordError });
+    return renderTeacherReset(req, res, passwordError, 400);
+  }
+  if (String(password || '').trim() === '1532') {
+    return renderTeacherReset(req, res, 'Escolha uma senha diferente da padrão 1532.', 400);
   }
 
   try {
@@ -402,7 +502,7 @@ app.post('/professor/redefinir-senha', requireCsrf, (req, res) => {
     return res.redirect(`/avaliacao?message=${encodeURIComponent('Senha atualizada. Faça login.')}`);
   } catch (error) {
     failAll(resetPairs);
-    return res.render('teacher-reset', { message: error.message });
+    return renderTeacherReset(req, res, error.message, 400);
   }
 });
 
@@ -427,11 +527,19 @@ app.post('/login', async (req, res) => {
   const teacher = evaluationService.verifyTeacher(loginName, loginPassword);
   if (!teacher) {
     failAll(loginPairs);
-    return res.render('home', { message: 'Professor ou senha inválidos.' });
+    return res.render('home', { 
+      message: 'Professor ou senha inválidos.',
+      showForgot: true,
+      professorName: loginName
+    });
   }
 
   clearAll([loginPairs[0]]);
-  setTeacherCookie(res, teacher.id, teacher.name, isSecureRequest(req));
+  setTeacherCookie(res, teacher.id, teacher.name, isSecureRequest(req), {
+    mustChangePassword: teacher.mustChangePassword,
+  });
+
+  if (teacher.mustChangePassword) return res.redirect('/avaliacao/alterar-senha');
 
   // 2. Redirecionar para seleção de turmas
   res.redirect(`/turmas/${encodeURIComponent(teacher.name)}`);
@@ -852,7 +960,8 @@ app.get('/export_excel/history/:eventId', adminAuthMiddleware, async (req, res) 
 
 // Login Admin
 app.get('/admin/login', (req, res) => {
-  res.render('admin-login', { message: null });
+  const message = req.query.erro === 'sessao_expirada' ? 'A sessão de emergência expirou. Entre novamente.' : null;
+  res.render('admin-login', { message });
 });
 
 app.post('/admin/login', (req, res) => {
@@ -872,6 +981,45 @@ app.post('/admin/login', (req, res) => {
   
   failAll(adminPairs);
   res.status(401).render('admin-login', { message: 'Senha incorreta.' });
+});
+
+app.get('/admin/forgot', (req, res) => {
+  res.render('admin-forgot', { message: null });
+});
+
+app.post('/admin/forgot', requireCsrf, adminResetRequestLimiter, async (req, res) => {
+  const genericMessage = 'Se o e-mail estiver cadastrado, enviaremos um código válido por 30 minutos.';
+  try {
+    await evaluationService.requestAdminResetCode(req.body.email);
+  } catch (error) {
+    console.error('Falha ao enviar código de emergência do admin:', error.message);
+  }
+  res.render('admin-forgot', { message: genericMessage });
+});
+
+app.get('/admin/emergency-login', (req, res) => {
+  res.render('admin-emergency-login', { message: null });
+});
+
+app.post('/admin/emergency-login', requireCsrf, (req, res) => {
+  const ip = getClientIp(req);
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const pairs = [[adminEmergencyLoginByIp, ip], [adminEmergencyLoginGlobal, 'admin-emergency']];
+  const wait = lockedForAny(pairs);
+  if (wait) return res.status(429).render('admin-emergency-login', { message: tooManyAttemptsMessage(wait) });
+
+  const result = evaluationService.consumeAdminResetCode(email, req.body.code);
+  if (!result.ok) {
+    failAll(pairs);
+    return res.status(401).render('admin-emergency-login', { message: 'E-mail ou código inválido ou expirado.' });
+  }
+
+  clearAll(pairs);
+  setAdminCookie(res, isSecureRequest(req), {
+    adminAuthMode: 'emergency',
+    adminEmergencyUntil: Date.parse(result.sessionExpiresAt),
+  });
+  return res.redirect('/admin');
 });
 
 app.post('/admin/logout', adminAuthMiddleware, requireCsrf, (req, res) => {
@@ -1012,20 +1160,43 @@ app.post('/admin/reopen-semester', adminAuthMiddleware, requireCsrf, (req, res) 
 
 // Adicionar Professor
 app.post('/admin/teacher/add', adminAuthMiddleware, requireCsrf, (req, res) => {
-  const { name, password } = req.body;
+  const { name, email } = req.body;
+  const password = String(req.body.password || '').trim();
   const teacherName = cleanText(name, 100);
   if (!teacherName) {
     return respondAdminError(req, res, 'Informe o nome do professor.');
   }
-  const teacherPasswordError = validatePassword(password, { name: teacherName });
-  if (teacherPasswordError) {
-    return respondAdminError(req, res, teacherPasswordError);
+  if (password && password !== '1532') {
+    const teacherPasswordError = validatePassword(password, { name: teacherName });
+    if (teacherPasswordError) return respondAdminError(req, res, teacherPasswordError);
   }
-  if (!evaluationService.addTeacher(teacherName, password)) {
-    return respondAdminError(req, res, 'Já existe um professor com esse nome.');
+
+  try {
+    evaluationService.addTeacher({ name: teacherName, email, password });
+  } catch (error) {
+    return respondAdminError(req, res, error.message || 'Não foi possível cadastrar o professor.');
   }
 
   res.render('adm', getAdminLocals({ type: 'success', text: `Professor ${teacherName} cadastrado.` }));
+});
+
+app.post('/admin/teacher/update', adminAuthMiddleware, requireCsrf, (req, res) => {
+  const teacherId = Number.parseInt(req.body.teacherId, 10);
+  const email = req.body.email;
+  const password = String(req.body.password || '').trim();
+
+  if (password && password !== '1532') {
+    const passwordError = validatePassword(password);
+    if (passwordError) return respondAdminError(req, res, passwordError);
+  }
+
+  try {
+    evaluationService.updateTeacherProfile(teacherId, email, password);
+  } catch (error) {
+    return respondAdminError(req, res, error.message || 'Não foi possível atualizar o professor.');
+  }
+
+  res.render('adm', getAdminLocals({ type: 'success', text: 'Dados do professor atualizados.' }));
 });
 
 app.post('/admin/teacher/reset-code', adminAuthMiddleware, requireCsrf, (req, res) => {
