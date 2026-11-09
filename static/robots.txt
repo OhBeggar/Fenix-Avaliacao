@@ -1,0 +1,7 @@
+# Só a página inicial deve aparecer em buscadores.
+# As demais rotas (login, admin, avaliação) respondem com X-Robots-Tag: noindex, nofollow.
+# Não bloqueamos com Disallow para o Google conseguir ler esse noindex.
+User-agent: *
+Allow: /
+
+Sitemap: https://ohbeggar.us.kg/sitemap.xml

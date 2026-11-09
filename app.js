@@ -141,6 +141,13 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'static')));
+
+// SEO: só a landing pública ("/") pode aparecer no Google; login, admin e avaliação levam noindex.
+app.use((req, res, next) => {
+  if (req.path !== '/') res.set('X-Robots-Tag', 'noindex, nofollow');
+  next();
+});
+
 app.use(generalLimiter);
 
 app.use((req, res, next) => {
