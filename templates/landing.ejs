@@ -1,190 +1,136 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fênix Dança de Salão — Sistema de Avaliação</title>
-    <meta name="description" content="Sistema interno para gerenciar o processo de audição e avaliação de bolsistas do Centro de Danças Fênix.">
-    <script>
-    (function () {
-            try {
-                var t = localStorage.getItem('fenix-theme');
-                if (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
-                if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-      } catch (e) {}
-    })();
-    </script>
-    <link rel="icon" href="/images/fenix-new.png" type="image/png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/landing.css?v=4">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171313">
+  <title>Centro de Danças Fênix — Seu ritmo, sua história</title>
+  <meta name="description" content="Há 28 anos fazendo parte da dança em Rio Branco. Descubra seu ritmo no Centro de Danças Fênix.">
+  <link rel="icon" href="/images/fenix-new.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/landing.css?v=5">
 </head>
 <body>
-    <header class="topnav">
-        <div class="nav-inner">
-            <a class="brand" href="/" aria-label="Fênix Dança de Salão">
-                <img src="/images/fenix-app.png?v=2" alt="" width="36" height="36" class="brand-logo">
-                <span>Fênix Dança de Salão</span>
-            </a>
-            <button class="menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" id="menuToggle">☰</button>
-            <nav class="nav-links" id="navLinks" aria-label="Navegação principal">
-                <a href="#audicao">Audição</a>
-                <a href="#como-funciona">Como funciona</a>
-                <a href="#regras">Regras</a>
-                <a href="#sistema">Sistema</a>
-                <a href="/em-breve">Em breve</a>
-            </nav>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="/" aria-label="Fênix Centro de Danças">
+      <img src="/images/fenix-app.png?v=2" alt="" width="44" height="44">
+      <span><strong>Fênix</strong><small>CENTRO DE DANÇAS</small></span>
+    </a>
+    <button class="menu-toggle" id="menuToggle" type="button" aria-label="Abrir menu" aria-expanded="false">☰</button>
+    <nav class="main-nav" id="mainNav" aria-label="Navegação principal">
+      <a href="#ritmos">Ritmos</a>
+      <a href="#galeria">Experiências</a>
+      <a href="#historia">Nossa história</a>
+      <a class="nav-cta" href="https://instagram.com/centrodedancasfenix" target="_blank" rel="noopener">Entre em contato ↗</a>
+    </nav>
+  </div>
+</header>
+<main>
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <span class="eyebrow">RIO BRANCO · ACRE</span>
+        <h1>Seu ritmo.<br><em>Sua história.</em><br>Nossa pista.</h1>
+        <p>A dança de salão é encontro, movimento e descoberta. Há um ritmo esperando por você no Centro de Danças Fênix.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="https://instagram.com/centrodedancasfenix" target="_blank" rel="noopener">Quero conhecer a Fênix ↗</a>
+          <a class="text-link" href="#galeria">Explore nossas experiências <span>↓</span></a>
         </div>
-    </header>
-
-    <main>
-        <section class="hero" id="audicao">
-            <div class="hero-inner">
-              <div class="hero-copy">
-                <span class="pill">Audição de bolsistas</span>
-                <h1>Sistema para avaliar, acompanhar e promover talentos.</h1>
-                <p>Sistema interno para gerenciar o processo de audição e avaliação de bolsistas.</p>
-                <div class="hero-actions">
-                    <a href="/avaliacao" class="btn btn-primary">Acessar Salas</a>
-                    <a href="/admin/login" class="btn btn-ghost">Painel administrativo</a>
-                </div>
-              </div>
-
-              <aside class="hero-card" aria-label="Resumo do sistema">
-                <div class="hero-stat">
-                    <span>Presença mínima</span>
-                    <strong>80%</strong>
-                </div>
-                <div class="hero-stat">
-                    <span>Nota final</span>
-                    <strong>7.0+</strong>
-                </div>
-                <div class="hero-stat">
-                    <span>Decisão</span>
-                    <strong>Maioria</strong>
-                </div>
-                <div class="hero-card-art">
-                    <img src="/images/fenix-app.png?v=2" alt="Fênix" width="64" height="64">
-                </div>
-              </aside>
-            </div>
-                        <a class="scroll-cue" href="#como-funciona" aria-label="Ver mais conteúdo">
-                                <span class="scroll-cue-icon" aria-hidden="true"></span>
-                        </a>
-        </section>
-
-        <section class="section" id="como-funciona">
-            <div class="section-head">
-                <h2>Como funciona</h2>
-                <p>Fluxo completo da audição.</p>
-            </div>
-
-            <div class="steps-grid">
-                <article class="step-card">
-                    <span class="step-num">1</span>
-                    <h3>PIN da sessão</h3>
-                    <p>A secretaria gera um PIN e libera a avaliação da turma aos professores.</p>
-                </article>
-                <article class="step-card">
-                    <span class="step-num">2</span>
-                    <h3>Login do professor</h3>
-                    <p>Cada avaliador entra com nome e senha e escolhe a turma da audição.</p>
-                </article>
-                <article class="step-card">
-                    <span class="step-num">3</span>
-                    <h3>Lançamento de notas</h3>
-                    <p>Notas de 1 a 10 por critério. É possível salvar e continuar depois.</p>
-                </article>
-                <article class="step-card">
-                    <span class="step-num">4</span>
-                    <h3>Resultado oficial</h3>
-                    <p>Médias ponderadas, maioria simples, status e evolução de patente.</p>
-                </article>
-            </div>
-        </section>
-
-        <section class="section" id="regras">
-            <div class="rules-panel">
-                <h2>Regras de aprovação</h2>
-                <ul class="rules-list">
-                    <li><strong>Presença</strong> mínima de 80% nas aulas</li>
-                    <li><strong>Nota final</strong> ≥ 7,0 (pesos 10% / 30% / 60%)</li>
-                    <li><strong>Maioria simples</strong> dos avaliadores a favor</li>
-                    <li>Nota e maioria precisam ser atendidas juntas</li>
-                </ul>
-            </div>
-            <div class="tri-grid">
-                <article class="info-card"><span class="info-num">01</span><h3>Presença</h3><p>Chamadas registradas antes da avaliação, sem assumir presença automática.</p></article>
-                <article class="info-card"><span class="info-num">02</span><h3>Avaliação</h3><p>Professores entram com PIN, registram notas inteiras e acompanham o painel ao vivo.</p></article>
-                <article class="info-card"><span class="info-num">03</span><h3>Resultado</h3><p>Fechamento oficial com histórico, PDF, Excel e promoção de patente.</p></article>
-            </div>
-        </section>
-
-        <section class="section" id="sistema">
-            <div class="cta-box">
-                <h2>Pronto para a audição?</h2>
-                <p>Acesse as salas com suas credenciais de professor ou entre no painel da secretaria.</p>
-                <div class="hero-actions">
-                    <a class="btn btn-primary" href="/avaliacao">Acessar Salas</a>
-                    <a class="btn btn-ghost" href="/admin/login">Painel administrativo</a>
-                </div>
-            </div>
-        </section>
-    </main>
-    <footer class="landing-footer">
-        <div class="footer-inner">
-            <div class="footer-brand">
-                <img src="/images/fenix-app.png?v=2" alt="Fênix" width="40" height="40">
-                <div>
-                    <strong>Centro de Danças Fênix</strong>
-                    <span>Sistema de Avaliação · Audição de Bolsistas</span>
-                </div>
-            </div>
-
-            <div class="footer-contacts">
-                <h3>Contato e localização</h3>
-                <ul>
-                    <li>
-                        <span class="label">Instagram</span>
-                        <a href="https://instagram.com/centrodedancasfenix" target="_blank" rel="noopener">@centrodedancasfenix</a>
-                    </li>
-                    <li>
-                        <span class="label">Endereço</span>
-                        <span>Rua Rio Grande do Sul, 182 — Centro<br>Prédio da Livraria Pain, 2º piso<br>Rio Branco — AC</span>
-                    </li>
-                </ul>
-            </div>
-
-            <nav class="footer-links" aria-label="Links da landing">
-                <a href="#como-funciona">Como funciona</a>
-                <a href="#regras">Regras</a>
-                <a href="/em-breve">Em breve</a>
-                <a href="/avaliacao">Acessar Salas</a>
-            </nav>
-        </div>
-
-        <div class="footer-bottom">
-            <span>&copy; <span id="year"></span> Centro de Danças Fênix · Rio Branco — AC</span>
-        </div>
-    </footer>
-    <script>
-        document.getElementById('year').textContent = new Date().getFullYear();
-        const toggle = document.getElementById('menuToggle');
-        const links = document.getElementById('navLinks');
-        if (toggle && links) {
-            toggle.addEventListener('click', () => {
-                const open = links.classList.toggle('open');
-                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-                toggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
-                toggle.textContent = open ? '✕' : '☰';
-            });
-            links.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => {
-                links.classList.remove('open');
-                toggle.setAttribute('aria-expanded', 'false');
-                toggle.setAttribute('aria-label', 'Abrir menu');
-                toggle.textContent = '☰';
-            }));
-        }
-    </script>
+        <div class="heritage"><strong>28</strong><span>anos fazendo parte da dança<br>em Rio Branco</span></div>
+      </div>
+      <figure class="hero-image">
+        <img src="https://images.unsplash.com/photo-1547153760-18fc86324498?auto=format&fit=crop&w=1500&q=88" alt="Casal dançando em uma apresentação de dança de salão" fetchpriority="high">
+        <figcaption><span>O prazer de dançar</span><span>Centro de Danças Fênix</span></figcaption>
+        <span class="image-note">A DANÇA ACONTECE AQUI</span>
+      </figure>
+    </div>
+  </section>
+  <div class="rhythm-ribbon" aria-label="Modalidades de dança">
+    <div class="ribbon-track"><span>Forró</span><i>✳</i><span>Bachata</span><i>✳</i><span>Kizomba</span><i>✳</i><span>Zouk</span><i>✳</i><span>Tango</span><i>✳</i><span>Bolero</span><i>✳</i><span>Samba de Gafieira</span><i>✳</i><span>Valsa</span><i>✳</i><span>Soltinho</span><i>✳</i><span>Forró</span><i>✳</i><span>Bachata</span><i>✳</i><span>Kizomba</span><i>✳</i><span>Zouk</span><i>✳</i><span>Tango</span><i>✳</i><span>Bolero</span><i>✳</i><span>Samba de Gafieira</span><i>✳</i><span>Valsa</span><i>✳</i><span>Soltinho</span><i>✳</i></div>
+  </div>
+  <section class="section rhythms-section" id="ritmos">
+    <div class="section-heading">
+      <div><span class="eyebrow">ENCONTRE SEU RITMO</span><h2>Uma pista. <em>Mil possibilidades.</em></h2></div>
+      <p>Do forró ao tango, cada ritmo tem sua própria linguagem. Descubra novas formas de se movimentar, se expressar e compartilhar a dança.</p>
+    </div>
+    <div class="rhythm-chips">
+      <span>Forró</span><span>Forró Pé de Serra</span><span>Bachata</span><span>Kizomba</span><span>Zouk</span><span>Tango</span><span>Bolero</span><span>Samba de Gafieira</span><span>Valsa</span><span>Soltinho</span>
+    </div>
+  </section>
+  <section class="gallery-section" id="galeria">
+    <div class="section gallery-inner">
+      <div class="section-heading">
+        <div><span class="eyebrow">VIVA A EXPERIÊNCIA</span><h2>Momentos que <em>ficam.</em></h2></div>
+        <p>Dos primeiros passos às apresentações, a dança cria encontros, memórias e histórias. Um pouco do universo que acontece por aqui.</p>
+      </div>
+      <div class="gallery-grid">
+        <button class="gallery-item gallery-large" type="button" data-full="https://images.unsplash.com/photo-1547153760-18fc86324498?auto=format&fit=crop&w=1800&q=90" aria-label="Ampliar fotografia de casal dançando">
+          <img src="https://images.unsplash.com/photo-1547153760-18fc86324498?auto=format&fit=crop&w=1100&q=85" alt="Casal em movimento durante uma dança" loading="lazy"><span>Apresentações</span>
+        </button>
+        <button class="gallery-item" type="button" data-full="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=1800&q=90" aria-label="Ampliar fotografia de evento">
+          <img src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=900&q=85" alt="Palco iluminado em um evento" loading="lazy"><span>Mostras de dança</span>
+        </button>
+        <button class="gallery-item" type="button" data-full="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1800&q=90" aria-label="Ampliar fotografia de dança e música">
+          <img src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=900&q=85" alt="Pessoas reunidas em uma experiência musical" loading="lazy"><span>Encontros</span>
+        </button>
+        <button class="gallery-item" type="button" data-full="https://images.unsplash.com/photo-1504609813442-984e...?" aria-label="Ampliar fotografia de celebração">
+          <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=900&q=85" alt="Celebração com música e luzes" loading="lazy"><span>Momentos especiais</span>
+        </button>
+        <button class="gallery-item" type="button" data-full="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1800&q=90" aria-label="Ampliar fotografia de apresentação">
+          <img src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=900&q=85" alt="Evento com iluminação de palco" loading="lazy"><span>Nossa comunidade</span>
+        </button>
+      </div>
+      <p class="gallery-note">Imagens ilustrativas — serão substituídas por registros das atividades e mostras da Fênix.</p>
+    </div>
+  </section>
+  <section class="story-section" id="historia">
+    <div class="section story-inner">
+      <div class="story-art" role="img" aria-label="Composição abstrata inspirada no movimento da dança"><span>F</span><small>DESDE 1998</small></div>
+      <div class="story-copy"><span class="eyebrow">MAIS QUE PASSOS</span><h2>Há histórias que só a <em>dança</em> consegue contar.</h2><p>Há 28 anos, o Centro de Danças Fênix faz parte da vida cultural de Rio Branco. Um espaço de aprendizado, convivência e apresentações, onde cada pessoa encontra seu próprio jeito de viver a dança.</p><a class="text-link" href="https://instagram.com/centrodedancasfenix" target="_blank" rel="noopener">Conheça nossa comunidade ↗</a></div>
+    </div>
+  </section>
+  <section class="contact-section" id="contato">
+    <div class="section contact-inner"><div><span class="eyebrow">SEU PRÓXIMO PASSO</span><h2>Tem um ritmo esperando <em>por você.</em></h2><p>Fale com a equipe e descubra como começar sua história na pista.</p></div><a class="button button-light" href="https://instagram.com/centrodedancasfenix" target="_blank" rel="noopener">Fale com a Fênix ↗</a></div>
+  </section>
+</main>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <a class="brand footer-brand" href="/"><img src="/images/fenix-app.png?v=2" alt="" width="42" height="42"><span><strong>Fênix</strong><small>CENTRO DE DANÇAS</small></span></a>
+    <div class="footer-address"><strong>Rio Branco — Acre</strong><span>Rua Rio Grande do Sul, 182 · Centro<br>Prédio da Livraria Pain, 2º piso</span></div>
+    <div class="footer-social"><a href="https://instagram.com/centrodedancasfenix" target="_blank" rel="noopener">@centrodedancasfenix ↗</a><a href="/avaliacao">Área da equipe / Avaliações</a><a href="/admin/login">Painel administrativo</a></div>
+  </div>
+  <div class="footer-bottom">© <span id="year"></span> Centro de Danças Fênix · Rio Branco — AC <span>Plataforma institucional e sistema de avaliação</span></div>
+</footer>
+<div class="lightbox" id="lightbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Visualização da fotografia">
+  <button type="button" class="lightbox-close" id="lightboxClose" aria-label="Fechar imagem">×</button>
+  <img id="lightboxImage" alt="">
+</div>
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+  const toggle = document.getElementById('menuToggle');
+  const nav = document.getElementById('mainNav');
+  toggle.addEventListener('click', () => {
+    const opened = nav.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', String(opened));
+    toggle.setAttribute('aria-label', opened ? 'Fechar menu' : 'Abrir menu');
+    toggle.textContent = opened ? '×' : '☰';
+  });
+  nav.querySelectorAll('a').forEach(link => link.addEventListener('click', () => {
+    nav.classList.remove('open'); toggle.setAttribute('aria-expanded', 'false'); toggle.textContent = '☰';
+  }));
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImage = document.getElementById('lightboxImage');
+  const closeLightbox = () => { lightbox.classList.remove('open'); lightbox.setAttribute('aria-hidden', 'true'); lightboxImage.src = ''; };
+  document.querySelectorAll('.gallery-item').forEach(item => item.addEventListener('click', () => {
+    lightboxImage.src = item.dataset.full; lightboxImage.alt = item.querySelector('img').alt;
+    lightbox.classList.add('open'); lightbox.setAttribute('aria-hidden', 'false');
+  }));
+  document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
+  lightbox.addEventListener('click', event => { if (event.target === lightbox) closeLightbox(); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') closeLightbox(); });
+</script>
 </body>
 </html>
